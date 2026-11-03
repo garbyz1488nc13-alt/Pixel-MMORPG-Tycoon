@@ -12,6 +12,7 @@ export interface Settings {
   showFps: boolean;
   animateTiles: boolean;
   dayNightTint: boolean;
+  showRegions: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -22,6 +23,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showFps: true,
   animateTiles: true,
   dayNightTint: true,
+  showRegions: true,
 };
 
 interface SettingsState extends Settings {
@@ -36,6 +38,6 @@ export const useSettingsStore = create<SettingsState>()(
       update: (patch) => set(patch),
       reset: () => set(DEFAULT_SETTINGS),
     }),
-    { name: 'pmt-settings', version: 1 },
+    { name: 'pmt-settings', version: 2, migrate: (s) => ({ ...DEFAULT_SETTINGS, ...(s as object) }) },
   ),
 );

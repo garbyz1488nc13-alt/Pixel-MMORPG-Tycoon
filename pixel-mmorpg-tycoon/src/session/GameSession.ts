@@ -2,10 +2,16 @@ import { EventBus } from '@/core/EventBus';
 import { createId } from '@/core/ids';
 import { makeThumbnail } from '@/game/textures/mapImage';
 import type { SaveSlotKey, WorldSave } from '@/models/world';
+import type { MapObject } from '@/models/entities';
 import { SAVE_SLOTS } from '@/models/world';
 import { WorldRepository } from '@/persistence/WorldRepository';
 import { SimulationEngine } from '@/simulation/SimulationEngine';
 import { ClockSystem } from '@/simulation/systems/ClockSystem';
+import { NpcSystem } from '@/simulation/systems/NpcSystem';
+import { CreatureSystem } from '@/simulation/systems/CreatureSystem';
+import { ActorManager } from '@/simulation/actors/ActorManager';
+import { displayName } from '@/simulation/actors/combat';
+import { EntityEditor } from '@/systems/editor/EntityEditor';
 import type { SimSpeed } from '@/simulation/types';
 import { WorldRuntime } from '@/simulation/WorldRuntime';
 import { History } from '@/systems/editor/History';
@@ -34,8 +40,12 @@ export class GameSession {
   readonly engine: SimulationEngine;
   readonly history: History;
   readonly painter: TerrainPainter;
+  readonly entities: EntityEditor;
+  readonly actors: ActorManager;
   readonly bridge = new EventBus<BridgeEvents>();
   slot: SaveSlotKey;
+  /** Copied objects for Ctrl+C / Ctrl+V. */
+  clipboard: MapObject[] = [];
   private uiTimer: number;
   private disposers: (() => void)[] = [];
 
@@ -44,8 +54,12 @@ export class GameSession {
     this.runtime = new WorldRuntime(save);
     this.engine = new SimulationEngine(this.runtime);
     this.engine.addSystem(new ClockSystem(this.engine.events));
+    this.actors = new ActorManager(this.runtime);
+    this.engine.addSystem(new NpcSystem(this.actors));
+    this.engine.addSystem(new CreatureSystem(this.actors));
     this.history = new History(200, () => useEditorStore.getState().setHistoryFlags(this.history.canUndo, this.history.canRedo));
     this.painter = new TerrainPainter(() => this.runtime, this.history);
+    this.entities = new EntityEditor(() => this.runtime, this.history);
 
     const store = useSessionStore.getState();
     store.patch({
@@ -69,6 +83,14 @@ export class GameSession {
       this.engine.events.on('sim:message', ({ text }) => log.sim(text, 'info', this.runtime.clock.totalMinutes)),
       this.runtime.events.on('dirty:changed', ({ dirty }) => useSessionStore.getState().patch({ dirty })),
       this.runtime.events.on('meta:changed', ({ name }) => useSessionStore.getState().patch({ worldName: name })),
+      this.actors.events.on('died', ({ victim, killer }) => {
+        const v = displayName(this.actors, victim);
+        const k = killer ? displayName(this.actors, killer) : 'Something';
+        if (victim.kind === 'creature') {
+          const xp = this.actors.template(victim)?.xpReward ?? 0;
+          log.sim(`${k} slew ${v} (${xp} XP).`, 'info', this.runtime.clock.totalMinutes);
+        } else log.sim(`${v} was killed by ${k}. Respawning at home in 1 hour.`, 'warn', this.runtime.clock.totalMinutes);
+      }),
     );
 
     // Mirror the clock to the UI a few times per second (not every tick).
@@ -105,8 +127,8 @@ export class GameSession {
       this.runtime.markClean();
       useSessionStore.getState().patch({ lastSavedAt: data.updatedAt, slot: this.slot });
       const label = SAVE_SLOTS.find((s) => s.key === slot)?.label ?? slot;
-      if (!silent) log.system(`World saved to ${label}.`, 'success', this.runtime.clock.totalMinutes);
-      else log.system(`Autosaved.`, 'info', this.runtime.clock.totalMinutes);
+      if (slot === 'auto') log.system('Autosaved.', 'info', this.runtime.clock.totalMinutes);
+      else if (!silent) log.system(`World saved to ${label}.`, 'success', this.runtime.clock.totalMinutes);
       return true;
     } catch (err) {
       log.system(`Save failed: ${(err as Error).message}`, 'error');
@@ -120,6 +142,7 @@ export class GameSession {
     window.clearInterval(this.uiTimer);
     this.disposers.forEach((d) => d());
     this.engine.dispose();
+    this.actors.dispose();
     this.bridge.clear();
     this.runtime.dispose();
   }

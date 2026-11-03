@@ -1,3 +1,4 @@
+import type { EntityChange } from '@/simulation/EntityStore';
 import type { TileGrid } from '@/models/TileGrid';
 import type { WorldRuntime } from '@/simulation/WorldRuntime';
 
@@ -44,6 +45,12 @@ export class History {
   constructor(private limit = 200, private onChange?: () => void) {}
 
   push(cmd: EditorCommand): void {
+    const last = this.undoStack[this.undoStack.length - 1];
+    if (last instanceof EntityCommand && cmd instanceof EntityCommand && last.absorb(cmd)) {
+      this.redoStack.length = 0;
+      this.onChange?.();
+      return;
+    }
     this.undoStack.push(cmd);
     if (this.undoStack.length > this.limit) this.undoStack.shift();
     this.redoStack.length = 0;
@@ -75,5 +82,40 @@ export class History {
     this.undoStack = [];
     this.redoStack = [];
     this.onChange?.();
+  }
+}
+
+
+/** Any set of entity creations/updates/deletions. Consecutive edits with the same mergeKey collapse into one step. */
+export class EntityCommand implements EditorCommand {
+  at = Date.now();
+  constructor(readonly label: string, public changes: EntityChange[], readonly mergeKey?: string) {}
+  undo(world: WorldRuntime): void {
+    world.entities.applyChanges(this.changes, 'backward');
+  }
+  redo(world: WorldRuntime): void {
+    world.entities.applyChanges(this.changes, 'forward');
+  }
+  /** Fold a newer edit of the same thing into this command (keeps the oldest `before`). */
+  absorb(next: EntityCommand): boolean {
+    if (!this.mergeKey || this.mergeKey !== next.mergeKey || next.at - this.at > 1500) return false;
+    for (const c of next.changes) {
+      const mine = this.changes.find((m) => m.col === c.col && m.id === c.id);
+      if (mine) mine.after = c.after;
+      else this.changes.push(c);
+    }
+    this.at = next.at;
+    return true;
+  }
+}
+
+/** Several commands applied/undone as one step (e.g. populate = terrain + objects + NPCs). */
+export class CompositeCommand implements EditorCommand {
+  constructor(readonly label: string, private parts: EditorCommand[]) {}
+  undo(world: WorldRuntime): void {
+    for (let i = this.parts.length - 1; i >= 0; i--) this.parts[i].undo(world);
+  }
+  redo(world: WorldRuntime): void {
+    for (const p of this.parts) p.redo(world);
   }
 }

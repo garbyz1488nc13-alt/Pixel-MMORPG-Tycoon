@@ -1,63 +1,91 @@
+import { useState } from 'react';
+import { CREATURE_TYPES, type CreatureType } from '@/data/creatureTypes';
+import { NPC_TYPES } from '@/data/npcTypes';
+import { OBJECT_CATEGORIES, OBJECTS, type ObjectCategory } from '@/data/objects';
+import { getRegionType, REGION_TYPES } from '@/data/regionTypes';
 import { TERRAINS } from '@/data/terrain';
-import { MAX_BRUSH, useEditorStore } from '@/stores/editorStore';
-import type { TerrainTool } from '@/systems/editor/TerrainPainter';
+import type { GameSession } from '@/session/GameSession';
+import { MAX_BRUSH, useEditorStore, type EditorTool, type LeftSection } from '@/stores/editorStore';
 import { PixelIcon, type IconName } from '../components/PixelIcon';
+import { SpritePreview } from '../components/SpritePreview';
 import { TerrainSwatch } from '../components/TilePreview';
+import { useEntityList } from '../hooks/useEntities';
 
-const TOOLS: { key: TerrainTool; label: string; icon: IconName; hotkey: string; hint: string }[] = [
+const SECTIONS: { key: LeftSection; label: string }[] = [
+  { key: 'terrain', label: 'Terrain' },
+  { key: 'objects', label: 'Objects' },
+  { key: 'regions', label: 'Regions' },
+  { key: 'npc', label: 'NPC' },
+  { key: 'creatures', label: 'Creatures' },
+  { key: 'spawns', label: 'Spawns' },
+];
+
+const TERRAIN_TOOLS: { key: EditorTool; label: string; icon: IconName; hotkey: string; hint: string }[] = [
   { key: 'brush', label: 'Brush', icon: 'brush', hotkey: 'B', hint: 'Click & drag to paint terrain.' },
   { key: 'fill', label: 'Fill', icon: 'fill', hotkey: 'F', hint: 'Flood-fill a connected area of the same terrain.' },
   { key: 'rect', label: 'Rectangle', icon: 'rect', hotkey: 'R', hint: 'Drag to paint a rectangle.' },
   { key: 'picker', label: 'Picker', icon: 'picker', hotkey: 'I', hint: 'Click a tile to pick its terrain.' },
 ];
 
-const LOCKED: { label: string; phase: number }[] = [
-  { label: 'Buildings', phase: 2 },
-  { label: 'NPC', phase: 2 },
-  { label: 'Creatures', phase: 2 },
-  { label: 'Spawns', phase: 2 },
-  { label: 'Items', phase: 3 },
-];
-
-export function LeftPanel() {
+export function LeftPanel({ session }: { session: GameSession }) {
   const ed = useEditorStore();
-  const activeTool = TOOLS.find((t) => t.key === ed.tool)!;
-
   return (
     <div className="side-panel panel scroll">
       <div className="panel-header">World Tools</div>
       <div className="section">
         <div className="tool-grid">
-          {TOOLS.map((t) => (
-            <button key={t.key} className={`btn tool-btn ${ed.tool === t.key ? 'active' : ''}`} title={`${t.label} (${t.hotkey})`} onClick={() => ed.setTool(t.key)}>
-              <PixelIcon name={t.icon} size={20} />
-              <span>{t.label}</span>
-            </button>
-          ))}
+          <button className={`btn tool-btn ${ed.tool === 'select' ? 'active' : ''}`} title="Select / move (V). Drag empty space to box-select objects." onClick={() => ed.setTool('select')}>
+            <PixelIcon name="select" size={20} /><span>Select</span>
+          </button>
+          <button className={`btn tool-btn ${ed.tool === 'erase-object' ? 'active' : ''}`} title="Erase objects (E)" onClick={() => ed.setTool('erase-object')}>
+            <PixelIcon name="trash" size={20} /><span>Erase</span>
+          </button>
         </div>
-        <div className="hint">{activeTool.hint}</div>
-
-        {ed.tool === 'brush' && (
-          <>
-            <div className="field">
-              <label>Brush size: {ed.brushSize} <span className="hint">([ / ])</span></label>
-              <input type="range" min={1} max={MAX_BRUSH} value={ed.brushSize} onChange={(e) => ed.setBrushSize(+e.target.value)} />
-            </div>
-            <div className="chip-row">
-              <button className={`btn small ${ed.brushShape === 'square' ? 'active' : ''}`} onClick={() => ed.setBrushShape('square')}>Square</button>
-              <button className={`btn small ${ed.brushShape === 'circle' ? 'active' : ''}`} onClick={() => ed.setBrushShape('circle')}>Circle</button>
-            </div>
-          </>
-        )}
-        {ed.tool === 'rect' && (
-          <label className="check"><input type="checkbox" checked={ed.rectOutline} onChange={(e) => ed.setRectOutline(e.target.checked)} /> Outline only</label>
-        )}
       </div>
+      <div className="section-tabs">
+        {SECTIONS.map((s) => (
+          <button key={s.key} className={`stab ${ed.section === s.key ? 'active' : ''}`} onClick={() => ed.setSection(s.key)}>{s.label}</button>
+        ))}
+      </div>
+      {ed.section === 'terrain' && <TerrainSection />}
+      {ed.section === 'objects' && <ObjectsSection />}
+      {ed.section === 'regions' && <RegionsSection session={session} />}
+      {ed.section === 'npc' && <NpcSection session={session} />}
+      {ed.section === 'creatures' && <CreaturesSection session={session} />}
+      {ed.section === 'spawns' && <SpawnsSection session={session} />}
+    </div>
+  );
+}
 
-      <div className="panel-header">Terrain</div>
-      <div className="section terrain-list">
+function TerrainSection() {
+  const ed = useEditorStore();
+  const active = TERRAIN_TOOLS.find((t) => t.key === ed.tool);
+  return (
+    <div className="section">
+      <div className="tool-grid">
+        {TERRAIN_TOOLS.map((t) => (
+          <button key={t.key} className={`btn tool-btn ${ed.tool === t.key ? 'active' : ''}`} title={`${t.label} (${t.hotkey})`} onClick={() => ed.setTool(t.key)}>
+            <PixelIcon name={t.icon} size={20} /><span>{t.label}</span>
+          </button>
+        ))}
+      </div>
+      {active && <div className="hint">{active.hint}</div>}
+      {ed.tool === 'brush' && (
+        <>
+          <div className="field">
+            <label>Brush size: {ed.brushSize} <span className="hint">([ / ])</span></label>
+            <input type="range" min={1} max={MAX_BRUSH} value={ed.brushSize} onChange={(e) => ed.setBrushSize(+e.target.value)} />
+          </div>
+          <div className="chip-row">
+            <button className={`btn small ${ed.brushShape === 'square' ? 'active' : ''}`} onClick={() => ed.setBrushShape('square')}>Square</button>
+            <button className={`btn small ${ed.brushShape === 'circle' ? 'active' : ''}`} onClick={() => ed.setBrushShape('circle')}>Circle</button>
+          </div>
+        </>
+      )}
+      {ed.tool === 'rect' && <label className="check"><input type="checkbox" checked={ed.rectOutline} onChange={(e) => ed.setRectOutline(e.target.checked)} /> Outline only</label>}
+      <div className="terrain-list">
         {TERRAINS.map((t) => (
-          <button key={t.id} className={`terrain-btn ${ed.terrain === t.id ? 'active' : ''}`} onClick={() => { ed.setTerrain(t.id); if (ed.tool === 'picker') ed.setTool('brush'); }} title={`${t.name} (${t.hotkey})`}>
+          <button key={t.id} className={`terrain-btn ${ed.terrain === t.id ? 'active' : ''}`} onClick={() => { ed.setTerrain(t.id); if (!['brush', 'fill', 'rect'].includes(ed.tool)) ed.setTool('brush'); }} title={`${t.name} (${t.hotkey})`}>
             <TerrainSwatch terrain={t.id} size={28} />
             <span className="grow">{t.name}</span>
             {!t.walkable && <span className="badge" title="Not walkable">BLOCK</span>}
@@ -65,15 +93,140 @@ export function LeftPanel() {
           </button>
         ))}
       </div>
+    </div>
+  );
+}
 
-      <div className="panel-header">Coming next</div>
-      <div className="section">
-        {LOCKED.map((l) => (
-          <div key={l.label} className="locked-row" title={`Arrives in Phase ${l.phase}`}>
-            <PixelIcon name="lock" size={12} /> <span className="grow">{l.label}</span> <span className="badge">PHASE {l.phase}</span>
-          </div>
+function ObjectsSection() {
+  const ed = useEditorStore();
+  const [cat, setCat] = useState<ObjectCategory>('trees');
+  const items = OBJECTS.filter((o) => o.category === cat);
+  return (
+    <div className="section">
+      <div className="chip-row">
+        {OBJECT_CATEGORIES.map((c) => (
+          <button key={c.key} className={`btn small ${cat === c.key ? 'active' : ''}`} onClick={() => setCat(c.key)}>{c.label}</button>
         ))}
       </div>
+      <div className="sprite-grid">
+        {items.map((o) => (
+          <button key={o.key} className={`sprite-btn ${ed.tool === 'place-object' && ed.objectKind === o.key ? 'active' : ''}`} title={`${o.name} · ${o.w}×${o.h}${o.blocks ? ' · blocks movement' : ''}`} onClick={() => ed.setObjectKind(o.key)}>
+            <SpritePreview frame={`obj:${o.key}`} box={40} />
+            <span>{o.name}</span>
+          </button>
+        ))}
+      </div>
+      <div className="hint">Click to place; drag to paint 1×1 objects (roads, fences, trees). Red ghost = blocked spot.</div>
+    </div>
+  );
+}
+
+function RegionsSection({ session }: { session: GameSession }) {
+  const ed = useEditorStore();
+  const regions = useEntityList(session, 'regions');
+  return (
+    <div className="section">
+      <div className="hint">Pick a type, then drag on the map to draw the region.</div>
+      <div className="region-types">
+        {REGION_TYPES.map((t) => (
+          <button key={t.key} className={`btn small ${ed.tool === 'region' && ed.regionType === t.key ? 'active' : ''}`} onClick={() => ed.setRegionType(t.key)}>
+            <span className="swatch" style={{ background: `#${t.color.toString(16).padStart(6, '0')}` }} /> {t.name}
+          </button>
+        ))}
+      </div>
+      <EntityList
+        title={`Regions (${regions.length})`}
+        items={regions.map((r) => ({ id: r.id, label: r.name, sub: `${getRegionType(r.type).name} · ${r.w}×${r.h}`, x: r.x + r.w / 2, y: r.y + r.h / 2 }))}
+        col="regions"
+        session={session}
+      />
+    </div>
+  );
+}
+
+function NpcSection({ session }: { session: GameSession }) {
+  const ed = useEditorStore();
+  const npcs = useEntityList(session, 'npcs');
+  return (
+    <div className="section">
+      <div className="hint">Pick a type, then click a walkable tile to place an NPC.</div>
+      <div className="sprite-grid">
+        {NPC_TYPES.map((t) => (
+          <button key={t.key} className={`sprite-btn ${ed.tool === 'npc' && ed.npcType === t.key ? 'active' : ''}`} onClick={() => ed.setNpcType(t.key)} title={t.name}>
+            <SpritePreview frame={`npc:${t.key}:0`} box={32} />
+            <span>{t.name} <b className="count">{npcs.filter((n) => n.type === t.key).length}</b></span>
+          </button>
+        ))}
+      </div>
+      <button className="btn small" onClick={() => ed.setTab('npc')}>Open NPC editor ({npcs.length})</button>
+    </div>
+  );
+}
+
+function CreaturesSection({ session }: { session: GameSession }) {
+  const ed = useEditorStore();
+  const templates = useEntityList(session, 'creatureTemplates');
+  const [newType, setNewType] = useState<CreatureType>('slime');
+  return (
+    <div className="section">
+      <div className="hint">Pick a creature, then drag on the map to draw its spawn area.</div>
+      {templates.length === 0 && <div className="hint">No creatures yet — create one below.</div>}
+      <div className="sprite-grid">
+        {templates.map((t) => (
+          <button key={t.id} className={`sprite-btn ${ed.tool === 'spawn-area' && ed.templateId === t.id ? 'active' : ''}`} onClick={() => { ed.setTemplateId(t.id); ed.setTool('spawn-area'); }} title={`${t.name} · Lv ${t.level}`}>
+            <SpritePreview frame={`cr:${t.type}:0`} box={32} />
+            <span>{t.name} <b className="count">Lv{t.level}</b></span>
+          </button>
+        ))}
+      </div>
+      <div className="row">
+        <select className="input grow" value={newType} onChange={(e) => setNewType(e.target.value as CreatureType)}>
+          {CREATURE_TYPES.map((t) => <option key={t.key} value={t.key}>{t.name}</option>)}
+        </select>
+        <button className="btn small" onClick={() => { const t = session.entities.addTemplate(newType); ed.setTemplateId(t.id); ed.setTool('spawn-area'); }}>+ New</button>
+      </div>
+      <button className="btn small" onClick={() => ed.setTab('creatures')}>Open creature editor</button>
+    </div>
+  );
+}
+
+function SpawnsSection({ session }: { session: GameSession }) {
+  const ed = useEditorStore();
+  const objects = useEntityList(session, 'objects');
+  const spawns = objects.filter((o) => o.kind === 'player_spawn');
+  const areas = useEntityList(session, 'spawnAreas');
+  return (
+    <div className="section">
+      <button className={`sprite-btn wide ${ed.tool === 'place-object' && ed.objectKind === 'player_spawn' ? 'active' : ''}`} onClick={() => ed.setObjectKind('player_spawn')}>
+        <SpritePreview frame="obj:player_spawn" box={32} />
+        <span>Place player spawn point</span>
+      </button>
+      <div className="hint">Simulated players (Phase 4) will enter the world at these points.</div>
+      <EntityList title={`Player spawns (${spawns.length})`} col="objects" session={session} items={spawns.map((s, i) => ({ id: s.id, label: s.name ?? `Spawn ${i + 1}`, sub: `(${s.x}, ${s.y})`, x: s.x, y: s.y }))} />
+      <EntityList title={`Creature spawn areas (${areas.length})`} col="spawnAreas" session={session} items={areas.map((a) => ({ id: a.id, label: a.name, sub: `×${a.maxCount} · ${a.w}×${a.h}`, x: a.x + a.w / 2, y: a.y + a.h / 2 }))} />
+    </div>
+  );
+}
+
+/** Clickable list: selects the entity and centres the camera on it. */
+export function EntityList({ title, items, col, session }: { title: string; items: { id: string; label: string; sub: string; x: number; y: number }[]; col: 'regions' | 'objects' | 'spawnAreas' | 'npcs'; session: GameSession }) {
+  const sel = useEditorStore((s) => s.selection);
+  const select = useEditorStore((s) => s.select);
+  const setTool = useEditorStore((s) => s.setTool);
+  return (
+    <div className="entity-list">
+      <div className="el-title">{title}</div>
+      {items.length === 0 && <div className="hint">None yet.</div>}
+      {items.map((it) => (
+        <button
+          key={it.id}
+          className={`el-row ${sel?.col === col && sel.ids.includes(it.id) ? 'active' : ''}`}
+          onClick={() => { select({ col, ids: [it.id] }); setTool('select'); session.bridge.emit('camera:centerTile', { x: it.x, y: it.y }); }}
+        >
+          <span className="grow">{it.label}</span>
+          <span className="hint">{it.sub}</span>
+        </button>
+      ))}
     </div>
   );
 }

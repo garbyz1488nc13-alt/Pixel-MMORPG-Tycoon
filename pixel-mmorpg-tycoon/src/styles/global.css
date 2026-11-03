@@ -113,11 +113,11 @@ input[type=checkbox] { accent-color: var(--gold); width: 16px; height: 16px; }
 .scroll::-webkit-scrollbar-thumb { background: var(--panel-3); border: 2px solid #15111f; }
 
 /* ---------- Toasts ---------- */
-.toasts { position: fixed; bottom: 180px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; z-index: 1000; pointer-events: none; }
-.toast { padding: 8px 14px; background: var(--panel-2); border: 3px solid var(--border-dark); box-shadow: inset 2px 2px 0 var(--border-light); animation: toastIn .15s steps(3); }
+.toasts { position: fixed; bottom: 180px; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; z-index: 1000; pointer-events: none; }
+.toast { padding: 8px 14px; background: var(--panel-2); border: 3px solid var(--border-dark); box-shadow: inset 2px 2px 0 var(--border-light); animation: toastIn .15s linear; }
 .toast.success { border-color: #1f4416; color: #b9f09f; }
 .toast.error { border-color: #4a1512; color: #ffb3aa; }
-@keyframes toastIn { from { transform: translateY(8px); opacity: 0; } }
+@keyframes toastIn { from { opacity: 0; } }
 
 /* ---------- Modal ---------- */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(5, 3, 10, .7); display: grid; place-items: center; z-index: 500; }

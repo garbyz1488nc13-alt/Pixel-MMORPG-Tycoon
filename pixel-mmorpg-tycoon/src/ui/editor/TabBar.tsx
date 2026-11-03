@@ -4,8 +4,8 @@ import { PixelIcon } from '../components/PixelIcon';
 /** Tabs not yet implemented are shown locked with the phase that delivers them. */
 const TABS: { key: EditorTab; label: string; phase?: number }[] = [
   { key: 'map', label: 'Map' },
-  { key: 'npc', label: 'NPC', phase: 2 },
-  { key: 'creatures', label: 'Creatures', phase: 2 },
+  { key: 'npc', label: 'NPC' },
+  { key: 'creatures', label: 'Creatures' },
   { key: 'economy', label: 'Economy', phase: 3 },
   { key: 'items', label: 'Items', phase: 3 },
   { key: 'quests', label: 'Quests', phase: 3 },

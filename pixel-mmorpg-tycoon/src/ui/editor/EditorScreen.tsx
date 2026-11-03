@@ -9,6 +9,8 @@ import { RightPanel } from './RightPanel';
 import { TabBar } from './TabBar';
 import { TopBar } from './TopBar';
 import { WorldSettingsPanel } from './WorldSettingsPanel';
+import { NpcTab } from './NpcTab';
+import { CreaturesTab } from './CreaturesTab';
 import type { GameSession } from '@/session/GameSession';
 
 export function EditorScreen() {
@@ -27,7 +29,7 @@ function Editor({ session }: { session: GameSession }) {
       <TopBar />
       <TabBar />
       <div className="editor-main">
-        <LeftPanel />
+        <LeftPanel session={session} />
         <div className="center-area">
           <PhaserView session={session} />
           {tab === 'settings' && (
@@ -35,6 +37,8 @@ function Editor({ session }: { session: GameSession }) {
               <WorldSettingsPanel session={session} />
             </div>
           )}
+          {tab === 'npc' && <div className="center-overlay"><NpcTab session={session} /></div>}
+          {tab === 'creatures' && <div className="center-overlay"><CreaturesTab session={session} /></div>}
         </div>
         <RightPanel session={session} />
       </div>

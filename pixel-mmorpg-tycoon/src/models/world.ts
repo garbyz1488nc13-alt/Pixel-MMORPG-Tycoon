@@ -1,8 +1,9 @@
 import type { EntityId } from '@/core/ids';
 import type { Difficulty, WorldType } from '@/data/worldPresets';
+import type { WorldEntities } from './entities';
 
 /** Bump when the saved shape changes; migrations live in persistence/migrations.ts. */
-export const WORLD_SCHEMA_VERSION = 1;
+export const WORLD_SCHEMA_VERSION = 2;
 
 export interface WorldConfig {
   worldType: WorldType;
@@ -40,6 +41,8 @@ export interface WorldSave {
   map: SerializedMap;
   clock: WorldClockState;
   camera?: CameraState;
+  /** Objects, regions, NPCs, creatures (schema v2+). */
+  entities: WorldEntities;
 }
 
 /** Lightweight listing record (no map data) for menus. */

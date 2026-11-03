@@ -2,6 +2,7 @@ import { createId } from '@/core/ids';
 import type { Difficulty, WorldType } from '@/data/worldPresets';
 import type { TileGrid } from '@/models/TileGrid';
 import { WORLD_SCHEMA_VERSION, type WorldSave } from '@/models/world';
+import { emptyEntities } from '@/models/entities';
 import { START_MINUTES } from '@/simulation/time';
 import { generateTerrain } from './WorldGenerator';
 
@@ -40,5 +41,6 @@ export function createWorldSave(opts: NewWorldOptions, pregenerated?: TileGrid):
     },
     map: { width: grid.width, height: grid.height, tilesRle: grid.toRle() },
     clock: { totalMinutes: START_MINUTES },
+    entities: emptyEntities(),
   };
 }

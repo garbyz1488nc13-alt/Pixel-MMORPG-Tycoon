@@ -19,5 +19,6 @@ export function createGame(parent: HTMLElement, session: GameSession): Phaser.Ga
     scene: [],
   });
   game.scene.add('WorldScene', WorldScene, true, { session });
+  if (import.meta.env.DEV) (window as unknown as { __pmtGame: Phaser.Game }).__pmtGame = game;
   return game;
 }

@@ -1,0 +1,100 @@
+import type { EntityId } from '@/core/ids';
+import type { Aggression, CreatureType } from '@/data/creatureTypes';
+import type { NpcBehavior, NpcType } from '@/data/npcTypes';
+import type { RegionType } from '@/data/regionTypes';
+
+/** Editor-authored definitions. Runtime state (positions, HP) lives in the simulation. */
+
+export interface MapObject {
+  id: EntityId;
+  kind: string;
+  /** Top-left tile of the footprint. */
+  x: number;
+  y: number;
+  name?: string;
+  /** Portal: id of the linked destination portal. */
+  linkId?: EntityId;
+}
+
+export interface Region {
+  id: EntityId;
+  name: string;
+  type: RegionType;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  minLevel: number;
+  maxLevel: number;
+}
+
+/** Free-form item stack. Becomes a reference to the item database in Phase 3. */
+export interface ItemStack { name: string; qty: number }
+export interface ShopEntry { name: string; price: number; stock: number }
+export interface LootEntry { name: string; chance: number; min: number; max: number }
+export interface Point { x: number; y: number }
+
+export interface NpcDef {
+  id: EntityId;
+  name: string;
+  type: NpcType;
+  level: number;
+  maxHp: number;
+  /** Home tile. */
+  x: number;
+  y: number;
+  /** Tiles per second at x1 speed. */
+  speed: number;
+  behavior: NpcBehavior;
+  wanderRadius: number;
+  waypoints: Point[];
+  inventory: ItemStack[];
+  shop: { enabled: boolean; items: ShopEntry[] };
+  /** Working hours, 0–24. Outside them the NPC goes home and rests. */
+  workStart: number;
+  workEnd: number;
+  interactionRadius: number;
+}
+
+export interface CreatureTemplate {
+  id: EntityId;
+  name: string;
+  type: CreatureType;
+  level: number;
+  maxHp: number;
+  damage: number;
+  defense: number;
+  speed: number;
+  aggression: Aggression;
+  aggroRange: number;
+  attackRange: number;
+  respawnMinutes: number;
+  xpReward: number;
+  loot: LootEntry[];
+  boss: boolean;
+}
+
+export interface SpawnArea {
+  id: EntityId;
+  name: string;
+  templateId: EntityId;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  maxCount: number;
+}
+
+export interface WorldEntities {
+  objects: MapObject[];
+  regions: Region[];
+  npcs: NpcDef[];
+  creatureTemplates: CreatureTemplate[];
+  spawnAreas: SpawnArea[];
+}
+
+export type EntityCollection = keyof WorldEntities;
+
+export function emptyEntities(): WorldEntities {
+  return { objects: [], regions: [], npcs: [], creatureTemplates: [], spawnAreas: [] };
+}

@@ -3,6 +3,9 @@ import type { EntityId } from '@/core/ids';
 import { TileGrid } from '@/models/TileGrid';
 import type { CameraState, WorldClockState, WorldConfig, WorldSave } from '@/models/world';
 import { WORLD_SCHEMA_VERSION } from '@/models/world';
+import { EntityStore } from './EntityStore';
+import { ObjectIndex } from '@/systems/world/ObjectIndex';
+import { NavGrid } from './nav/NavGrid';
 
 export type RuntimeEvents = {
   /** Specific tiles changed (indices into the grid). */
@@ -27,6 +30,9 @@ export class WorldRuntime {
   grid: TileGrid;
   clock: WorldClockState;
   camera?: CameraState;
+  readonly entities: EntityStore;
+  readonly objectIndex: ObjectIndex;
+  readonly nav: NavGrid;
   private _dirty = false;
 
   constructor(save: WorldSave) {
@@ -37,6 +43,21 @@ export class WorldRuntime {
     this.grid = TileGrid.fromRle(save.map.width, save.map.height, save.map.tilesRle);
     this.clock = { ...save.clock };
     this.camera = save.camera ? { ...save.camera } : undefined;
+    this.entities = new EntityStore(save.entities);
+    this.objectIndex = new ObjectIndex(this);
+    this.nav = new NavGrid(this);
+    this.entities.events.on('changed', ({ col }) => {
+      if (col === 'objects') {
+        this.objectIndex.invalidate();
+        this.nav.invalidate();
+      }
+      this.markDirty();
+    });
+    this.events.on('tiles:changed', () => this.nav.invalidate());
+    this.events.on('map:replaced', () => {
+      this.objectIndex.invalidate();
+      this.nav.invalidate();
+    });
   }
 
   get dirty(): boolean {
@@ -89,10 +110,12 @@ export class WorldRuntime {
       map: { width: this.grid.width, height: this.grid.height, tilesRle: this.grid.toRle() },
       clock: { ...this.clock },
       camera: this.camera ? { ...this.camera } : undefined,
+      entities: this.entities.toJSON(),
     };
   }
 
   dispose(): void {
     this.events.clear();
+    this.entities.events.clear();
   }
 }

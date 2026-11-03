@@ -8,6 +8,13 @@ import { formatGameTime } from '@/simulation/time';
 import { log, useLogStore } from '@/stores/logStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { GameSession } from './GameSession';
+import { generateStarterContent } from '@/systems/generation/Populate';
+
+function focusFirstRegion(session: GameSession): void {
+  const reg = session.runtime.entities.list('regions')[0];
+  if (!reg) return;
+  session.runtime.camera = { x: reg.x + reg.w / 2, y: reg.y + reg.h / 2, zoom: 1 };
+}
 
 /** Open a world save in the editor (closing any open world first). */
 export function openWorld(save: WorldSave, slot: SaveSlotKey): GameSession {
@@ -31,8 +38,14 @@ export async function createAndOpenWorld(opts: NewWorldOptions, preview?: TileGr
   const save = createWorldSave(opts, preview);
   const grid = preview ?? Grid.fromRle(save.map.width, save.map.height, save.map.tilesRle);
   await WorldRepository.save(save, 'slot1', makeThumbnail(grid));
-  openWorld(save, 'slot1');
+  const session = openWorld(save, 'slot1');
   log.event(`World "${save.name}" was created (${opts.worldType}, seed ${opts.seed}).`, 'success', save.clock.totalMinutes);
+  if (opts.initialNpcCount > 0) {
+    const summary = generateStarterContent(session.runtime, Math.min(200, opts.initialNpcCount), opts.seed);
+    log.event(`Starter content: ${summary}`, 'success', save.clock.totalMinutes);
+    focusFirstRegion(session);
+    await session.save('slot1', true);
+  }
 }
 
 export async function loadAndOpenWorld(worldId: string, slot?: SaveSlotKey): Promise<boolean> {

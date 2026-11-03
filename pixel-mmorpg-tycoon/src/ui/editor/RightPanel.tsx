@@ -4,6 +4,7 @@ import type { GameSession } from '@/session/GameSession';
 import { useEditorStore } from '@/stores/editorStore';
 import { TerrainSwatch } from '../components/TilePreview';
 import { Minimap } from './Minimap';
+import { SelectionInspector } from './inspectors/SelectionInspector';
 
 function useTerrainStats(session: GameSession) {
   const [counts, setCounts] = useState(() => session.runtime.grid.countByTerrain());
@@ -43,7 +44,12 @@ export function RightPanel({ session }: { session: GameSession }) {
         <Minimap session={session} />
       </div>
 
-      <div className="panel-header">Inspector</div>
+      <div className="panel-header">Selection</div>
+      <div className="section">
+        <SelectionInspector session={session} />
+      </div>
+
+      <div className="panel-header">Tile</div>
       <div className="section">
         {hover ? (
           <div className="inspect">

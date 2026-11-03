@@ -1,0 +1,320 @@
+import Phaser from 'phaser';
+import { getCreatureType } from '@/data/creatureTypes';
+import { getNpcType } from '@/data/npcTypes';
+import { getObjectDef } from '@/data/objects';
+import { getRegionType } from '@/data/regionTypes';
+import { TILE_SIZE } from '@/data/terrain';
+import type { GameSession } from '@/session/GameSession';
+import type { Actor } from '@/simulation/actors/Actor';
+import { useEditorStore } from '@/stores/editorStore';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { ATLAS_KEY, getSpriteAtlas } from '../sprites/SpriteAtlas';
+import { DEPTH, entityDepth } from './depth';
+
+const S = TILE_SIZE;
+
+export function registerAtlas(scene: Phaser.Scene): void {
+  if (scene.textures.exists(ATLAS_KEY)) return;
+  const { canvas, frames } = getSpriteAtlas();
+  const tex = scene.textures.addCanvas(ATLAS_KEY, canvas)!;
+  for (const [name, f] of Object.entries(frames)) tex.add(name, 0, f.x, f.y, f.w, f.h);
+}
+
+interface FloatText { text: Phaser.GameObjects.Text; life: number; vy: number }
+
+/**
+ * Draws map objects, live actors and editor overlays (regions, spawn areas, selection).
+ * Uses pooled game objects; nothing is created per frame in steady state.
+ */
+export class EntityRenderer {
+  private objectSprites = new Map<string, Phaser.GameObjects.Image>();
+  private objectsDirty = true;
+  private actorPool: Phaser.GameObjects.Sprite[] = [];
+  private markerPool: Phaser.GameObjects.Image[] = [];
+  private renderPos = new Map<string, { x: number; y: number }>();
+  private hpGfx: Phaser.GameObjects.Graphics;
+  private overlayGfx: Phaser.GameObjects.Graphics;
+  private regionGfx: Phaser.GameObjects.Graphics;
+  private labelPool: Phaser.GameObjects.Text[] = [];
+  private floatPool: FloatText[] = [];
+  private floats: FloatText[] = [];
+  private hoverLabel: Phaser.GameObjects.Text;
+  private overlaysDirty = true;
+  private unsubs: (() => void)[] = [];
+  private time = 0;
+
+  constructor(private scene: Phaser.Scene, private session: GameSession) {
+    registerAtlas(scene);
+    this.regionGfx = scene.add.graphics().setDepth(DEPTH.REGIONS);
+    this.overlayGfx = scene.add.graphics().setDepth(DEPTH.OVERLAY);
+    this.hpGfx = scene.add.graphics().setDepth(DEPTH.LABELS);
+    this.hoverLabel = this.makeText('', 12).setDepth(DEPTH.LABELS + 1).setVisible(false);
+
+    const rt = session.runtime;
+    this.unsubs.push(
+      rt.entities.events.on('changed', ({ col }) => {
+        if (col === 'objects') this.objectsDirty = true;
+        this.overlaysDirty = true;
+      }),
+      rt.events.on('map:replaced', () => { this.objectsDirty = true; this.overlaysDirty = true; }),
+      session.actors.events.on('hit', ({ target, amount, attacker }) => {
+        this.spawnFloat(target.x * S, (target.y - 0.6) * S, `-${amount}`, attacker.kind === 'npc' ? '#ffe08a' : '#ff7a6a');
+      }),
+      session.actors.events.on('died', ({ victim }) => {
+        if (victim.kind === 'creature') {
+          const xp = session.actors.template(victim)?.xpReward ?? 0;
+          this.spawnFloat(victim.x * S, (victim.y - 1) * S, `+${xp} XP`, '#9cf0c0');
+        }
+      }),
+      useEditorStore.subscribe((s, p) => {
+        if (s.selection !== p.selection || s.tab !== p.tab) this.overlaysDirty = true;
+      }),
+    );
+  }
+
+  private makeText(text: string, size: number): Phaser.GameObjects.Text {
+    return this.scene.add
+      .text(0, 0, text, { fontFamily: 'VT323, monospace', fontSize: `${size}px`, color: '#ffffff', stroke: '#000000', strokeThickness: 3, resolution: 2 })
+      .setOrigin(0.5, 1);
+  }
+
+  markOverlaysDirty(): void {
+    this.overlaysDirty = true;
+  }
+
+  // ------------------------------------------------------------ objects
+  private syncObjects(): void {
+    this.objectsDirty = false;
+    const seen = new Set<string>();
+    for (const o of this.session.runtime.entities.list('objects')) {
+      const def = getObjectDef(o.kind);
+      if (!def) continue;
+      seen.add(o.id);
+      let img = this.objectSprites.get(o.id);
+      if (!img) {
+        img = this.scene.add.image(0, 0, ATLAS_KEY, `obj:${o.kind}`).setOrigin(0, 1);
+        if (o.kind === 'portal') this.scene.tweens.add({ targets: img, alpha: 0.65, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+        this.objectSprites.set(o.id, img);
+      }
+      img.setFrame(`obj:${o.kind}`);
+      const bottom = (o.y + def.h) * S;
+      img.setPosition(o.x * S, bottom);
+      img.setDepth(def.flat ? DEPTH.FLAT_OBJECTS : entityDepth(bottom - 2));
+    }
+    for (const [id, img] of this.objectSprites) if (!seen.has(id)) { this.scene.tweens.killTweensOf(img); img.destroy(); this.objectSprites.delete(id); }
+  }
+
+  // ------------------------------------------------------------- actors
+  private actorFrame(a: Actor, moving: boolean): { frame: string; scale: number; quest: boolean } {
+    const anim = moving ? Math.floor(this.time / 180 + (a.id.charCodeAt(a.id.length - 1) % 2)) % 2 : 0;
+    if (a.kind === 'npc') {
+      const def = this.session.actors.npcDef(a);
+      const type = def ? getNpcType(def.type).key : 'villager';
+      return { frame: `npc:${type}:${anim}`, scale: 1, quest: type === 'questgiver' };
+    }
+    const tpl = this.session.actors.template(a);
+    const type = tpl ? getCreatureType(tpl.type).key : 'slime';
+    const bossScale = tpl?.boss && getCreatureType(type).size === 1 ? 1.5 : 1;
+    return { frame: `cr:${type}:${anim}`, scale: bossScale, quest: false };
+  }
+
+  private drawActors(dt: number): void {
+    const cam = this.scene.cameras.main;
+    const view = cam.worldView;
+    const margin = 2 * S;
+    let used = 0;
+    let markers = 0;
+    const hp = this.hpGfx;
+    hp.clear();
+    const sel = useEditorStore.getState().selection;
+    const selectedNpc = sel?.col === 'npcs' ? new Set(sel.ids) : null;
+    const k = Math.min(1, dt / 60);
+    const alive = new Set<string>();
+
+    for (const a of this.session.actors.actors.values()) {
+      alive.add(a.id);
+      if (a.state === 'dead') { this.renderPos.delete(a.id); continue; }
+      let rp = this.renderPos.get(a.id);
+      if (!rp || Math.hypot(rp.x - a.x, rp.y - a.y) > 3) {
+        rp = { x: a.x, y: a.y };
+        this.renderPos.set(a.id, rp);
+      } else {
+        rp.x += (a.x - rp.x) * k;
+        rp.y += (a.y - rp.y) * k;
+      }
+      const px = rp.x * S;
+      const py = rp.y * S;
+      if (px < view.x - margin || px > view.right + margin || py < view.y - margin || py > view.bottom + margin * 2) continue;
+
+      let spr = this.actorPool[used];
+      if (!spr) {
+        spr = this.scene.add.sprite(0, 0, ATLAS_KEY, 'npc:villager:0').setOrigin(0.5, 0.9);
+        this.actorPool.push(spr);
+      }
+      used++;
+      const moving = a.moving && this.session.engine.isRunning;
+      const f = this.actorFrame(a, moving);
+      spr.setVisible(true).setFrame(f.frame).setPosition(px, py + 6).setScale(f.scale).setDepth(entityDepth(py + 6));
+      spr.setFlipX(a.facing < 0);
+      spr.setAlpha(a.state === 'rest' ? 0.75 : 1);
+      if (a.hitFlash > 0) spr.setTintFill(0xffffff);
+      else spr.clearTint();
+
+      // Quest marker / sleeping marker
+      if (f.quest || a.state === 'rest') {
+        let m = this.markerPool[markers];
+        if (!m) { m = this.scene.add.image(0, 0, ATLAS_KEY, 'fx:quest').setOrigin(0.5, 1); this.markerPool.push(m); }
+        markers++;
+        const bob = Math.sin(this.time / 250) * 2;
+        m.setVisible(true).setFrame(a.state === 'rest' ? 'fx:zzz' : 'fx:quest').setPosition(px + (a.state === 'rest' ? 8 : 0), py - 22 + bob).setDepth(DEPTH.LABELS);
+      }
+
+      // HP bar when damaged or selected
+      const selected = selectedNpc?.has(a.defId);
+      if (a.hp < a.maxHp || selected) {
+        const w = 22 * f.scale * (a.kind === 'creature' && f.frame.includes('dragon') ? 2 : 1);
+        const top = py - (f.frame.startsWith('cr:dragon') || f.frame.startsWith('cr:boss') ? 58 : 26 * f.scale);
+        hp.fillStyle(0x000000, 0.8).fillRect(px - w / 2 - 1, top - 1, w + 2, 5);
+        const pct = Math.max(0, a.hp / a.maxHp);
+        hp.fillStyle(pct > 0.5 ? 0x6cc551 : pct > 0.25 ? 0xf2c14e : 0xe2574c, 1).fillRect(px - w / 2, top, w * pct, 3);
+      }
+      if (selected) {
+        hp.lineStyle(2, 0xffe08a, 1).strokeEllipse(px, py + 5, 26, 10);
+      }
+    }
+    for (let i = used; i < this.actorPool.length; i++) this.actorPool[i].setVisible(false);
+    for (let i = markers; i < this.markerPool.length; i++) this.markerPool[i].setVisible(false);
+    for (const id of this.renderPos.keys()) if (!alive.has(id)) this.renderPos.delete(id);
+  }
+
+  /** Smoothed render position of an actor (for picking and labels). */
+  actorScreenPos(id: string): { x: number; y: number } | undefined {
+    return this.renderPos.get(id);
+  }
+
+  showHoverLabel(text: string | null, x = 0, y = 0): void {
+    if (!text) { this.hoverLabel.setVisible(false); return; }
+    this.hoverLabel.setText(text).setPosition(x, y).setVisible(true);
+  }
+
+  // ----------------------------------------------------------- overlays
+  private drawOverlays(): void {
+    this.overlaysDirty = false;
+    const rt = this.session.runtime;
+    const g = this.regionGfx;
+    const o = this.overlayGfx;
+    g.clear();
+    o.clear();
+    const ed = useEditorStore.getState();
+    const show = useSettingsStore.getState().showRegions;
+    let labels = 0;
+    const label = (text: string, x: number, y: number, color: string) => {
+      let t = this.labelPool[labels];
+      if (!t) { t = this.makeText('', 14).setOrigin(0, 0).setDepth(DEPTH.LABELS); this.labelPool.push(t); }
+      labels++;
+      t.setText(text).setColor(color).setPosition(x, y).setVisible(true);
+    };
+    const sel = ed.selection;
+    const isSel = (col: string, id: string) => sel?.col === col && sel.ids.includes(id);
+
+    if (show || ed.tool === 'region' || sel?.col === 'regions') {
+      for (const r of rt.entities.list('regions')) {
+        const c = getRegionType(r.type).color;
+        g.fillStyle(c, 0.1).fillRect(r.x * S, r.y * S, r.w * S, r.h * S);
+        g.lineStyle(isSel('regions', r.id) ? 4 : 2, c, isSel('regions', r.id) ? 1 : 0.7).strokeRect(r.x * S, r.y * S, r.w * S, r.h * S);
+        label(`${r.name}  Lv ${r.minLevel}-${r.maxLevel}`, r.x * S + 4, r.y * S + 2, `#${c.toString(16).padStart(6, '0')}`);
+      }
+    }
+    if (show || ed.tool === 'spawn-area' || sel?.col === 'spawnAreas') {
+      for (const a of rt.entities.list('spawnAreas')) {
+        const tpl = rt.entities.get('creatureTemplates', a.templateId);
+        const selA = isSel('spawnAreas', a.id);
+        o.lineStyle(selA ? 3 : 2, 0xe2574c, selA ? 1 : 0.8);
+        this.dashedRect(o, a.x * S, a.y * S, a.w * S, a.h * S);
+        if (selA) o.fillStyle(0xe2574c, 0.08).fillRect(a.x * S, a.y * S, a.w * S, a.h * S);
+        label(`${tpl?.name ?? '?'} ×${a.maxCount}`, a.x * S + 4, (a.y + a.h) * S - 18, '#ff9a8a');
+      }
+    }
+    // Selected objects
+    if (sel?.col === 'objects') {
+      o.lineStyle(2, 0xffe08a, 1);
+      for (const id of sel.ids) {
+        const ob = rt.entities.get('objects', id);
+        const d = ob && getObjectDef(ob.kind);
+        if (ob && d) o.strokeRect(ob.x * S - 1, ob.y * S - 1, d.w * S + 2, d.h * S + 2);
+        if (ob?.kind === 'portal' && ob.linkId) {
+          const dest = rt.entities.get('objects', ob.linkId);
+          if (dest) { o.lineStyle(2, 0xb56cff, 0.9); o.lineBetween((ob.x + 0.5) * S, (ob.y + 0.5) * S, (dest.x + 0.5) * S, (dest.y + 0.5) * S); }
+        }
+      }
+    }
+    // Selected NPC: home, radius, waypoints
+    if (sel?.col === 'npcs' && sel.ids.length === 1) {
+      const n = rt.entities.get('npcs', sel.ids[0]);
+      if (n) {
+        const hx = (n.x + 0.5) * S, hy = (n.y + 0.5) * S;
+        o.lineStyle(1, 0x7fd7ff, 0.8).strokeCircle(hx, hy, n.interactionRadius * S);
+        if (n.behavior === 'wander') { o.lineStyle(1, 0x9cf0c0, 0.6); this.dashedRect(o, (n.x - n.wanderRadius) * S, (n.y - n.wanderRadius) * S, (n.wanderRadius * 2 + 1) * S, (n.wanderRadius * 2 + 1) * S); }
+        o.fillStyle(0xffe08a, 1).fillRect(n.x * S + 12, n.y * S + 12, 8, 8);
+        if (n.behavior === 'patrol' && n.waypoints.length) {
+          const pts = [{ x: n.x, y: n.y }, ...n.waypoints];
+          o.lineStyle(2, 0xffe08a, 0.8);
+          for (let i = 0; i < pts.length; i++) {
+            const p = pts[i], q = pts[(i + 1) % pts.length];
+            o.lineBetween((p.x + 0.5) * S, (p.y + 0.5) * S, (q.x + 0.5) * S, (q.y + 0.5) * S);
+            if (i > 0) { o.fillStyle(0xffe08a, 1).fillCircle((p.x + 0.5) * S, (p.y + 0.5) * S, 5); label(`${i}`, (p.x + 0.5) * S + 6, (p.y + 0.5) * S - 8, '#ffe08a'); }
+          }
+        }
+      }
+    }
+    for (let i = labels; i < this.labelPool.length; i++) this.labelPool[i].setVisible(false);
+  }
+
+  private dashedRect(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number): void {
+    const dash = 8;
+    const seg = (x0: number, y0: number, x1: number, y1: number) => {
+      const len = Math.hypot(x1 - x0, y1 - y0);
+      for (let d = 0; d < len; d += dash * 2) {
+        const t0 = d / len, t1 = Math.min(1, (d + dash) / len);
+        g.lineBetween(x0 + (x1 - x0) * t0, y0 + (y1 - y0) * t0, x0 + (x1 - x0) * t1, y0 + (y1 - y0) * t1);
+      }
+    };
+    seg(x, y, x + w, y); seg(x + w, y, x + w, y + h); seg(x + w, y + h, x, y + h); seg(x, y + h, x, y);
+  }
+
+  // ------------------------------------------------------- float text
+  private spawnFloat(x: number, y: number, text: string, color: string): void {
+    if (this.floats.length > 60) return;
+    const f = this.floatPool.pop() ?? { text: this.makeText('', 16), life: 0, vy: 0 };
+    f.text.setText(text).setColor(color).setPosition(x, y).setAlpha(1).setVisible(true).setDepth(DEPTH.LABELS + 2);
+    f.life = 900;
+    f.vy = -0.03;
+    this.floats.push(f);
+  }
+
+  private updateFloats(dt: number): void {
+    for (let i = this.floats.length - 1; i >= 0; i--) {
+      const f = this.floats[i];
+      f.life -= dt;
+      f.text.y += f.vy * dt;
+      f.text.setAlpha(Math.min(1, f.life / 300));
+      if (f.life <= 0) {
+        f.text.setVisible(false);
+        this.floats.splice(i, 1);
+        this.floatPool.push(f);
+      }
+    }
+  }
+
+  update(dt: number): void {
+    this.time += dt;
+    if (this.objectsDirty) this.syncObjects();
+    if (this.overlaysDirty) this.drawOverlays();
+    this.drawActors(dt);
+    this.updateFloats(dt);
+  }
+
+  destroy(): void {
+    this.unsubs.forEach((u) => u());
+  }
+}

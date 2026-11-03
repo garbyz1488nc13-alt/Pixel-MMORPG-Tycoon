@@ -3,10 +3,12 @@ import { TILE_SIZE } from '@/data/terrain';
 import type { TileGrid } from '@/models/TileGrid';
 import type { GameSession } from '@/session/GameSession';
 import { darkness } from '@/simulation/time';
-import { brushFootprint, normalizeRect } from '@/systems/editor/shapes';
 import { useEditorStore } from '@/stores/editorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { CameraController } from '../input/CameraController';
+import { MapTools } from '../input/MapTools';
+import { EntityRenderer } from '../render/EntityRenderer';
+import { DEPTH } from '../render/depth';
 import {
   ANIMATED_TERRAINS,
   ANIMATION_FRAMES,
@@ -32,14 +34,12 @@ export class WorldScene extends Phaser.Scene {
   private tilesetTex!: Phaser.Textures.CanvasTexture;
   private camCtl!: CameraController;
   private gridGfx!: Phaser.GameObjects.Graphics;
-  private cursorGfx!: Phaser.GameObjects.Graphics;
   private borderGfx!: Phaser.GameObjects.Graphics;
   private night!: Phaser.GameObjects.Rectangle;
   private animFrame = 0;
   private animTimer = 0;
-  private painting = false;
-  private rectStart: { x: number; y: number } | null = null;
-  private lastHover = { x: -1, y: -1 };
+  private entities!: EntityRenderer;
+  private tools!: MapTools;
   private lastCamKey = '';
   private fpsTimer = 0;
   private unsubs: (() => void)[] = [];
@@ -61,10 +61,9 @@ export class WorldScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#0d0b14');
     this.input.mouse?.disableContextMenu();
 
-    this.borderGfx = this.add.graphics().setDepth(5);
-    this.gridGfx = this.add.graphics().setDepth(10);
-    this.night = this.add.rectangle(0, 0, 1, 1, 0x0a0f2e, 0).setOrigin(0).setDepth(20);
-    this.cursorGfx = this.add.graphics().setDepth(30);
+    this.borderGfx = this.add.graphics().setDepth(DEPTH.FLAT_OBJECTS - 1);
+    this.gridGfx = this.add.graphics().setDepth(DEPTH.GRID);
+    this.night = this.add.rectangle(0, 0, 1, 1, 0x0a0f2e, 0).setOrigin(0).setDepth(DEPTH.NIGHT);
 
     this.buildTilemap(this.session.runtime.grid);
 
@@ -80,7 +79,8 @@ export class WorldScene extends Phaser.Scene {
       this.camCtl.centerOn((g.width * TILE_SIZE) / 2, (g.height * TILE_SIZE) / 2);
     }
 
-    this.bindInput();
+    this.entities = new EntityRenderer(this, this.session);
+    this.tools = new MapTools(this, this.session, this.entities, this.camCtl);
     this.bindSession();
 
     this.scale.on('resize', () => this.camCtl.clamp());
@@ -128,103 +128,6 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
-  // ------------------------------------------------------------------ input
-  private pointerTile(p: Phaser.Input.Pointer): { x: number; y: number } {
-    const wp = this.cameras.main.getWorldPoint(p.x, p.y);
-    return { x: Math.floor(wp.x / TILE_SIZE), y: Math.floor(wp.y / TILE_SIZE) };
-  }
-
-  private bindInput(): void {
-    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      if (!p.leftButtonDown() || this.camCtl.spaceHeld) return;
-      const ed = useEditorStore.getState();
-      if (ed.tab !== 'map') return;
-      const t = this.pointerTile(p);
-      const grid = this.session.runtime.grid;
-      switch (ed.tool) {
-        case 'brush':
-          this.painting = true;
-          this.session.painter.beginStroke(ed.terrain);
-          this.session.painter.strokeTo(t.x, t.y, ed.brushSize, ed.brushShape);
-          break;
-        case 'fill':
-          if (grid.inBounds(t.x, t.y)) this.session.painter.fill(t.x, t.y, ed.terrain);
-          break;
-        case 'rect':
-          this.rectStart = t;
-          break;
-        case 'picker':
-          if (grid.inBounds(t.x, t.y)) {
-            ed.setTerrain(grid.get(t.x, t.y));
-            ed.setTool('brush');
-          }
-          break;
-      }
-      this.drawCursor(t.x, t.y);
-    });
-
-    this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
-      const t = this.pointerTile(p);
-      if (this.painting && p.leftButtonDown()) {
-        const ed = useEditorStore.getState();
-        this.session.painter.strokeTo(t.x, t.y, ed.brushSize, ed.brushShape);
-      }
-      if (t.x !== this.lastHover.x || t.y !== this.lastHover.y || this.rectStart) {
-        this.lastHover = t;
-        const grid = this.session.runtime.grid;
-        useEditorStore.getState().setHover(grid.inBounds(t.x, t.y) ? { x: t.x, y: t.y, terrain: grid.get(t.x, t.y) } : null);
-        this.drawCursor(t.x, t.y);
-      }
-    });
-
-    const finish = (p: Phaser.Input.Pointer) => {
-      if (this.painting) {
-        this.painting = false;
-        this.session.painter.endStroke('Paint');
-      }
-      if (this.rectStart) {
-        const t = this.pointerTile(p);
-        const ed = useEditorStore.getState();
-        this.session.painter.rect(this.rectStart.x, this.rectStart.y, t.x, t.y, ed.terrain, ed.rectOutline);
-        this.rectStart = null;
-        this.drawCursor(t.x, t.y);
-      }
-    };
-    this.input.on('pointerup', finish);
-    this.input.on('pointerupoutside', finish);
-    this.input.on('gameout', () => {
-      this.lastHover = { x: -1, y: -1 };
-      this.cursorGfx.clear();
-      useEditorStore.getState().setHover(null);
-    });
-  }
-
-  private drawCursor(tx: number, ty: number): void {
-    const g = this.cursorGfx;
-    g.clear();
-    const ed = useEditorStore.getState();
-    if (ed.tab !== 'map') return;
-    const grid = this.session.runtime.grid;
-    const S = TILE_SIZE;
-    if (this.rectStart) {
-      const r = normalizeRect(this.rectStart.x, this.rectStart.y, tx, ty);
-      g.fillStyle(0xffe08a, 0.25).fillRect(r.x * S, r.y * S, r.w * S, r.h * S);
-      g.lineStyle(2, 0xffe08a, 1).strokeRect(r.x * S, r.y * S, r.w * S, r.h * S);
-      return;
-    }
-    if (!grid.inBounds(tx, ty)) return;
-    const cells: [number, number][] = ed.tool === 'brush' ? brushFootprint(ed.brushSize, ed.brushShape) : [[0, 0]];
-    g.fillStyle(0xffffff, 0.18);
-    for (const [dx, dy] of cells) g.fillRect((tx + dx) * S, (ty + dy) * S, S, S);
-    g.lineStyle(2, ed.tool === 'picker' ? 0x7fd7ff : 0xffe08a, 1);
-    if (ed.tool === 'brush') {
-      const half = Math.floor((ed.brushSize - 1) / 2);
-      g.strokeRect((tx - half) * S, (ty - half) * S, ed.brushSize * S, ed.brushSize * S);
-    } else {
-      g.strokeRect(tx * S, ty * S, S, S);
-    }
-  }
-
   // ---------------------------------------------------------------- session
   private bindSession(): void {
     const rt = this.session.runtime;
@@ -239,8 +142,8 @@ export class WorldScene extends Phaser.Scene {
       bridge.on('camera:fit', () => this.camCtl.fit()),
       bridge.on('camera:zoomBy', ({ factor }) => this.camCtl.zoomAt(factor)),
       useEditorStore.subscribe((s, prev) => {
-        if (s.tool !== prev.tool || s.brushSize !== prev.brushSize || s.brushShape !== prev.brushShape || s.tab !== prev.tab) {
-          this.drawCursor(this.lastHover.x, this.lastHover.y);
+        if (s.tool !== prev.tool || s.brushSize !== prev.brushSize || s.brushShape !== prev.brushShape || s.tab !== prev.tab || s.objectKind !== prev.objectKind || s.npcType !== prev.npcType) {
+          this.tools.drawCursor();
         }
       }),
     );
@@ -249,6 +152,7 @@ export class WorldScene extends Phaser.Scene {
   // ----------------------------------------------------------------- frame
   update(_time: number, delta: number): void {
     this.camCtl.update(delta);
+    this.entities.update(delta);
     const settings = useSettingsStore.getState();
     const cam = this.cameras.main;
 
@@ -308,5 +212,7 @@ export class WorldScene extends Phaser.Scene {
     this.unsubs.forEach((u) => u());
     this.unsubs = [];
     this.camCtl?.destroy();
+    this.entities?.destroy();
+    this.tools?.destroy();
   }
 }

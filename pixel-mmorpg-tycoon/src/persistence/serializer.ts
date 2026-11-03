@@ -2,6 +2,7 @@ import { createId } from '@/core/ids';
 import { MAX_MAP_SIZE, MIN_MAP_SIZE } from '@/data/worldPresets';
 import { TileGrid } from '@/models/TileGrid';
 import { WORLD_SCHEMA_VERSION, type WorldMeta, type WorldSave } from '@/models/world';
+import { emptyEntities } from '@/models/entities';
 
 export const EXPORT_FORMAT = 'pixel-mmorpg-tycoon/world';
 
@@ -36,7 +37,11 @@ export function migrate(save: WorldSave): WorldSave {
   if (save.schemaVersion > WORLD_SCHEMA_VERSION) {
     throw new Error(`This world was made with a newer version (schema ${save.schemaVersion}).`);
   }
-  return { ...save, schemaVersion: WORLD_SCHEMA_VERSION };
+  let s = { ...save };
+  // v1 -> v2: entity layer added.
+  if (s.schemaVersion < 2 || !s.entities) s = { ...s, entities: emptyEntities() };
+  s.entities = { ...emptyEntities(), ...s.entities };
+  return { ...s, schemaVersion: WORLD_SCHEMA_VERSION };
 }
 
 /** Parse + validate an imported JSON file. Throws a readable error on bad input. */

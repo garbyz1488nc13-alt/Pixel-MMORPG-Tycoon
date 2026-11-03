@@ -7,6 +7,7 @@ import { useEditorStore } from '@/stores/editorStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { toast } from '@/stores/toastStore';
 import { PixelIcon } from '../components/PixelIcon';
+import { useLiveCounts } from '../hooks/useEntities';
 
 const SPEEDS: SimSpeed[] = [1, 2, 4];
 
@@ -16,6 +17,7 @@ export function TopBar() {
   const canRedo = useEditorStore((e) => e.canRedo);
   const session = s.session!;
   const phase = dayPhase(s.gameMinutes);
+  const live = useLiveCounts(session);
 
   const rename = async () => {
     const name = await promptDialog({ title: 'Rename world', defaultValue: s.worldName, confirmLabel: 'Rename' });
@@ -56,6 +58,12 @@ export function TopBar() {
       </div>
       <div className="topbar-stat" title="Simulated players online. Player simulation arrives in Phase 4 — until then this is honestly 0.">
         <PixelIcon name="user" /> <span>0 players</span>
+      </div>
+      <div className="topbar-stat" title={`NPCs alive / total. Deaths this session: ${live.npcDeaths}`}>
+        <PixelIcon name="npc" /> <span>{live.npcsAlive}/{live.npcsTotal} NPC</span>
+      </div>
+      <div className="topbar-stat" title={`Monsters alive / spawn slots. Killed this session: ${live.kills}`}>
+        <PixelIcon name="skull" color="#e8e4d4" /> <span>{live.creaturesAlive}/{live.creaturesTotal}</span>
       </div>
       <div className="topbar-stat" title="World treasury (starting gold). The economy system arrives in Phase 3.">
         <PixelIcon name="gold" color="#6e4d14" /> <span>{treasury.toLocaleString()} gold</span>

@@ -51,6 +51,7 @@ export function SettingsForm({ showDanger = false }: { showDanger?: boolean }) {
         <label className="check"><input type="checkbox" checked={s.showGrid} onChange={(e) => s.update({ showGrid: e.target.checked })} /> Show tile grid (G)</label>
         <label className="check"><input type="checkbox" checked={s.animateTiles} onChange={(e) => s.update({ animateTiles: e.target.checked })} /> Animate water & lava</label>
         <label className="check"><input type="checkbox" checked={s.dayNightTint} onChange={(e) => s.update({ dayNightTint: e.target.checked })} /> Day / night lighting</label>
+        <label className="check"><input type="checkbox" checked={s.showRegions} onChange={(e) => s.update({ showRegions: e.target.checked })} /> Show regions & spawn areas</label>
         <label className="check"><input type="checkbox" checked={s.showFps} onChange={(e) => s.update({ showFps: e.target.checked })} /> Show FPS counter</label>
       </section>
 
