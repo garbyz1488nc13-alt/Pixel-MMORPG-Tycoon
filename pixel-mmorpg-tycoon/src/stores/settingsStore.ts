@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { detectLang, setLang, type Lang } from '@/i18n';
 
 export interface Settings {
   /** 0 = autosave disabled. */
@@ -13,6 +14,7 @@ export interface Settings {
   animateTiles: boolean;
   dayNightTint: boolean;
   showRegions: boolean;
+  language: Lang;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -24,6 +26,7 @@ export const DEFAULT_SETTINGS: Settings = {
   animateTiles: true,
   dayNightTint: true,
   showRegions: true,
+  language: detectLang(),
 };
 
 interface SettingsState extends Settings {
@@ -36,8 +39,17 @@ export const useSettingsStore = create<SettingsState>()(
     (set) => ({
       ...DEFAULT_SETTINGS,
       update: (patch) => set(patch),
-      reset: () => set(DEFAULT_SETTINGS),
+      reset: () => set((s) => ({ ...DEFAULT_SETTINGS, language: s.language })),
     }),
-    { name: 'pmt-settings', version: 2, migrate: (s) => ({ ...DEFAULT_SETTINGS, ...(s as object) }) },
+    {
+      name: 'pmt-settings',
+      version: 3,
+      migrate: (s) => ({ ...DEFAULT_SETTINGS, ...(s as object) }),
+      onRehydrateStorage: () => (state) => state && setLang(state.language),
+    },
   ),
 );
+
+// Keep the translator in sync with the stored language.
+setLang(useSettingsStore.getState().language);
+useSettingsStore.subscribe((s) => setLang(s.language));

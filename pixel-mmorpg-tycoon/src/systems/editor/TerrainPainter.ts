@@ -1,4 +1,5 @@
 import type { WorldRuntime } from '@/simulation/WorldRuntime';
+import { t } from '@/i18n';
 import { History, ReplaceMapCommand, TileEditCommand } from './History';
 import { brushFootprint, floodFillIndices, lineTiles, normalizeRect, rectIndices, type BrushShape } from './shapes';
 import type { TileGrid } from '@/models/TileGrid';
@@ -70,12 +71,12 @@ export class TerrainPainter {
   }
 
   fill(x: number, y: number, terrain: number): number {
-    return this.applyIndices(floodFillIndices(this.world().grid, x, y), terrain, 'Fill');
+    return this.applyIndices(floodFillIndices(this.world().grid, x, y), terrain, t('Fill'));
   }
 
   rect(x0: number, y0: number, x1: number, y1: number, terrain: number, outline: boolean): number {
     const grid = this.world().grid;
-    return this.applyIndices(rectIndices(grid, normalizeRect(x0, y0, x1, y1), outline), terrain, outline ? 'Outline' : 'Rectangle');
+    return this.applyIndices(rectIndices(grid, normalizeRect(x0, y0, x1, y1), outline), terrain, outline ? t('Outline') : t('Rectangle'));
   }
 
   replaceMap(next: TileGrid, label: string): void {

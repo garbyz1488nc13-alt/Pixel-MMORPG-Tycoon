@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { canvasFont, onLangChange, t } from '@/i18n';
 import { getCreatureType } from '@/data/creatureTypes';
 import { getNpcType } from '@/data/npcTypes';
 import { getObjectDef } from '@/data/objects';
@@ -57,6 +58,7 @@ export class EntityRenderer {
         this.overlaysDirty = true;
       }),
       rt.events.on('map:replaced', () => { this.objectsDirty = true; this.overlaysDirty = true; }),
+      onLangChange(() => this.applyFont()),
       session.actors.events.on('hit', ({ target, amount, attacker }) => {
         this.spawnFloat(target.x * S, (target.y - 0.6) * S, `-${amount}`, attacker.kind === 'npc' ? '#ffe08a' : '#ff7a6a');
       }),
@@ -74,8 +76,16 @@ export class EntityRenderer {
 
   private makeText(text: string, size: number): Phaser.GameObjects.Text {
     return this.scene.add
-      .text(0, 0, text, { fontFamily: 'VT323, monospace', fontSize: `${size}px`, color: '#ffffff', stroke: '#000000', strokeThickness: 3, resolution: 2 })
+      .text(0, 0, text, { fontFamily: canvasFont().family, fontSize: `${Math.round(size * canvasFont().scale)}px`, color: '#ffffff', stroke: '#000000', strokeThickness: 3, resolution: 2 })
       .setOrigin(0.5, 1);
+  }
+
+  /** Switch every pooled text to the current language's font. */
+  private applyFont(): void {
+    const f = canvasFont();
+    const all = [this.hoverLabel, ...this.labelPool, ...this.floatPool.map((x) => x.text), ...this.floats.map((x) => x.text)];
+    for (const tx of all) tx.setFontFamily(f.family);
+    this.overlaysDirty = true;
   }
 
   markOverlaysDirty(): void {
@@ -222,7 +232,7 @@ export class EntityRenderer {
         const c = getRegionType(r.type).color;
         g.fillStyle(c, 0.1).fillRect(r.x * S, r.y * S, r.w * S, r.h * S);
         g.lineStyle(isSel('regions', r.id) ? 4 : 2, c, isSel('regions', r.id) ? 1 : 0.7).strokeRect(r.x * S, r.y * S, r.w * S, r.h * S);
-        label(`${r.name}  Lv ${r.minLevel}-${r.maxLevel}`, r.x * S + 4, r.y * S + 2, `#${c.toString(16).padStart(6, '0')}`);
+        label(`${r.name}  ${t('Lv')} ${r.minLevel}-${r.maxLevel}`, r.x * S + 4, r.y * S + 2, `#${c.toString(16).padStart(6, '0')}`);
       }
     }
     if (show || ed.tool === 'spawn-area' || sel?.col === 'spawnAreas') {

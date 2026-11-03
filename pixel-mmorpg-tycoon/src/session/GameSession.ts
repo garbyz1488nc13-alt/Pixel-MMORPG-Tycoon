@@ -1,4 +1,5 @@
 import { EventBus } from '@/core/EventBus';
+import { t } from '@/i18n';
 import { createId } from '@/core/ids';
 import { makeThumbnail } from '@/game/textures/mapImage';
 import type { SaveSlotKey, WorldSave } from '@/models/world';
@@ -78,18 +79,18 @@ export class GameSession {
     this.disposers.push(
       this.engine.events.on('sim:state', ({ running, speed }) => {
         useSessionStore.getState().patch({ running, speed });
-        log.system(running ? `Simulation running at x${speed}.` : 'Simulation paused.', 'info', this.runtime.clock.totalMinutes);
+        log.system(running ? t('Simulation running at x{n}.', { n: speed }) : t('Simulation paused.'), 'info', this.runtime.clock.totalMinutes);
       }),
       this.engine.events.on('sim:message', ({ text }) => log.sim(text, 'info', this.runtime.clock.totalMinutes)),
       this.runtime.events.on('dirty:changed', ({ dirty }) => useSessionStore.getState().patch({ dirty })),
       this.runtime.events.on('meta:changed', ({ name }) => useSessionStore.getState().patch({ worldName: name })),
       this.actors.events.on('died', ({ victim, killer }) => {
         const v = displayName(this.actors, victim);
-        const k = killer ? displayName(this.actors, killer) : 'Something';
+        const k = killer ? displayName(this.actors, killer) : t('Something');
         if (victim.kind === 'creature') {
           const xp = this.actors.template(victim)?.xpReward ?? 0;
-          log.sim(`${k} slew ${v} (${xp} XP).`, 'info', this.runtime.clock.totalMinutes);
-        } else log.sim(`${v} was killed by ${k}. Respawning at home in 1 hour.`, 'warn', this.runtime.clock.totalMinutes);
+          log.sim(t('{killer} slew {victim} ({xp} XP).', { killer: k, victim: v, xp }), 'info', this.runtime.clock.totalMinutes);
+        } else log.sim(t('{victim} was killed by {killer}. Respawning at home in 1 hour.', { victim: v, killer: k }), 'warn', this.runtime.clock.totalMinutes);
       }),
     );
 
@@ -103,17 +104,17 @@ export class GameSession {
   setSpeed(speed: SimSpeed): void {
     const changed = speed !== this.engine.currentSpeed;
     this.engine.setSpeed(speed);
-    if (changed && !this.engine.isRunning) log.system(`Simulation speed set to x${speed}.`, 'info', this.runtime.clock.totalMinutes);
+    if (changed && !this.engine.isRunning) log.system(t('Simulation speed set to x{n}.', { n: speed }), 'info', this.runtime.clock.totalMinutes);
   }
 
   undo(): void {
     const label = this.history.undo(this.runtime);
-    if (label) log.system(`Undo: ${label}`, 'info', this.runtime.clock.totalMinutes);
+    if (label) log.system(t('Undo: {label}', { label }), 'info', this.runtime.clock.totalMinutes);
   }
 
   redo(): void {
     const label = this.history.redo(this.runtime);
-    if (label) log.system(`Redo: ${label}`, 'info', this.runtime.clock.totalMinutes);
+    if (label) log.system(t('Redo: {label}', { label }), 'info', this.runtime.clock.totalMinutes);
   }
 
   async save(slot: SaveSlotKey = this.slot, silent = false): Promise<boolean> {
@@ -127,11 +128,11 @@ export class GameSession {
       this.runtime.markClean();
       useSessionStore.getState().patch({ lastSavedAt: data.updatedAt, slot: this.slot });
       const label = SAVE_SLOTS.find((s) => s.key === slot)?.label ?? slot;
-      if (slot === 'auto') log.system('Autosaved.', 'info', this.runtime.clock.totalMinutes);
-      else if (!silent) log.system(`World saved to ${label}.`, 'success', this.runtime.clock.totalMinutes);
+      if (slot === 'auto') log.system(t('Autosaved.'), 'info', this.runtime.clock.totalMinutes);
+      else if (!silent) log.system(t('World saved to {slot}.', { slot: t(label) }), 'success', this.runtime.clock.totalMinutes);
       return true;
     } catch (err) {
-      log.system(`Save failed: ${(err as Error).message}`, 'error');
+      log.system(t('Save failed: {msg}', { msg: (err as Error).message }), 'error');
       return false;
     } finally {
       useSessionStore.getState().patch({ saving: false });

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { t } from '@/i18n';
 import type Phaser from 'phaser';
 import type { GameSession } from '@/session/GameSession';
 import { useEditorStore } from '@/stores/editorStore';
@@ -38,14 +39,14 @@ export function PhaserView({ session }: { session: GameSession }) {
     <div className="phaser-wrap">
       <div ref={host} className="phaser-host" />
       <div className="view-controls">
-        <button className="btn icon" title="Zoom in (+)" onClick={() => session.bridge.emit('camera:zoomBy', { factor: 1.25 })}><PixelIcon name="plus" /></button>
+        <button className="btn icon" title={t('Zoom in (+)')} onClick={() => session.bridge.emit('camera:zoomBy', { factor: 1.25 })}><PixelIcon name="plus" /></button>
         <div className="zoom-label">{Math.round(zoom * 100)}%</div>
-        <button className="btn icon" title="Zoom out (−)" onClick={() => session.bridge.emit('camera:zoomBy', { factor: 0.8 })}><PixelIcon name="minus" /></button>
-        <button className="btn icon" title="Fit map (Home)" onClick={() => session.bridge.emit('camera:fit', undefined)}><PixelIcon name="fit" /></button>
+        <button className="btn icon" title={t('Zoom out (−)')} onClick={() => session.bridge.emit('camera:zoomBy', { factor: 0.8 })}><PixelIcon name="minus" /></button>
+        <button className="btn icon" title={t('Fit map (Home)')} onClick={() => session.bridge.emit('camera:fit', undefined)}><PixelIcon name="fit" /></button>
       </div>
       <div className="view-status">
         {hover ? `X ${hover.x}  Y ${hover.y}` : '—'}
-        {showFps && <span className="fps">{fps} FPS</span>}
+        {showFps && <span className="fps">{fps} {t('FPS')}</span>}
       </div>
     </div>
   );

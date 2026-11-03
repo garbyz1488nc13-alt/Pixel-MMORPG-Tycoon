@@ -1,3 +1,4 @@
+import { useT } from '@/i18n/useT';
 import { useSessionStore } from '@/stores/sessionStore';
 import { DialogHost } from '@/ui/components/DialogHost';
 import { Toasts } from '@/ui/components/Toasts';
@@ -10,6 +11,8 @@ import { MyWorldsScreen } from '@/ui/screens/MyWorldsScreen';
 import { SettingsScreen } from '@/ui/screens/SettingsScreen';
 
 export function App() {
+  // Re-render the whole tree when the language changes.
+  useT();
   const screen = useSessionStore((s) => s.screen);
   return (
     <>

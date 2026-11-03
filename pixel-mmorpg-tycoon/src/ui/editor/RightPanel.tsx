@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { t, t as tr } from '@/i18n';
 import { getTerrain, TERRAINS } from '@/data/terrain';
 import type { GameSession } from '@/session/GameSession';
 import { useEditorStore } from '@/stores/editorStore';
@@ -39,46 +40,46 @@ export function RightPanel({ session }: { session: GameSession }) {
 
   return (
     <div className="side-panel panel scroll">
-      <div className="panel-header">Minimap</div>
+      <div className="panel-header">{t('Minimap')}</div>
       <div className="section">
         <Minimap session={session} />
       </div>
 
-      <div className="panel-header">Selection</div>
+      <div className="panel-header">{t('Selection')}</div>
       <div className="section">
         <SelectionInspector session={session} />
       </div>
 
-      <div className="panel-header">Tile</div>
+      <div className="panel-header">{t('Tile')}</div>
       <div className="section">
         {hover ? (
           <div className="inspect">
             <TerrainSwatch terrain={hover.terrain} size={40} />
             <div className="grow">
-              <div className="inspect-title">{getTerrain(hover.terrain).name}</div>
-              <div className="hint">Tile ({hover.x}, {hover.y})</div>
+              <div className="inspect-title">{t(getTerrain(hover.terrain).name)}</div>
+              <div className="hint">{t('Tile')} ({hover.x}, {hover.y})</div>
               <div className="hint">
-                {getTerrain(hover.terrain).walkable ? `Walkable · move cost ×${getTerrain(hover.terrain).moveCost}` : 'Blocks movement'}
+                {getTerrain(hover.terrain).walkable ? t('Walkable · move cost ×{n}', { n: getTerrain(hover.terrain).moveCost }) : t('Blocks movement')}
               </div>
             </div>
           </div>
         ) : (
-          <div className="hint">Hover the map to inspect a tile.</div>
+          <div className="hint">{t('Hover the map to inspect a tile.')}</div>
         )}
-        <div className="kv"><span>Painting with</span><span>{sel.name}</span></div>
+        <div className="kv"><span>{t('Painting with')}</span><span>{t(sel.name)}</span></div>
       </div>
 
-      <div className="panel-header">Map statistics</div>
+      <div className="panel-header">{t('Map statistics')}</div>
       <div className="section">
-        <div className="kv"><span>Size</span><span>{grid.width} × {grid.height}</span></div>
-        <div className="kv"><span>Tiles</span><span>{total.toLocaleString()}</span></div>
-        <div className="kv"><span>Walkable</span><span>{((walkable / total) * 100).toFixed(1)}%</span></div>
+        <div className="kv"><span>{t('Size')}</span><span>{grid.width} × {grid.height}</span></div>
+        <div className="kv"><span>{t('Tiles')}</span><span>{total.toLocaleString()}</span></div>
+        <div className="kv"><span>{t('Walkable')}</span><span>{((walkable / total) * 100).toFixed(1)}%</span></div>
         <div className="terrain-bars">
           {TERRAINS.map((t) => {
             const pct = (counts[t.id] / total) * 100;
             return (
-              <div key={t.id} className="bar-row" title={`${counts[t.id].toLocaleString()} tiles`}>
-                <span className="bar-label">{t.name}</span>
+              <div key={t.id} className="bar-row" title={tr('{n} tiles', { n: counts[t.id].toLocaleString() })}>
+                <span className="bar-label">{tr(t.name)}</span>
                 <div className="bar"><div className="bar-fill" style={{ width: `${pct}%`, background: t.palette[0] }} /></div>
                 <span className="bar-val">{pct.toFixed(1)}%</span>
               </div>

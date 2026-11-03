@@ -1,4 +1,5 @@
 import { createId } from '@/core/ids';
+import { t as tr } from '@/i18n';
 import { SeededRandom } from '@/core/random';
 import type { CreatureType } from '@/data/creatureTypes';
 import type { NpcType } from '@/data/npcTypes';
@@ -101,7 +102,7 @@ class Planner {
 
   spawnArea(type: CreatureType, r: TileRect, count: number, name?: string): void {
     const t = this.template(type);
-    this.areas.push({ id: createId('spawn'), name: name ?? `${t.name} area`, templateId: t.id, ...r, maxCount: count });
+    this.areas.push({ id: createId('spawn'), name: name ?? tr('{name} area', { name: t.name }), templateId: t.id, ...r, maxCount: count });
   }
 }
 
@@ -119,7 +120,7 @@ function forest(p: Planner, r: TileRect): void {
       else if (roll < 0.38) p.place('rock', x, y);
       else if (roll < 0.41) p.place('flowers', x, y);
     }
-  if (r.w * r.h >= 64) p.spawnArea('wolf', shrink(r, 2), Math.min(8, Math.max(2, Math.round((r.w * r.h) / 120))), 'Wolf den');
+  if (r.w * r.h >= 64) p.spawnArea('wolf', shrink(r, 2), Math.min(8, Math.max(2, Math.round((r.w * r.h) / 120))), tr('Wolf den'));
 }
 
 function shrink(r: TileRect, n: number): TileRect {
@@ -238,10 +239,10 @@ function dungeonLike(p: Planner, r: TileRect, kind: 'dungeon' | 'cave'): void {
   const inner = shrink(r, 2);
   const count = Math.max(2, Math.min(10, Math.round((r.w * r.h) / 40)));
   if (kind === 'dungeon') {
-    p.spawnArea('skeleton', { x: inner.x, y: inner.y + Math.floor(inner.h / 3), w: inner.w, h: Math.max(1, inner.h - Math.floor(inner.h / 3) - 2) }, count, 'Crypt skeletons');
-    if (r.w >= 12 && r.h >= 12) p.spawnArea('boss', { x: cx - 2, y: r.y + 2, w: 4, h: 3 }, 1, 'Throne room');
+    p.spawnArea('skeleton', { x: inner.x, y: inner.y + Math.floor(inner.h / 3), w: inner.w, h: Math.max(1, inner.h - Math.floor(inner.h / 3) - 2) }, count, tr('Crypt skeletons'));
+    if (r.w >= 12 && r.h >= 12) p.spawnArea('boss', { x: cx - 2, y: r.y + 2, w: 4, h: 3 }, 1, tr('Throne room'));
   } else {
-    p.spawnArea('spider', inner, count, 'Spider nest');
+    p.spawnArea('spider', inner, count, tr('Spider nest'));
   }
 }
 
@@ -256,9 +257,9 @@ export function populateRegion(world: WorldRuntime, history: History | null, reg
     case 'city': settlement(p, r, 'city', npcBudget); break;
     case 'dungeon': dungeonLike(p, r, 'dungeon'); break;
     case 'cave': dungeonLike(p, r, 'cave'); break;
-    default: return 'This region type has no generator.';
+    default: return tr('This region type has no generator.');
   }
-  return applyPlan(world, history, p, `Populate ${region.name}`);
+  return applyPlan(world, history, p, tr('Populate {name}', { name: region.name }));
 }
 
 function applyPlan(world: WorldRuntime, history: History | null, p: Planner, label: string): string {
@@ -278,9 +279,9 @@ function applyPlan(world: WorldRuntime, history: History | null, p: Planner, lab
   ]);
   if (changes.length) parts.push(new EntityCommand(label, changes));
   if (history && parts.length) history.push(new CompositeCommand(label, parts));
-  const bits = [`${p.objects.length} objects`, `${p.npcs.length} NPCs`];
-  if (p.areas.length) bits.push(`${p.areas.length} spawn areas`);
-  if (p.tileEdits.size) bits.push(`${p.tileEdits.size} tiles`);
+  const bits = [tr('objects: {n}', { n: p.objects.length }), tr('NPCs: {n}', { n: p.npcs.length })];
+  if (p.areas.length) bits.push(tr('spawn areas: {n}', { n: p.areas.length }));
+  if (p.tileEdits.size) bits.push(tr('tiles: {n}', { n: p.tileEdits.size }));
   return bits.join(', ');
 }
 
@@ -324,7 +325,7 @@ export function generateStarterContent(world: WorldRuntime, npcCount: number, se
   const results: string[] = [];
   const home = findLand(world, dim);
   if (home && npcCount > 0) {
-    const reg: Region = { id: createId('reg'), name: size === 'city' ? 'Capital City' : size === 'town' ? 'Starter Town' : 'Starter Village', type: size, ...home, minLevel: 1, maxLevel: 5 };
+    const reg: Region = { id: createId('reg'), name: tr(size === 'city' ? 'Capital City' : size === 'town' ? 'Starter Town' : 'Starter Village'), type: size, ...home, minLevel: 1, maxLevel: 5 };
     world.entities.add('regions', reg);
     regions.push(reg);
     results.push(`${reg.name}: ${populateRegion(world, null, reg, seed, npcCount)}`);
@@ -333,7 +334,7 @@ export function generateStarterContent(world: WorldRuntime, npcCount: number, se
   if (wild >= 8) {
     const forestRect = findLand(world, wild, regions);
     if (forestRect) {
-      const reg: Region = { id: createId('reg'), name: 'Whispering Woods', type: 'forest', ...forestRect, minLevel: 3, maxLevel: 8 };
+      const reg: Region = { id: createId('reg'), name: tr('Whispering Woods'), type: 'forest', ...forestRect, minLevel: 3, maxLevel: 8 };
       world.entities.add('regions', reg);
       regions.push(reg);
       populateRegion(world, null, reg, seed + 1);
@@ -341,15 +342,15 @@ export function generateStarterContent(world: WorldRuntime, npcCount: number, se
     const campRect = findLand(world, Math.max(8, Math.floor(wild * 0.7)), regions);
     if (campRect) {
       const p = new Planner(world, new SeededRandom(seed + 2));
-      const reg: Region = { id: createId('reg'), name: 'Goblin Camp', type: 'wilderness', ...campRect, minLevel: 2, maxLevel: 6 };
+      const reg: Region = { id: createId('reg'), name: tr('Goblin Camp'), type: 'wilderness', ...campRect, minLevel: 2, maxLevel: 6 };
       world.entities.add('regions', reg);
       p.place('campfire', campRect.x + Math.floor(campRect.w / 2), campRect.y + Math.floor(campRect.h / 2));
       for (let i = 0; i < 6; i++) p.place(p.rng.next() < 0.5 ? 'crate' : 'barrel', campRect.x + rnd(p, campRect.w), campRect.y + rnd(p, campRect.h));
-      p.spawnArea('goblin', campRect, 5, 'Goblin camp');
-      p.spawnArea('slime', campRect, 3, 'Slime pond');
-      applyPlan(world, null, p, 'Starter camp');
+      p.spawnArea('goblin', campRect, 5, tr('Goblin camp'));
+      p.spawnArea('slime', campRect, 3, tr('Slime pond'));
+      applyPlan(world, null, p, tr('Starter camp'));
     }
   }
-  return results.join('; ') || 'No suitable land found.';
+  return results.join('; ') || tr('No suitable land found.');
 }
 

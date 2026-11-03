@@ -6,10 +6,10 @@ export type Difficulty = 'relaxed' | 'normal' | 'hard' | 'brutal';
 export interface MapSizePreset { key: string; label: string; width: number; height: number }
 
 export const MAP_SIZES: MapSizePreset[] = [
-  { key: 'tiny', label: 'Tiny (48×48)', width: 48, height: 48 },
-  { key: 'small', label: 'Small (96×96)', width: 96, height: 96 },
-  { key: 'medium', label: 'Medium (160×160)', width: 160, height: 160 },
-  { key: 'large', label: 'Large (256×256)', width: 256, height: 256 },
+  { key: 'tiny', label: 'Tiny', width: 48, height: 48 },
+  { key: 'small', label: 'Small', width: 96, height: 96 },
+  { key: 'medium', label: 'Medium', width: 160, height: 160 },
+  { key: 'large', label: 'Large', width: 256, height: 256 },
 ];
 
 export const MIN_MAP_SIZE = 16;

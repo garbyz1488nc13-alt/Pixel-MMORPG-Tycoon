@@ -1,4 +1,5 @@
 import { WorldRepository } from '@/persistence/WorldRepository';
+import { t } from '@/i18n';
 import { exportWorldJson } from '@/persistence/serializer';
 import { downloadText, loadAndOpenWorld, safeFileName } from '@/session/sessionActions';
 import { confirmDialog, promptDialog } from '@/stores/dialogStore';
@@ -15,60 +16,60 @@ export function MyWorldsScreen() {
   const { worlds, refresh } = useWorldList();
 
   const open = async (w: WorldMeta) => {
-    if (!(await loadAndOpenWorld(w.id))) toast('This world has no saves.', 'error');
+    if (!(await loadAndOpenWorld(w.id))) toast(t('This world has no saves.'), 'error');
   };
   const rename = async (w: WorldMeta) => {
-    const name = await promptDialog({ title: 'Rename world', defaultValue: w.name, confirmLabel: 'Rename' });
+    const name = await promptDialog({ title: t('Rename world'), defaultValue: w.name, confirmLabel: t('Rename') });
     if (!name) return;
     await WorldRepository.renameWorld(w.id, name);
-    toast('World renamed', 'success');
+    toast(t('World renamed'), 'success');
     refresh();
   };
   const duplicate = async (w: WorldMeta) => {
     const copy = await WorldRepository.duplicateWorld(w.id);
-    if (copy) toast(`Created "${copy.name}"`, 'success');
+    if (copy) toast(t('Created "{name}"', { name: copy.name }), 'success');
     refresh();
   };
   const exportJson = async (w: WorldMeta) => {
     const res = await WorldRepository.load(w.id);
-    if (!res) return toast('Nothing to export.', 'error');
+    if (!res) return toast(t('Nothing to export.'), 'error');
     downloadText(`${safeFileName(w.name)}.world.json`, exportWorldJson(res.save));
-    toast('World exported', 'success');
+    toast(t('World exported'), 'success');
   };
   const remove = async (w: WorldMeta) => {
     const ok = await confirmDialog({
-      title: 'Delete world',
-      message: `Delete "${w.name}" and all of its save slots?\nThis cannot be undone.`,
-      confirmLabel: 'Delete',
+      title: t('Delete world'),
+      message: t('Delete "{name}" and all of its save slots?\nThis cannot be undone.', { name: w.name }),
+      confirmLabel: t('Delete'),
       danger: true,
     });
     if (!ok) return;
     await WorldRepository.deleteWorld(w.id);
-    toast('World deleted');
+    toast(t('World deleted'));
     refresh();
   };
 
   return (
     <ScreenFrame
-      title="My Worlds"
+      title={t('My Worlds')}
       onBack={() => go('menu')}
-      actions={<button className="btn small primary" onClick={() => go('create')}><PixelIcon name="plus" size={12} /> New</button>}
+      actions={<button className="btn small primary" onClick={() => go('create')}><PixelIcon name="plus" size={12} /> {t('New')}</button>}
     >
-      {worlds === null && <div className="hint">Loading…</div>}
+      {worlds === null && <div className="hint">{t('Loading…')}</div>}
       {worlds?.length === 0 && (
         <div className="empty-state">
-          <div>No worlds yet.</div>
-          <button className="btn primary" onClick={() => go('create')}>Create your first world</button>
+          <div>{t('No worlds yet.')}</div>
+          <button className="btn primary" onClick={() => go('create')}>{t('Create your first world')}</button>
         </div>
       )}
       <div className="world-list">
         {worlds?.map((w) => (
           <WorldCard key={w.id} world={w}>
-            <button className="btn small primary" onClick={() => open(w)}><PixelIcon name="play" size={12} /> Open</button>
-            <button className="btn small" onClick={() => rename(w)}><PixelIcon name="edit" size={12} /> Rename</button>
-            <button className="btn small" onClick={() => duplicate(w)}><PixelIcon name="copy" size={12} /> Duplicate</button>
-            <button className="btn small" onClick={() => exportJson(w)}><PixelIcon name="export" size={12} /> Export</button>
-            <button className="btn small danger" onClick={() => remove(w)}><PixelIcon name="trash" size={12} /> Delete</button>
+            <button className="btn small primary" onClick={() => open(w)}><PixelIcon name="play" size={12} /> {t('Open')}</button>
+            <button className="btn small" onClick={() => rename(w)}><PixelIcon name="edit" size={12} /> {t('Rename')}</button>
+            <button className="btn small" onClick={() => duplicate(w)}><PixelIcon name="copy" size={12} /> {t('Duplicate')}</button>
+            <button className="btn small" onClick={() => exportJson(w)}><PixelIcon name="export" size={12} /> {t('Export')}</button>
+            <button className="btn small danger" onClick={() => remove(w)}><PixelIcon name="trash" size={12} /> {t('Delete')}</button>
           </WorldCard>
         ))}
       </div>

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { t } from '@/i18n';
 import { TERRAINS } from '@/data/terrain';
 import type { GameSession } from '@/session/GameSession';
 import { useEditorStore } from '@/stores/editorStore';
@@ -17,7 +18,7 @@ export function useEditorHotkeys(session: GameSession) {
       const k = e.key.toLowerCase();
       if (mod && k === 's') {
         e.preventDefault();
-        session.save().then((ok) => ok && toast('Saved', 'success'));
+        session.save().then((ok) => ok && toast(t('Saved'), 'success'));
         return;
       }
       if (isTyping(e)) return;
@@ -26,7 +27,7 @@ export function useEditorHotkeys(session: GameSession) {
       const sel = ed.selection;
       if (mod && k === 'c' && sel?.col === 'objects') {
         session.clipboard = sel.ids.map((id) => session.runtime.entities.get('objects', id)).filter((o): o is NonNullable<typeof o> => !!o).map((o) => structuredClone(o));
-        toast(`Copied ${session.clipboard.length} object(s)`);
+        toast(t('Copied objects: {n}', { n: session.clipboard.length }));
         return;
       }
       if (mod && k === 'v' && session.clipboard.length) {
@@ -35,7 +36,7 @@ export function useEditorHotkeys(session: GameSession) {
         const minX = Math.min(...session.clipboard.map((o) => o.x));
         const minY = Math.min(...session.clipboard.map((o) => o.y));
         const ids = session.entities.pasteObjects(session.clipboard, h ? h.x - minX : 1, h ? h.y - minY : 1);
-        if (ids.length) { ed.select({ col: 'objects', ids }); ed.setTool('select'); } else toast('No room to paste here', 'error');
+        if (ids.length) { ed.select({ col: 'objects', ids }); ed.setTool('select'); } else toast(t('No room to paste here'), 'error');
         return;
       }
       if (mod && k === 'd' && sel?.col === 'objects') {
@@ -47,7 +48,7 @@ export function useEditorHotkeys(session: GameSession) {
       if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); session.redo(); return; }
       if (mod || e.altKey) return;
 
-      const terrain = TERRAINS.find((t) => t.hotkey === e.key);
+      const terrain = TERRAINS.find((x) => x.hotkey === e.key);
       if (terrain) { ed.setTerrain(terrain.id); ed.setSection('terrain'); if (!['brush', 'fill', 'rect'].includes(ed.tool)) ed.setTool('brush'); return; }
       switch (k) {
         case 'v': ed.setTool('select'); break;

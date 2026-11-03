@@ -1,4 +1,5 @@
 import { useCallback, useRef } from 'react';
+import { t } from '@/i18n';
 import { makeThumbnail } from '@/game/textures/mapImage';
 import { TileGrid } from '@/models/TileGrid';
 import { WorldRepository } from '@/persistence/WorldRepository';
@@ -23,10 +24,10 @@ export function useImportWorld(onImported: () => void) {
           const save = parseWorldJson(await readFileText(file));
           const grid = TileGrid.fromRle(save.map.width, save.map.height, save.map.tilesRle);
           const stored = await WorldRepository.importWorld(save, makeThumbnail(grid));
-          toast(`Imported "${stored.name}"`, 'success');
+          toast(t('Imported "{name}"', { name: stored.name }), 'success');
           onImported();
         } catch (e) {
-          toast(`Import failed: ${(e as Error).message}`, 'error');
+          toast(t('Import failed: {msg}', { msg: (e as Error).message }), 'error');
         }
       };
       inputRef.current = input;

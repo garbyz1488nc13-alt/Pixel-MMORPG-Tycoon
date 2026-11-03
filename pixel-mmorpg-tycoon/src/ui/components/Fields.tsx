@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { t } from '@/i18n';
 
 /** Small controlled form fields that commit on change (numbers are clamped). */
 
@@ -91,10 +92,10 @@ export function RowEditor<T extends object>({
               <TextInput key={String(c.key)} value={r[c.key] as string} onChange={(v) => set(i, c.key, v)} />
             ),
           )}
-          <button className="btn small icon" title="Remove" onClick={() => onChange(rows.filter((_, j) => j !== i))}>×</button>
+          <button className="btn small icon" title={t('Remove')} onClick={() => onChange(rows.filter((_, j) => j !== i))}>×</button>
         </div>
       ))}
-      <button className="btn small" onClick={() => onChange([...rows, make()])}>+ Add</button>
+      <button className="btn small" onClick={() => onChange([...rows, make()])}>+ {t('Add')}</button>
     </div>
   );
 }

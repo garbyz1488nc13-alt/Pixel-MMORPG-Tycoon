@@ -1,10 +1,12 @@
 import type { TileGrid } from '@/models/TileGrid';
+import { t } from '@/i18n';
 import type { SaveSlotKey, WorldSave } from '@/models/world';
 import { WorldRepository } from '@/persistence/WorldRepository';
 import { createWorldSave, type NewWorldOptions } from '@/systems/generation/createWorld';
 import { makeThumbnail } from '@/game/textures/mapImage';
 import { TileGrid as Grid } from '@/models/TileGrid';
 import { formatGameTime } from '@/simulation/time';
+import { WORLD_TYPES } from '@/data/worldPresets';
 import { log, useLogStore } from '@/stores/logStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { GameSession } from './GameSession';
@@ -22,7 +24,7 @@ export function openWorld(save: WorldSave, slot: SaveSlotKey): GameSession {
   useLogStore.getState().clear();
   const session = new GameSession(save, slot);
   useSessionStore.getState().go('editor');
-  log.system(`Opened "${save.name}" — ${save.map.width}×${save.map.height} tiles, ${formatGameTime(save.clock.totalMinutes)}.`, 'success', save.clock.totalMinutes);
+  log.system(t('Opened "{name}" — {w}×{h} tiles, {time}.', { name: save.name, w: save.map.width, h: save.map.height, time: formatGameTime(save.clock.totalMinutes) }), 'success', save.clock.totalMinutes);
   return session;
 }
 
@@ -39,10 +41,10 @@ export async function createAndOpenWorld(opts: NewWorldOptions, preview?: TileGr
   const grid = preview ?? Grid.fromRle(save.map.width, save.map.height, save.map.tilesRle);
   await WorldRepository.save(save, 'slot1', makeThumbnail(grid));
   const session = openWorld(save, 'slot1');
-  log.event(`World "${save.name}" was created (${opts.worldType}, seed ${opts.seed}).`, 'success', save.clock.totalMinutes);
+  log.event(t('World "{name}" was created ({type}, seed {seed}).', { name: save.name, type: t(WORLD_TYPES.find((w) => w.key === opts.worldType)?.label ?? opts.worldType), seed: opts.seed }), 'success', save.clock.totalMinutes);
   if (opts.initialNpcCount > 0) {
     const summary = generateStarterContent(session.runtime, Math.min(200, opts.initialNpcCount), opts.seed);
-    log.event(`Starter content: ${summary}`, 'success', save.clock.totalMinutes);
+    log.event(t('Starter content: {summary}', { summary }), 'success', save.clock.totalMinutes);
     focusFirstRegion(session);
     await session.save('slot1', true);
   }

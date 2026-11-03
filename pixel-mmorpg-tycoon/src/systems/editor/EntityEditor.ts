@@ -1,4 +1,5 @@
 import { createId, type EntityId } from '@/core/ids';
+import { t as tr } from '@/i18n';
 import { getCreatureType, type CreatureType } from '@/data/creatureTypes';
 import { getNpcType, randomNpcName, type NpcType } from '@/data/npcTypes';
 import { getObjectDef } from '@/data/objects';
@@ -38,14 +39,14 @@ export class EntityEditor {
     const def = getObjectDef(kind);
     if (!def || !this.rt.objectIndex.canPlace(def, x, y)) return null;
     const obj: MapObject = { id: createId('obj'), kind, x, y };
-    this.commit(`Place ${def.name}`, [this.rt.entities.add('objects', obj)], mergeKey);
+    this.commit(tr('Place {name}', { name: tr(def.name) }), [this.rt.entities.add('objects', obj)], mergeKey);
     return obj;
   }
 
   removeObjectAt(x: number, y: number, mergeKey?: string): boolean {
     const o = this.rt.objectIndex.objectAt(x, y);
     if (!o) return false;
-    this.commit('Erase objects', [this.rt.entities.remove('objects', o.id)], mergeKey);
+    this.commit(tr('Erase objects'), [this.rt.entities.remove('objects', o.id)], mergeKey);
     return true;
   }
 
@@ -74,7 +75,7 @@ export class EntityEditor {
       const def = getObjectDef(o.kind);
       if (!def || !this.rt.objectIndex.canPlace(def, o.x + dx, o.y + dy, ignore)) return false;
     }
-    this.commit(objs.length > 1 ? `Move ${objs.length} objects` : 'Move object', objs.map((o) => this.rt.entities.update('objects', o.id, { x: o.x + dx, y: o.y + dy })));
+    this.commit(objs.length > 1 ? tr('Move objects: {n}', { n: objs.length }) : tr('Move object'), objs.map((o) => this.rt.entities.update('objects', o.id, { x: o.x + dx, y: o.y + dy })));
     return true;
   }
 
@@ -91,12 +92,12 @@ export class EntityEditor {
       if (!def || !this.rt.objectIndex.canPlace(def, o.x + dx, o.y + dy)) continue;
       created.push(this.rt.entities.add('objects', { ...o, id: createId('obj'), x: o.x + dx, y: o.y + dy, linkId: undefined }));
     }
-    this.commit(created.length > 1 ? `Copy ${created.length} objects` : 'Copy object', created);
+    this.commit(created.length > 1 ? tr('Copy objects: {n}', { n: created.length }) : tr('Copy object'), created);
     return created.map((c) => c.id);
   }
 
   // ----------------------------------------------------------- generic
-  update<C extends EntityCollection>(col: C, id: EntityId, patch: Partial<Item<C>>, label = 'Edit'): void {
+  update<C extends EntityCollection>(col: C, id: EntityId, patch: Partial<Item<C>>, label = tr('Edit')): void {
     this.commit(label, [this.rt.entities.update(col, id, patch)], `${col}:${id}:${label}`);
   }
 
@@ -110,25 +111,25 @@ export class EntityEditor {
     if (col === 'objects') {
       for (const o of this.rt.entities.list('objects')) if (o.linkId && ids.includes(o.linkId)) changes.push(this.rt.entities.update('objects', o.id, { linkId: undefined }));
     }
-    return this.commit(ids.length > 1 ? `Delete ${ids.length}` : 'Delete', changes).length;
+    return this.commit(ids.length > 1 ? tr('Deleted: {n}', { n: ids.length }) : tr('Delete'), changes).length;
   }
 
   // ----------------------------------------------------------- regions & areas
   addRegion(type: RegionType, r: TileRect, name?: string): Region {
-    const region: Region = { id: createId('reg'), name: name ?? `${getRegionType(type).name} ${this.rt.entities.count('regions') + 1}`, type, ...r, minLevel: 1, maxLevel: 10 };
-    this.commit('Add region', [this.rt.entities.add('regions', region)]);
+    const region: Region = { id: createId('reg'), name: name ?? `${tr(getRegionType(type).name)} ${this.rt.entities.count('regions') + 1}`, type, ...r, minLevel: 1, maxLevel: 10 };
+    this.commit(tr('Add region'), [this.rt.entities.add('regions', region)]);
     return region;
   }
 
   moveRect(col: 'regions' | 'spawnAreas', id: EntityId, r: TileRect): void {
-    this.commit('Move area', [this.rt.entities.update(col, id, r as Partial<Item<typeof col>>)]);
+    this.commit(tr('Move area'), [this.rt.entities.update(col, id, r as Partial<Item<typeof col>>)]);
   }
 
   addSpawnArea(templateId: EntityId, r: TileRect): SpawnArea | null {
     const tpl = this.rt.entities.get('creatureTemplates', templateId);
     if (!tpl) return null;
-    const area: SpawnArea = { id: createId('spawn'), name: `${tpl.name} area`, templateId, ...r, maxCount: Math.max(1, Math.min(12, Math.round((r.w * r.h) / 24))) };
-    this.commit('Add spawn area', [this.rt.entities.add('spawnAreas', area)]);
+    const area: SpawnArea = { id: createId('spawn'), name: tr('{name} area', { name: tpl.name }), templateId, ...r, maxCount: Math.max(1, Math.min(12, Math.round((r.w * r.h) / 24))) };
+    this.commit(tr('Add spawn area'), [this.rt.entities.add('spawnAreas', area)]);
     return area;
   }
 
@@ -147,7 +148,7 @@ export class EntityEditor {
     const npc = EntityEditor.makeNpc(type, x, y);
     const taken = new Set(this.rt.entities.list('npcs').map((n) => n.name));
     for (let t = 0; t < 30 && taken.has(npc.name); t++) npc.name = EntityEditor.makeNpc(type, x, y).name;
-    this.commit(`Add ${getNpcType(type).name}`, [this.rt.entities.add('npcs', npc)]);
+    this.commit(tr('Add {name}', { name: tr(getNpcType(type).name) }), [this.rt.entities.add('npcs', npc)]);
     return npc;
   }
 
@@ -155,27 +156,27 @@ export class EntityEditor {
     const src = this.rt.entities.get('npcs', id);
     if (!src) return null;
     const spot = [[1, 0], [0, 1], [-1, 0], [0, -1], [1, 1]].find(([dx, dy]) => this.rt.nav.isWalkable(src.x + dx, src.y + dy)) ?? [0, 0];
-    const copy: NpcDef = { ...structuredClone(src), id: createId('npc'), name: `${src.name} (copy)`, x: src.x + spot[0], y: src.y + spot[1] };
-    this.commit('Duplicate NPC', [this.rt.entities.add('npcs', copy)]);
+    const copy: NpcDef = { ...structuredClone(src), id: createId('npc'), name: tr('{name} (copy)', { name: src.name }), x: src.x + spot[0], y: src.y + spot[1] };
+    this.commit(tr('Duplicate NPC'), [this.rt.entities.add('npcs', copy)]);
     return copy;
   }
 
   static makeTemplate(type: CreatureType): CreatureTemplate {
     const t = getCreatureType(type);
-    return { id: createId('ctpl'), name: t.name, type, ...t.defaults, loot: [], boss: type === 'boss' || type === 'dragon' };
+    return { id: createId('ctpl'), name: tr(t.name), type, ...t.defaults, loot: [], boss: type === 'boss' || type === 'dragon' };
   }
 
   addTemplate(type: CreatureType): CreatureTemplate {
     const tpl = EntityEditor.makeTemplate(type);
-    this.commit('Add creature', [this.rt.entities.add('creatureTemplates', tpl)]);
+    this.commit(tr('Add creature'), [this.rt.entities.add('creatureTemplates', tpl)]);
     return tpl;
   }
 
   duplicateTemplate(id: EntityId): CreatureTemplate | null {
     const src = this.rt.entities.get('creatureTemplates', id);
     if (!src) return null;
-    const copy = { ...structuredClone(src), id: createId('ctpl'), name: `${src.name} (copy)` };
-    this.commit('Duplicate creature', [this.rt.entities.add('creatureTemplates', copy)]);
+    const copy = { ...structuredClone(src), id: createId('ctpl'), name: tr('{name} (copy)', { name: src.name }) };
+    this.commit(tr('Duplicate creature'), [this.rt.entities.add('creatureTemplates', copy)]);
     return copy;
   }
 

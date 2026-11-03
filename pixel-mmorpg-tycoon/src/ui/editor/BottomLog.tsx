@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { t } from '@/i18n';
 import { formatGameTime } from '@/simulation/time';
 import { useLogStore, type LogChannel } from '@/stores/logStore';
 
@@ -26,19 +27,19 @@ export function BottomLog() {
       <div className="log-tabs">
         {FILTERS.map((f) => (
           <button key={f.key} className={`tab ${filter === f.key ? 'active' : ''}`} onClick={() => setFilter(f.key)}>
-            {f.label}
+            {t(f.label)}
             <span className="count">{f.key === 'all' ? entries.length : entries.filter((e) => e.channel === f.key).length}</span>
           </button>
         ))}
         <div className="grow" />
-        <button className="btn small" onClick={clear}>Clear</button>
+        <button className="btn small" onClick={clear}>{t('Clear')}</button>
       </div>
       <div className="log-list scroll" ref={listRef}>
-        {shown.length === 0 && <div className="hint">No messages.</div>}
+        {shown.length === 0 && <div className="hint">{t('No messages.')}</div>}
         {shown.map((e) => (
           <div key={e.id} className={`log-row ${e.level}`}>
             <span className="log-time">{e.gameMinutes !== undefined ? formatGameTime(e.gameMinutes) : new Date(e.at).toLocaleTimeString()}</span>
-            <span className={`log-chan ${e.channel}`}>{e.channel === 'sim' ? 'SIM' : e.channel === 'event' ? 'EVENT' : 'SYS'}</span>
+            <span className={`log-chan ${e.channel}`}>{e.channel === 'sim' ? t('SIM') : e.channel === 'event' ? t('EVENT') : t('SYS')}</span>
             <span className="log-text">{e.text}</span>
           </div>
         ))}

@@ -1,0 +1,52 @@
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import { AGGRESSIONS, CREATURE_TYPES } from '@/data/creatureTypes';
+import { NPC_BEHAVIORS, NPC_TYPES } from '@/data/npcTypes';
+import { OBJECT_CATEGORIES, OBJECTS } from '@/data/objects';
+import { REGION_TYPES } from '@/data/regionTypes';
+import { TERRAINS } from '@/data/terrain';
+import { DIFFICULTIES, MAP_SIZES, WORLD_TYPES } from '@/data/worldPresets';
+import { SAVE_SLOTS } from '@/models/world';
+
+/** Every string literal passed to t()/tr() anywhere in src. */
+export function sourceKeys(dir = join(__dirname, '../src')): Set<string> {
+  const keys = new Set<string>();
+  const walk = (d: string) => {
+    for (const f of readdirSync(d)) {
+      const p = join(d, f);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (/\.(ts|tsx)$/.test(f) && !p.includes('/i18n/')) {
+        const src = readFileSync(p, 'utf8');
+        const re = /\b(?:t|tr)\(\s*(['"])((?:\\.|(?!\1).)*?)\1/g;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(src))) keys.add(m[2].replace(/\\n/g, '\n').replace(/\\'/g, "'").replace(/\\"/g, '"'));
+      }
+    }
+  };
+  walk(dir);
+  return keys;
+}
+
+/** Strings that reach t() indirectly (registries, enums, labels arrays). */
+export function dynamicKeys(): Set<string> {
+  const k = new Set<string>();
+  TERRAINS.forEach((x) => k.add(x.name));
+  OBJECTS.forEach((x) => k.add(x.name));
+  OBJECT_CATEGORIES.forEach((x) => k.add(x.label));
+  NPC_TYPES.forEach((x) => k.add(x.name));
+  NPC_BEHAVIORS.forEach((x) => { k.add(x.label); k.add(x.hint); k.add(x.key); });
+  CREATURE_TYPES.forEach((x) => k.add(x.name));
+  AGGRESSIONS.forEach((x) => { k.add(x.label); k.add(x.hint); k.add(x.key); });
+  REGION_TYPES.forEach((x) => k.add(x.name));
+  WORLD_TYPES.forEach((x) => { k.add(x.label); k.add(x.description); });
+  DIFFICULTIES.forEach((x) => { k.add(x.label); k.add(x.description); });
+  MAP_SIZES.forEach((x) => k.add(x.label));
+  SAVE_SLOTS.forEach((x) => k.add(x.label));
+  ['idle', 'walk', 'chase', 'attack', 'flee', 'return', 'rest', 'dead'].forEach((s) => k.add(s));
+  ['night', 'dawn', 'day', 'dusk'].forEach((s) => k.add(s));
+  ['Terrain', 'Objects', 'Regions', 'NPC', 'Creatures', 'Spawns'].forEach((s) => k.add(s));
+  ['Brush', 'Fill', 'Rectangle', 'Picker', 'Click & drag to paint terrain.', 'Flood-fill a connected area of the same terrain.', 'Drag to paint a rectangle.', 'Click a tile to pick its terrain.'].forEach((s) => k.add(s));
+  ['All', 'Events', 'Simulation', 'System'].forEach((s) => k.add(s));
+  ['Map', 'NPC', 'Creatures', 'Economy', 'Items', 'Quests', 'Progression', 'Players', 'Events', 'Analytics', 'Settings'].forEach((s) => k.add(s));
+  return k;
+}

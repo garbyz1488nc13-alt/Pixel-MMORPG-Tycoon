@@ -1,3 +1,4 @@
+import { t as tr } from '@/i18n';
 /** Game-time helpers. A day is 1440 in-game minutes. */
 export const MINUTES_PER_DAY = 1440;
 /** Fixed simulation step in real milliseconds (10 ticks per second). */
@@ -22,7 +23,7 @@ export function toGameTime(totalMinutes: number): GameTime {
 
 export function formatGameTime(totalMinutes: number): string {
   const t = toGameTime(totalMinutes);
-  return `Day ${t.day} · ${String(t.hour).padStart(2, '0')}:${String(t.minute).padStart(2, '0')}`;
+  return `${tr('Day {n}', { n: t.day })} · ${String(t.hour).padStart(2, '0')}:${String(t.minute).padStart(2, '0')}`;
 }
 
 export type DayPhase = 'night' | 'dawn' | 'day' | 'dusk';

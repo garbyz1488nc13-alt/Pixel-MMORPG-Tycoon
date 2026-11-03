@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { t as tr } from '@/i18n';
 import { CREATURE_TYPES, type CreatureType } from '@/data/creatureTypes';
 import { NPC_TYPES } from '@/data/npcTypes';
 import { OBJECT_CATEGORIES, OBJECTS, type ObjectCategory } from '@/data/objects';
@@ -31,20 +32,20 @@ export function LeftPanel({ session }: { session: GameSession }) {
   const ed = useEditorStore();
   return (
     <div className="side-panel panel scroll">
-      <div className="panel-header">World Tools</div>
+      <div className="panel-header">{tr('World Tools')}</div>
       <div className="section">
         <div className="tool-grid">
-          <button className={`btn tool-btn ${ed.tool === 'select' ? 'active' : ''}`} title="Select / move (V). Drag empty space to box-select objects." onClick={() => ed.setTool('select')}>
-            <PixelIcon name="select" size={20} /><span>Select</span>
+          <button className={`btn tool-btn ${ed.tool === 'select' ? 'active' : ''}`} title={tr('Select / move (V). Drag empty space to box-select objects.')} onClick={() => ed.setTool('select')}>
+            <PixelIcon name="select" size={20} /><span>{tr('Select')}</span>
           </button>
-          <button className={`btn tool-btn ${ed.tool === 'erase-object' ? 'active' : ''}`} title="Erase objects (E)" onClick={() => ed.setTool('erase-object')}>
-            <PixelIcon name="trash" size={20} /><span>Erase</span>
+          <button className={`btn tool-btn ${ed.tool === 'erase-object' ? 'active' : ''}`} title={tr('Erase objects (E)')} onClick={() => ed.setTool('erase-object')}>
+            <PixelIcon name="trash" size={20} /><span>{tr('Erase')}</span>
           </button>
         </div>
       </div>
       <div className="section-tabs">
         {SECTIONS.map((s) => (
-          <button key={s.key} className={`stab ${ed.section === s.key ? 'active' : ''}`} onClick={() => ed.setSection(s.key)}>{s.label}</button>
+          <button key={s.key} className={`stab ${ed.section === s.key ? 'active' : ''}`} onClick={() => ed.setSection(s.key)}>{tr(s.label)}</button>
         ))}
       </div>
       {ed.section === 'terrain' && <TerrainSection />}
@@ -64,31 +65,31 @@ function TerrainSection() {
     <div className="section">
       <div className="tool-grid">
         {TERRAIN_TOOLS.map((t) => (
-          <button key={t.key} className={`btn tool-btn ${ed.tool === t.key ? 'active' : ''}`} title={`${t.label} (${t.hotkey})`} onClick={() => ed.setTool(t.key)}>
-            <PixelIcon name={t.icon} size={20} /><span>{t.label}</span>
+          <button key={t.key} className={`btn tool-btn ${ed.tool === t.key ? 'active' : ''}`} title={`${tr(t.label)} (${t.hotkey})`} onClick={() => ed.setTool(t.key)}>
+            <PixelIcon name={t.icon} size={20} /><span>{tr(t.label)}</span>
           </button>
         ))}
       </div>
-      {active && <div className="hint">{active.hint}</div>}
+      {active && <div className="hint">{tr(active.hint)}</div>}
       {ed.tool === 'brush' && (
         <>
           <div className="field">
-            <label>Brush size: {ed.brushSize} <span className="hint">([ / ])</span></label>
+            <label>{tr('Brush size')}: {ed.brushSize} <span className="hint">([ / ])</span></label>
             <input type="range" min={1} max={MAX_BRUSH} value={ed.brushSize} onChange={(e) => ed.setBrushSize(+e.target.value)} />
           </div>
           <div className="chip-row">
-            <button className={`btn small ${ed.brushShape === 'square' ? 'active' : ''}`} onClick={() => ed.setBrushShape('square')}>Square</button>
-            <button className={`btn small ${ed.brushShape === 'circle' ? 'active' : ''}`} onClick={() => ed.setBrushShape('circle')}>Circle</button>
+            <button className={`btn small ${ed.brushShape === 'square' ? 'active' : ''}`} onClick={() => ed.setBrushShape('square')}>{tr('Square')}</button>
+            <button className={`btn small ${ed.brushShape === 'circle' ? 'active' : ''}`} onClick={() => ed.setBrushShape('circle')}>{tr('Circle')}</button>
           </div>
         </>
       )}
-      {ed.tool === 'rect' && <label className="check"><input type="checkbox" checked={ed.rectOutline} onChange={(e) => ed.setRectOutline(e.target.checked)} /> Outline only</label>}
+      {ed.tool === 'rect' && <label className="check"><input type="checkbox" checked={ed.rectOutline} onChange={(e) => ed.setRectOutline(e.target.checked)} /> {tr('Outline only')}</label>}
       <div className="terrain-list">
         {TERRAINS.map((t) => (
-          <button key={t.id} className={`terrain-btn ${ed.terrain === t.id ? 'active' : ''}`} onClick={() => { ed.setTerrain(t.id); if (!['brush', 'fill', 'rect'].includes(ed.tool)) ed.setTool('brush'); }} title={`${t.name} (${t.hotkey})`}>
+          <button key={t.id} className={`terrain-btn ${ed.terrain === t.id ? 'active' : ''}`} onClick={() => { ed.setTerrain(t.id); if (!['brush', 'fill', 'rect'].includes(ed.tool)) ed.setTool('brush'); }} title={`${tr(t.name)} (${t.hotkey})`}>
             <TerrainSwatch terrain={t.id} size={28} />
-            <span className="grow">{t.name}</span>
-            {!t.walkable && <span className="badge" title="Not walkable">BLOCK</span>}
+            <span className="grow">{tr(t.name)}</span>
+            {!t.walkable && <span className="badge" title={tr('Not walkable')}>{tr('BLOCK')}</span>}
             <span className="hotkey">{t.hotkey}</span>
           </button>
         ))}
@@ -105,18 +106,18 @@ function ObjectsSection() {
     <div className="section">
       <div className="chip-row">
         {OBJECT_CATEGORIES.map((c) => (
-          <button key={c.key} className={`btn small ${cat === c.key ? 'active' : ''}`} onClick={() => setCat(c.key)}>{c.label}</button>
+          <button key={c.key} className={`btn small ${cat === c.key ? 'active' : ''}`} onClick={() => setCat(c.key)}>{tr(c.label)}</button>
         ))}
       </div>
       <div className="sprite-grid">
         {items.map((o) => (
-          <button key={o.key} className={`sprite-btn ${ed.tool === 'place-object' && ed.objectKind === o.key ? 'active' : ''}`} title={`${o.name} · ${o.w}×${o.h}${o.blocks ? ' · blocks movement' : ''}`} onClick={() => ed.setObjectKind(o.key)}>
+          <button key={o.key} className={`sprite-btn ${ed.tool === 'place-object' && ed.objectKind === o.key ? 'active' : ''}`} title={`${tr(o.name)} · ${o.w}×${o.h}${o.blocks ? ' · ' + tr('blocks movement') : ''}`} onClick={() => ed.setObjectKind(o.key)}>
             <SpritePreview frame={`obj:${o.key}`} box={40} />
-            <span>{o.name}</span>
+            <span>{tr(o.name)}</span>
           </button>
         ))}
       </div>
-      <div className="hint">Click to place; drag to paint 1×1 objects (roads, fences, trees). Red ghost = blocked spot.</div>
+      <div className="hint">{tr('Click to place; drag to paint 1×1 objects (roads, fences, trees). Red ghost = blocked spot.')}</div>
     </div>
   );
 }
@@ -126,17 +127,17 @@ function RegionsSection({ session }: { session: GameSession }) {
   const regions = useEntityList(session, 'regions');
   return (
     <div className="section">
-      <div className="hint">Pick a type, then drag on the map to draw the region.</div>
+      <div className="hint">{tr('Pick a type, then drag on the map to draw the region.')}</div>
       <div className="region-types">
         {REGION_TYPES.map((t) => (
           <button key={t.key} className={`btn small ${ed.tool === 'region' && ed.regionType === t.key ? 'active' : ''}`} onClick={() => ed.setRegionType(t.key)}>
-            <span className="swatch" style={{ background: `#${t.color.toString(16).padStart(6, '0')}` }} /> {t.name}
+            <span className="swatch" style={{ background: `#${t.color.toString(16).padStart(6, '0')}` }} /> {tr(t.name)}
           </button>
         ))}
       </div>
       <EntityList
-        title={`Regions (${regions.length})`}
-        items={regions.map((r) => ({ id: r.id, label: r.name, sub: `${getRegionType(r.type).name} · ${r.w}×${r.h}`, x: r.x + r.w / 2, y: r.y + r.h / 2 }))}
+        title={`${tr('Regions')} (${regions.length})`}
+        items={regions.map((r) => ({ id: r.id, label: r.name, sub: `${tr(getRegionType(r.type).name)} · ${r.w}×${r.h}`, x: r.x + r.w / 2, y: r.y + r.h / 2 }))}
         col="regions"
         session={session}
       />
@@ -149,16 +150,16 @@ function NpcSection({ session }: { session: GameSession }) {
   const npcs = useEntityList(session, 'npcs');
   return (
     <div className="section">
-      <div className="hint">Pick a type, then click a walkable tile to place an NPC.</div>
+      <div className="hint">{tr('Pick a type, then click a walkable tile to place an NPC.')}</div>
       <div className="sprite-grid">
         {NPC_TYPES.map((t) => (
-          <button key={t.key} className={`sprite-btn ${ed.tool === 'npc' && ed.npcType === t.key ? 'active' : ''}`} onClick={() => ed.setNpcType(t.key)} title={t.name}>
+          <button key={t.key} className={`sprite-btn ${ed.tool === 'npc' && ed.npcType === t.key ? 'active' : ''}`} onClick={() => ed.setNpcType(t.key)} title={tr(t.name)}>
             <SpritePreview frame={`npc:${t.key}:0`} box={32} />
-            <span>{t.name} <b className="count">{npcs.filter((n) => n.type === t.key).length}</b></span>
+            <span>{tr(t.name)} <b className="count">{npcs.filter((n) => n.type === t.key).length}</b></span>
           </button>
         ))}
       </div>
-      <button className="btn small" onClick={() => ed.setTab('npc')}>Open NPC editor ({npcs.length})</button>
+      <button className="btn small" onClick={() => ed.setTab('npc')}>{tr('Open NPC editor')} ({npcs.length})</button>
     </div>
   );
 }
@@ -169,23 +170,23 @@ function CreaturesSection({ session }: { session: GameSession }) {
   const [newType, setNewType] = useState<CreatureType>('slime');
   return (
     <div className="section">
-      <div className="hint">Pick a creature, then drag on the map to draw its spawn area.</div>
-      {templates.length === 0 && <div className="hint">No creatures yet — create one below.</div>}
+      <div className="hint">{tr('Pick a creature, then drag on the map to draw its spawn area.')}</div>
+      {templates.length === 0 && <div className="hint">{tr('No creatures yet — create one below.')}</div>}
       <div className="sprite-grid">
         {templates.map((t) => (
-          <button key={t.id} className={`sprite-btn ${ed.tool === 'spawn-area' && ed.templateId === t.id ? 'active' : ''}`} onClick={() => { ed.setTemplateId(t.id); ed.setTool('spawn-area'); }} title={`${t.name} · Lv ${t.level}`}>
+          <button key={t.id} className={`sprite-btn ${ed.tool === 'spawn-area' && ed.templateId === t.id ? 'active' : ''}`} onClick={() => { ed.setTemplateId(t.id); ed.setTool('spawn-area'); }} title={`${t.name} · ${tr('Lv')} ${t.level}`}>
             <SpritePreview frame={`cr:${t.type}:0`} box={32} />
-            <span>{t.name} <b className="count">Lv{t.level}</b></span>
+            <span>{t.name} <b className="count">{tr('Lv')}{t.level}</b></span>
           </button>
         ))}
       </div>
       <div className="row">
         <select className="input grow" value={newType} onChange={(e) => setNewType(e.target.value as CreatureType)}>
-          {CREATURE_TYPES.map((t) => <option key={t.key} value={t.key}>{t.name}</option>)}
+          {CREATURE_TYPES.map((t) => <option key={t.key} value={t.key}>{tr(t.name)}</option>)}
         </select>
-        <button className="btn small" onClick={() => { const t = session.entities.addTemplate(newType); ed.setTemplateId(t.id); ed.setTool('spawn-area'); }}>+ New</button>
+        <button className="btn small" onClick={() => { const t = session.entities.addTemplate(newType); ed.setTemplateId(t.id); ed.setTool('spawn-area'); }}>+ {tr('New')}</button>
       </div>
-      <button className="btn small" onClick={() => ed.setTab('creatures')}>Open creature editor</button>
+      <button className="btn small" onClick={() => ed.setTab('creatures')}>{tr('Open creature editor')}</button>
     </div>
   );
 }
@@ -199,11 +200,11 @@ function SpawnsSection({ session }: { session: GameSession }) {
     <div className="section">
       <button className={`sprite-btn wide ${ed.tool === 'place-object' && ed.objectKind === 'player_spawn' ? 'active' : ''}`} onClick={() => ed.setObjectKind('player_spawn')}>
         <SpritePreview frame="obj:player_spawn" box={32} />
-        <span>Place player spawn point</span>
+        <span>{tr('Place player spawn point')}</span>
       </button>
-      <div className="hint">Simulated players (Phase 4) will enter the world at these points.</div>
-      <EntityList title={`Player spawns (${spawns.length})`} col="objects" session={session} items={spawns.map((s, i) => ({ id: s.id, label: s.name ?? `Spawn ${i + 1}`, sub: `(${s.x}, ${s.y})`, x: s.x, y: s.y }))} />
-      <EntityList title={`Creature spawn areas (${areas.length})`} col="spawnAreas" session={session} items={areas.map((a) => ({ id: a.id, label: a.name, sub: `×${a.maxCount} · ${a.w}×${a.h}`, x: a.x + a.w / 2, y: a.y + a.h / 2 }))} />
+      <div className="hint">{tr('Simulated players (Phase 4) will enter the world at these points.')}</div>
+      <EntityList title={`${tr('Player spawns')} (${spawns.length})`} col="objects" session={session} items={spawns.map((s, i) => ({ id: s.id, label: s.name ?? `${tr('Spawn')} ${i + 1}`, sub: `(${s.x}, ${s.y})`, x: s.x, y: s.y }))} />
+      <EntityList title={`${tr('Creature spawn areas')} (${areas.length})`} col="spawnAreas" session={session} items={areas.map((a) => ({ id: a.id, label: a.name, sub: `×${a.maxCount} · ${a.w}×${a.h}`, x: a.x + a.w / 2, y: a.y + a.h / 2 }))} />
     </div>
   );
 }
@@ -216,7 +217,7 @@ export function EntityList({ title, items, col, session }: { title: string; item
   return (
     <div className="entity-list">
       <div className="el-title">{title}</div>
-      {items.length === 0 && <div className="hint">None yet.</div>}
+      {items.length === 0 && <div className="hint">{tr('None yet.')}</div>}
       {items.map((it) => (
         <button
           key={it.id}

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { t, t as tr } from '@/i18n';
 import { randomSeed } from '@/core/random';
 import { getTerrain, TERRAINS } from '@/data/terrain';
 import { DIFFICULTIES, MAP_SIZES, MAX_MAP_SIZE, MIN_MAP_SIZE, WORLD_TYPES, type Difficulty, type WorldType } from '@/data/worldPresets';
@@ -67,7 +68,7 @@ export function CreateWorldScreen() {
   };
 
   const create = async () => {
-    if (!name.trim()) return toast('Please enter a world name.', 'error');
+    if (!name.trim()) return toast(t('Please enter a world name.'), 'error');
     setCreating(true);
     try {
       await createAndOpenWorld(
@@ -75,85 +76,85 @@ export function CreateWorldScreen() {
         preview && preview.width === width && preview.height === height ? preview : undefined,
       );
     } catch (e) {
-      toast(`Failed to create world: ${(e as Error).message}`, 'error');
+      toast(t('Failed to create world: {msg}', { msg: (e as Error).message }), 'error');
       setCreating(false);
     }
   };
 
   return (
-    <ScreenFrame title="Create New World" onBack={() => go('menu')}>
+    <ScreenFrame title={t('Create New World')} onBack={() => go('menu')}>
       <div className="create-grid">
         <div className="create-form">
           <div className="field">
-            <label>World name</label>
+            <label>{t('World name')}</label>
             <input className="input" value={name} maxLength={48} onChange={(e) => setName(e.target.value)} />
           </div>
 
           <div className="field">
-            <label>Map size</label>
+            <label>{t('Map size')}</label>
             <div className="chip-row">
               {MAP_SIZES.map((s) => (
-                <button key={s.key} className={`btn small ${sizeKey === s.key ? 'active' : ''}`} onClick={() => setSizeKey(s.key)}>{s.label}</button>
+                <button key={s.key} className={`btn small ${sizeKey === s.key ? 'active' : ''}`} onClick={() => setSizeKey(s.key)}>{t(s.label)} ({s.width}×{s.height})</button>
               ))}
-              <button className={`btn small ${sizeKey === 'custom' ? 'active' : ''}`} onClick={() => setSizeKey('custom')}>Custom</button>
+              <button className={`btn small ${sizeKey === 'custom' ? 'active' : ''}`} onClick={() => setSizeKey('custom')}>{t('Custom')}</button>
             </div>
             {sizeKey === 'custom' && (
               <div className="row">
                 <input className="input" type="number" min={MIN_MAP_SIZE} max={MAX_MAP_SIZE} value={customW} onChange={(e) => setCustomW(+e.target.value)} style={{ width: 90 }} />
                 ×
                 <input className="input" type="number" min={MIN_MAP_SIZE} max={MAX_MAP_SIZE} value={customH} onChange={(e) => setCustomH(+e.target.value)} style={{ width: 90 }} />
-                <span className="hint">{MIN_MAP_SIZE}–{MAX_MAP_SIZE} tiles</span>
+                <span className="hint">{t('{min}–{max} tiles', { min: MIN_MAP_SIZE, max: MAX_MAP_SIZE })}</span>
               </div>
             )}
           </div>
 
           <div className="field">
-            <label>World type</label>
+            <label>{t('World type')}</label>
             <div className="type-grid">
               {WORLD_TYPES.map((t) => (
-                <button key={t.key} className={`btn type-card ${worldType === t.key ? 'active' : ''}`} onClick={() => setWorldType(t.key)} title={t.description}>
-                  {t.label}
+                <button key={t.key} className={`btn type-card ${worldType === t.key ? 'active' : ''}`} onClick={() => setWorldType(t.key)} title={tr(t.description)}>
+                  {tr(t.label)}
                 </button>
               ))}
             </div>
-            <span className="hint">{WORLD_TYPES.find((t) => t.key === worldType)?.description}</span>
+            <span className="hint">{tr(WORLD_TYPES.find((w) => w.key === worldType)?.description ?? '')}</span>
           </div>
 
           <div className="field">
-            <label>Difficulty</label>
+            <label>{t('Difficulty')}</label>
             <div className="chip-row">
               {DIFFICULTIES.map((d) => (
-                <button key={d.key} className={`btn small ${difficulty === d.key ? 'active' : ''}`} onClick={() => onDifficulty(d.key)} title={d.description}>{d.label}</button>
+                <button key={d.key} className={`btn small ${difficulty === d.key ? 'active' : ''}`} onClick={() => onDifficulty(d.key)} title={t(d.description)}>{t(d.label)}</button>
               ))}
             </div>
           </div>
 
           <div className="two-col">
             <div className="field">
-              <label>Starting gold (treasury)</label>
+              <label>{t('Starting gold (treasury)')}</label>
               <input className="input" type="number" min={0} step={500} value={startingGold} onChange={(e) => setStartingGold(Math.max(0, +e.target.value))} />
             </div>
             <div className="field">
-              <label>Seed</label>
+              <label>{t('Seed')}</label>
               <div className="row">
                 <input className="input grow" type="number" value={seed} onChange={(e) => setSeed(Math.abs(Math.floor(+e.target.value)) || 0)} />
-                <button className="btn icon" title="Random seed" onClick={() => setSeed(randomSeed())}><PixelIcon name="dice" /></button>
+                <button className="btn icon" title={t('Random seed')} onClick={() => setSeed(randomSeed())}><PixelIcon name="dice" /></button>
               </div>
             </div>
           </div>
 
           <div className="two-col">
             <div className="field">
-              <label>Initial NPCs: <b>{npcs}</b></label>
+              <label>{t('Initial NPCs')}: <b>{npcs}</b></label>
               <input type="range" min={0} max={200} value={npcs} onChange={(e) => setNpcs(+e.target.value)} />
             </div>
             <div className="field">
-              <label>Initial simulated players: <b>{players}</b></label>
+              <label>{t('Initial simulated players')}: <b>{players}</b></label>
               <input type="range" min={0} max={1000} step={10} value={players} onChange={(e) => setPlayers(+e.target.value)} />
             </div>
           </div>
           <div className="hint">
-            NPC and player counts are saved with the world now. NPCs get placed when the NPC system arrives (Phase 2); players spawn when the simulation arrives (Phase 4).
+            {t('The NPCs are placed in a generated starter settlement. Simulated players are stored with the world and spawn when the player simulation arrives (Phase 4).')}
           </div>
         </div>
 
@@ -161,18 +162,18 @@ export function CreateWorldScreen() {
           <div className="preview-frame">
             <canvas ref={canvasRef} className="preview-canvas" />
           </div>
-          <div className="hint center">{width} × {height} tiles · seed {seed}</div>
+          <div className="hint center">{t('{w} × {h} tiles · seed {seed}', { w: width, h: height, seed })}</div>
           <div className="composition">
             {composition.map((c) => (
               <div key={c.id} className="comp-row">
                 <span className="comp-dot" style={{ background: getTerrain(c.id).palette[0] }} />
-                <span className="grow">{TERRAINS[c.id].name}</span>
+                <span className="grow">{t(TERRAINS[c.id].name)}</span>
                 <span>{c.pct.toFixed(0)}%</span>
               </div>
             ))}
           </div>
           <button className="btn big primary" disabled={creating || !preview} onClick={create}>
-            {creating ? 'Creating…' : 'Create World'}
+            {creating ? t('Creating…') : t('Create World')}
           </button>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { t } from '@/i18n';
 import type { WorldMeta } from '@/models/world';
 import { WorldRepository } from '@/persistence/WorldRepository';
 import { toast } from '@/stores/toastStore';
@@ -9,7 +10,7 @@ export function useWorldList() {
     try {
       setWorlds(await WorldRepository.listWorlds());
     } catch (e) {
-      toast(`Could not read saved worlds: ${(e as Error).message}`, 'error');
+      toast(t('Could not read saved worlds: {msg}', { msg: (e as Error).message }), 'error');
       setWorlds([]);
     }
   }, []);

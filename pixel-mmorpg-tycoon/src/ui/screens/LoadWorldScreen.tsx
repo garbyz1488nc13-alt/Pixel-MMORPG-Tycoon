@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { t } from '@/i18n';
 import { SAVE_SLOTS, type SaveSlotKey, type SaveSlotRecord } from '@/models/world';
 import { WorldRepository } from '@/persistence/WorldRepository';
 import { loadAndOpenWorld } from '@/session/sessionActions';
@@ -30,21 +31,21 @@ export function LoadWorldScreen() {
 
   const load = async (slot: SaveSlotKey) => {
     if (!selected) return;
-    if (!(await loadAndOpenWorld(selected, slot))) toast('Slot is empty.', 'error');
+    if (!(await loadAndOpenWorld(selected, slot))) toast(t('Slot is empty.'), 'error');
   };
 
   return (
     <ScreenFrame
-      title="Load World"
+      title={t('Load World')}
       onBack={() => go('menu')}
-      actions={<button className="btn small" onClick={importWorld}><PixelIcon name="import" size={12} /> Import JSON</button>}
+      actions={<button className="btn small" onClick={importWorld}><PixelIcon name="import" size={12} /> {t('Import JSON')}</button>}
     >
       {worlds?.length === 0 && (
         <div className="empty-state">
-          <div>No saved worlds. Create one or import a .world.json file.</div>
+          <div>{t('No saved worlds. Create one or import a .world.json file.')}</div>
           <div className="row">
-            <button className="btn primary" onClick={() => go('create')}>Create World</button>
-            <button className="btn" onClick={importWorld}>Import JSON</button>
+            <button className="btn primary" onClick={() => go('create')}>{t('Create World')}</button>
+            <button className="btn" onClick={importWorld}>{t('Import JSON')}</button>
           </div>
         </div>
       )}
@@ -56,7 +57,7 @@ export function LoadWorldScreen() {
         </div>
         {selected && (
           <div className="panel slot-panel">
-            <div className="panel-header">Save slots</div>
+            <div className="panel-header">{t('Save slots')}</div>
             <div className="slot-list">
               {SAVE_SLOTS.map((s) => {
                 const info = slots.find((x) => x.slot === s.key);
@@ -64,10 +65,10 @@ export function LoadWorldScreen() {
                   <div key={s.key} className={`slot-row ${info ? '' : 'empty'}`}>
                     <PixelIcon name="save" />
                     <div className="grow">
-                      <div>{s.label}</div>
-                      <div className="hint">{info ? formatDate(info.savedAt) : 'empty'}</div>
+                      <div>{t(s.label)}</div>
+                      <div className="hint">{info ? formatDate(info.savedAt) : t('empty')}</div>
                     </div>
-                    <button className="btn small primary" disabled={!info} onClick={() => load(s.key)}>Load</button>
+                    <button className="btn small primary" disabled={!info} onClick={() => load(s.key)}>{t('Load')}</button>
                   </div>
                 );
               })}

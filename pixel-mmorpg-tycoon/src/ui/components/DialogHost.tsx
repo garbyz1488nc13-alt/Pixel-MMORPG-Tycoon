@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { t } from '@/i18n';
 import { useDialogStore } from '@/stores/dialogStore';
 import { Modal } from './Modal';
 
@@ -23,8 +24,8 @@ export function DialogHost() {
       onClose={() => finish(current.kind === 'prompt' ? null : false)}
       actions={
         <>
-          <button className="btn" onClick={() => finish(current.kind === 'prompt' ? null : false)}>Cancel</button>
-          <button className={`btn ${current.danger ? 'danger' : 'primary'}`} onClick={ok}>{current.confirmLabel ?? 'OK'}</button>
+          <button className="btn" onClick={() => finish(current.kind === 'prompt' ? null : false)}>{t('Cancel')}</button>
+          <button className={`btn ${current.danger ? 'danger' : 'primary'}`} onClick={ok}>{current.confirmLabel ?? t('OK')}</button>
         </>
       }
     >

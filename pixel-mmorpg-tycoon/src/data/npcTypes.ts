@@ -1,3 +1,4 @@
+import { getLang, t } from '@/i18n';
 export type NpcType = 'merchant' | 'blacksmith' | 'questgiver' | 'guard' | 'healer' | 'banker' | 'trainer' | 'farmer' | 'villager';
 export type NpcBehavior = 'stationary' | 'wander' | 'patrol';
 
@@ -40,6 +41,11 @@ export function npcCombatStats(level: number) {
 }
 
 const FIRST = ['Aldric', 'Bren', 'Cora', 'Dain', 'Elsa', 'Finn', 'Greta', 'Hale', 'Ivo', 'Jora', 'Kael', 'Lysa', 'Moss', 'Nell', 'Orin', 'Pia', 'Quill', 'Rhea', 'Sten', 'Tova', 'Ulric', 'Vera', 'Wren', 'Yara'];
+const FIRST_UK = ['Остап', 'Богдана', 'Тарас', 'Оксана', 'Мирослав', 'Леся', 'Данило', 'Ярина', 'Святослав', 'Злата', 'Добромир', 'Олеся', 'Ярема', 'Мар\'яна', 'Северин', 'Христина', 'Зореслав', 'Ганна', 'Назар', 'Устина', 'Гордій', 'Віра', 'Любомир', 'Соломія'];
+
+/** Random display name in the current language, e.g. "Aldric the Merchant" / "Остап, торговець". */
 export function randomNpcName(type: NpcType, rand: () => number = Math.random): string {
-  return `${FIRST[Math.floor(rand() * FIRST.length)]} the ${getNpcType(type).name}`;
+  const role = t(getNpcType(type).name);
+  if (getLang() === 'uk') return `${FIRST_UK[Math.floor(rand() * FIRST_UK.length)]}, ${role.toLowerCase()}`;
+  return `${FIRST[Math.floor(rand() * FIRST.length)]} the ${role}`;
 }

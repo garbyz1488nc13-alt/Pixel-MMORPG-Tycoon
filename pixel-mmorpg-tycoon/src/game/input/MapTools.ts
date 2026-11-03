@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { t as tr } from '@/i18n';
 import type { EntityId } from '@/core/ids';
 import { getNpcType } from '@/data/npcTypes';
 import { getObjectDef } from '@/data/objects';
@@ -141,16 +142,16 @@ export class MapTools {
         const npc = this.session.entities.addNpc(ed.npcType, t.x, t.y);
         if (npc) {
           ed.select({ col: 'npcs', ids: [npc.id] });
-          log.event(`${npc.name} joined the world.`, 'info', this.rt.clock.totalMinutes);
-        } else toast('NPCs need a walkable tile', 'error');
+          log.event(tr('{name} joined the world.', { name: npc.name }), 'info', this.rt.clock.totalMinutes);
+        } else toast(tr('NPCs need a walkable tile'), 'error');
         break;
       }
       case 'waypoint': {
         const sel = ed.selection;
         const npc = sel?.col === 'npcs' ? this.rt.entities.get('npcs', sel.ids[0]) : undefined;
-        if (!npc) { toast('Select an NPC first', 'error'); ed.setTool('select'); break; }
-        if (!this.rt.nav.isWalkable(t.x, t.y)) { toast('Waypoints need a walkable tile', 'error'); break; }
-        this.session.entities.update('npcs', npc.id, { waypoints: [...npc.waypoints, { x: t.x, y: t.y }], behavior: 'patrol' }, 'Add waypoint');
+        if (!npc) { toast(tr('Select an NPC first'), 'error'); ed.setTool('select'); break; }
+        if (!this.rt.nav.isWalkable(t.x, t.y)) { toast(tr('Waypoints need a walkable tile'), 'error'); break; }
+        this.session.entities.update('npcs', npc.id, { waypoints: [...npc.waypoints, { x: t.x, y: t.y }], behavior: 'patrol' }, tr('Add waypoint'));
         break;
       }
     }
@@ -198,7 +199,7 @@ export class MapTools {
       if (a) {
         const def = this.rt.entities.get('npcs', hit.id);
         const rp = this.renderer.actorScreenPos(a.id) ?? a;
-        this.renderer.showHoverLabel(`${displayName(this.session.actors, a)} · Lv ${def?.level ?? '?'} · ${a.state}`, rp.x * S, (rp.y - 0.8) * S);
+        this.renderer.showHoverLabel(`${displayName(this.session.actors, a)} · ${tr('Lv')} ${def?.level ?? '?'} · ${tr(a.state)}`, rp.x * S, (rp.y - 0.8) * S);
         return;
       }
     }
@@ -208,7 +209,7 @@ export class MapTools {
       const rp = this.renderer.actorScreenPos(a.id) ?? a;
       if (Math.hypot(rp.x - t.wx, rp.y - 0.3 - t.wy) < 0.7) {
         const tpl = this.session.actors.template(a);
-        this.renderer.showHoverLabel(`${tpl?.name ?? '?'} · Lv ${tpl?.level ?? '?'} · ${a.hp}/${a.maxHp} HP`, rp.x * S, (rp.y - 0.9) * S);
+        this.renderer.showHoverLabel(`${tpl?.name ?? '?'} · ${tr('Lv')} ${tpl?.level ?? '?'} · ${a.hp}/${a.maxHp} ${tr('HP')}`, rp.x * S, (rp.y - 0.9) * S);
         return;
       }
     }
@@ -221,7 +222,7 @@ export class MapTools {
     const t = this.tileOf(p);
     if (this.painting) {
       this.painting = false;
-      this.session.painter.endStroke('Paint');
+      this.session.painter.endStroke(tr('Paint'));
     }
     this.strokeKey = null;
     if (this.dragRect) {
@@ -251,14 +252,14 @@ export class MapTools {
         this.session.painter.rect(r.x, r.y, r.x + r.w - 1, r.y + r.h - 1, ed.terrain, ed.rectOutline);
         break;
       case 'region': {
-        if (r.w < 2 || r.h < 2) { toast('Drag a larger area for the region', 'error'); return; }
+        if (r.w < 2 || r.h < 2) { toast(tr('Drag a larger area for the region'), 'error'); return; }
         const reg = this.session.entities.addRegion(ed.regionType, r);
         ed.select({ col: 'regions', ids: [reg.id] });
-        log.event(`Region "${reg.name}" created (${r.w}×${r.h}).`, 'info', this.rt.clock.totalMinutes);
+        log.event(tr('Region "{name}" created ({w}×{h}).', { name: reg.name, w: r.w, h: r.h }), 'info', this.rt.clock.totalMinutes);
         break;
       }
       case 'spawn-area': {
-        if (!ed.templateId || !this.rt.entities.get('creatureTemplates', ed.templateId)) { toast('Pick a creature first', 'error'); return; }
+        if (!ed.templateId || !this.rt.entities.get('creatureTemplates', ed.templateId)) { toast(tr('Pick a creature first'), 'error'); return; }
         const area = this.session.entities.addSpawnArea(ed.templateId, r);
         if (area) ed.select({ col: 'spawnAreas', ids: [area.id] });
         break;
@@ -275,13 +276,13 @@ export class MapTools {
     const ents = this.session.entities;
     switch (sel.col) {
       case 'objects':
-        if (!ents.moveObjects(sel.ids, dx, dy)) toast("Can't move there — blocked", 'error');
+        if (!ents.moveObjects(sel.ids, dx, dy)) toast(tr("Can't move there — blocked"), 'error');
         break;
       case 'npcs': {
         const n = this.rt.entities.get('npcs', sel.ids[0]);
         if (!n) break;
-        if (!this.rt.nav.isWalkable(n.x + dx, n.y + dy)) { toast('NPC home must be walkable', 'error'); break; }
-        ents.update('npcs', n.id, { x: n.x + dx, y: n.y + dy, waypoints: n.waypoints.map((w) => ({ x: w.x + dx, y: w.y + dy })) }, 'Move NPC');
+        if (!this.rt.nav.isWalkable(n.x + dx, n.y + dy)) { toast(tr('NPC home must be walkable'), 'error'); break; }
+        ents.update('npcs', n.id, { x: n.x + dx, y: n.y + dy, waypoints: n.waypoints.map((w) => ({ x: w.x + dx, y: w.y + dy })) }, tr('Move NPC'));
         break;
       }
       case 'regions':
