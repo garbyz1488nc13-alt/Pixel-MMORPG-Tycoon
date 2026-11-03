@@ -1,9 +1,10 @@
 import type { EntityId } from '@/core/ids';
 import type { Difficulty, WorldType } from '@/data/worldPresets';
 import type { WorldEntities } from './entities';
+import type { RpgConfig } from './rpg';
 
 /** Bump when the saved shape changes; migrations live in persistence/migrations.ts. */
-export const WORLD_SCHEMA_VERSION = 2;
+export const WORLD_SCHEMA_VERSION = 3;
 
 export interface WorldConfig {
   worldType: WorldType;
@@ -43,6 +44,8 @@ export interface WorldSave {
   camera?: CameraState;
   /** Objects, regions, NPCs, creatures (schema v2+). */
   entities: WorldEntities;
+  /** Economy & progression rules (schema v3+). */
+  rpg: RpgConfig;
 }
 
 /** Lightweight listing record (no map data) for menus. */

@@ -80,7 +80,7 @@ class Planner {
       const x = near ? near.x + this.rng.int(-2, 2) : r.x + this.rng.int(0, r.w - 1);
       const y = near ? near.y + this.rng.int(-1, 2) : r.y + this.rng.int(0, r.h - 1);
       if (!this.freeWalkable(x, y)) continue;
-      const n = EntityEditor.makeNpc(type, x, y, () => this.rng.next());
+      const n = EntityEditor.makeNpc(type, x, y, () => this.rng.next(), this.world.entities.list('items'));
       // Keep names unique within the world where possible.
       const taken = new Set([...this.world.entities.list('npcs'), ...this.npcs].map((o) => o.name));
       for (let t = 0; t < 30 && taken.has(n.name); t++) n.name = EntityEditor.makeNpc(type, x, y, () => this.rng.next()).name;
@@ -95,7 +95,7 @@ class Planner {
   template(type: CreatureType): CreatureTemplate {
     const existing = [...this.world.entities.list('creatureTemplates'), ...this.templates].find((t) => t.type === type);
     if (existing) return existing;
-    const t = EntityEditor.makeTemplate(type);
+    const t = EntityEditor.makeTemplate(type, this.world.entities.list('items'));
     this.templates.push(t);
     return t;
   }

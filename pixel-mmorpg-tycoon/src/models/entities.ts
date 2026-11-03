@@ -2,6 +2,9 @@ import type { EntityId } from '@/core/ids';
 import type { Aggression, CreatureType } from '@/data/creatureTypes';
 import type { NpcBehavior, NpcType } from '@/data/npcTypes';
 import type { RegionType } from '@/data/regionTypes';
+import type { ItemDef, ItemStack, LootEntry, QuestDef, ShopEntry } from './rpg';
+
+export type { ItemStack, LootEntry, ShopEntry } from './rpg';
 
 /** Editor-authored definitions. Runtime state (positions, HP) lives in the simulation. */
 
@@ -28,10 +31,6 @@ export interface Region {
   maxLevel: number;
 }
 
-/** Free-form item stack. Becomes a reference to the item database in Phase 3. */
-export interface ItemStack { name: string; qty: number }
-export interface ShopEntry { name: string; price: number; stock: number }
-export interface LootEntry { name: string; chance: number; min: number; max: number }
 export interface Point { x: number; y: number }
 
 export interface NpcDef {
@@ -49,6 +48,8 @@ export interface NpcDef {
   wanderRadius: number;
   waypoints: Point[];
   inventory: ItemStack[];
+  /** Coins the NPC carries (used for trading). */
+  gold: number;
   shop: { enabled: boolean; items: ShopEntry[] };
   /** Working hours, 0–24. Outside them the NPC goes home and rests. */
   workStart: number;
@@ -91,10 +92,12 @@ export interface WorldEntities {
   npcs: NpcDef[];
   creatureTemplates: CreatureTemplate[];
   spawnAreas: SpawnArea[];
+  items: ItemDef[];
+  quests: QuestDef[];
 }
 
 export type EntityCollection = keyof WorldEntities;
 
 export function emptyEntities(): WorldEntities {
-  return { objects: [], regions: [], npcs: [], creatureTemplates: [], spawnAreas: [] };
+  return { objects: [], regions: [], npcs: [], creatureTemplates: [], spawnAreas: [], items: [], quests: [] };
 }

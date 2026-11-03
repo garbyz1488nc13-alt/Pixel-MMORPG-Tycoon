@@ -1,3 +1,4 @@
+import type { RpgConfig } from '@/models/rpg';
 import type { EntityChange } from '@/simulation/EntityStore';
 import type { TileGrid } from '@/models/TileGrid';
 import type { WorldRuntime } from '@/simulation/WorldRuntime';
@@ -46,7 +47,7 @@ export class History {
 
   push(cmd: EditorCommand): void {
     const last = this.undoStack[this.undoStack.length - 1];
-    if (last instanceof EntityCommand && cmd instanceof EntityCommand && last.absorb(cmd)) {
+    if ((last instanceof EntityCommand && cmd instanceof EntityCommand && last.absorb(cmd)) || (last instanceof RpgCommand && cmd instanceof RpgCommand && last.absorb(cmd))) {
       this.redoStack.length = 0;
       this.onChange?.();
       return;
@@ -117,5 +118,27 @@ export class CompositeCommand implements EditorCommand {
   }
   redo(world: WorldRuntime): void {
     for (const p of this.parts) p.redo(world);
+  }
+}
+
+/** Economy / progression rule edits. Consecutive edits with the same mergeKey collapse into one step. */
+export class RpgCommand implements EditorCommand {
+  at = Date.now();
+  constructor(readonly label: string, private before: RpgConfig, public after: RpgConfig, readonly mergeKey?: string) {}
+  undo(world: WorldRuntime): void {
+    world.rpg = structuredClone(this.before);
+    world.events.emit('rpg:changed', undefined);
+    world.markDirty();
+  }
+  redo(world: WorldRuntime): void {
+    world.rpg = structuredClone(this.after);
+    world.events.emit('rpg:changed', undefined);
+    world.markDirty();
+  }
+  absorb(next: RpgCommand): boolean {
+    if (!this.mergeKey || this.mergeKey !== next.mergeKey || next.at - this.at > 1500) return false;
+    this.after = next.after;
+    this.at = next.at;
+    return true;
   }
 }

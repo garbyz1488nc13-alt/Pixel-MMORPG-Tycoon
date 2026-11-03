@@ -10,9 +10,13 @@ import { SimulationEngine } from '@/simulation/SimulationEngine';
 import { ClockSystem } from '@/simulation/systems/ClockSystem';
 import { NpcSystem } from '@/simulation/systems/NpcSystem';
 import { CreatureSystem } from '@/simulation/systems/CreatureSystem';
+import { EconomySystem } from '@/simulation/systems/EconomySystem';
+import { EconomyService } from '@/simulation/economy/EconomyService';
 import { ActorManager } from '@/simulation/actors/ActorManager';
 import { displayName } from '@/simulation/actors/combat';
 import { EntityEditor } from '@/systems/editor/EntityEditor';
+import { RpgCommand } from '@/systems/editor/History';
+import type { RpgConfig } from '@/models/rpg';
 import type { SimSpeed } from '@/simulation/types';
 import { WorldRuntime } from '@/simulation/WorldRuntime';
 import { History } from '@/systems/editor/History';
@@ -43,6 +47,7 @@ export class GameSession {
   readonly painter: TerrainPainter;
   readonly entities: EntityEditor;
   readonly actors: ActorManager;
+  readonly economy: EconomyService;
   readonly bridge = new EventBus<BridgeEvents>();
   slot: SaveSlotKey;
   /** Copied objects for Ctrl+C / Ctrl+V. */
@@ -58,6 +63,9 @@ export class GameSession {
     this.actors = new ActorManager(this.runtime);
     this.engine.addSystem(new NpcSystem(this.actors));
     this.engine.addSystem(new CreatureSystem(this.actors));
+    this.economy = new EconomyService(this.runtime, this.actors);
+    this.actors.errandHandler = (a) => this.economy.completeErrand(a);
+    this.engine.addSystem(new EconomySystem(this.economy, this.actors));
     this.history = new History(200, () => useEditorStore.getState().setHistoryFlags(this.history.canUndo, this.history.canRedo));
     this.painter = new TerrainPainter(() => this.runtime, this.history);
     this.entities = new EntityEditor(() => this.runtime, this.history);
@@ -84,12 +92,30 @@ export class GameSession {
       this.engine.events.on('sim:message', ({ text }) => log.sim(text, 'info', this.runtime.clock.totalMinutes)),
       this.runtime.events.on('dirty:changed', ({ dirty }) => useSessionStore.getState().patch({ dirty })),
       this.runtime.events.on('meta:changed', ({ name }) => useSessionStore.getState().patch({ worldName: name })),
+      this.economy.events.on('trade', (tr) => {
+        if (tr.kind !== 'sale' && tr.kind !== 'purchase') return;
+        const who = tr.actorId ? this.runtime.entities.get('npcs', tr.actorId)?.name : '?';
+        const merchant = tr.merchantId ? this.runtime.entities.get('npcs', tr.merchantId)?.name : '?';
+        const item = this.economy.item(tr.itemId)?.name ?? '?';
+        const cur = this.runtime.rpg.economy.currencyName;
+        const text = tr.kind === 'sale'
+          ? t('{who} sold {qty}× {item} to {merchant} for {total} {cur}.', { who: who ?? '?', qty: tr.qty, item, merchant: merchant ?? '?', total: tr.total, cur })
+          : t('{who} bought {qty}× {item} from {merchant} for {total} {cur}.', { who: who ?? '?', qty: tr.qty, item, merchant: merchant ?? '?', total: tr.total, cur });
+        log.event(text, 'info', this.runtime.clock.totalMinutes);
+      }),
       this.actors.events.on('died', ({ victim, killer }) => {
         const v = displayName(this.actors, victim);
         const k = killer ? displayName(this.actors, killer) : t('Something');
         if (victim.kind === 'creature') {
           const xp = this.actors.template(victim)?.xpReward ?? 0;
           log.sim(t('{killer} slew {victim} ({xp} XP).', { killer: k, victim: v, xp }), 'info', this.runtime.clock.totalMinutes);
+          if (killer) {
+            const drops = this.economy.lootKill(killer, victim.defId);
+            if (drops.length) {
+              const list = drops.map((d) => `${this.economy.item(d.itemId)?.name ?? '?'} ×${d.qty}`).join(', ');
+              log.sim(t('{name} looted: {items}.', { name: k, items: list }), 'info', this.runtime.clock.totalMinutes);
+            }
+          }
         } else log.sim(t('{victim} was killed by {killer}. Respawning at home in 1 hour.', { victim: v, killer: k }), 'warn', this.runtime.clock.totalMinutes);
       }),
     );
@@ -105,6 +131,15 @@ export class GameSession {
     const changed = speed !== this.engine.currentSpeed;
     this.engine.setSpeed(speed);
     if (changed && !this.engine.isRunning) log.system(t('Simulation speed set to x{n}.', { n: speed }), 'info', this.runtime.clock.totalMinutes);
+  }
+
+  /** Edit economy / progression rules as one (merged) undo step. */
+  updateRpg(label: string, mutate: (rpg: RpgConfig) => void, mergeKey?: string): void {
+    const before = structuredClone(this.runtime.rpg);
+    mutate(this.runtime.rpg);
+    this.history.push(new RpgCommand(label, before, structuredClone(this.runtime.rpg), mergeKey ?? label));
+    this.runtime.events.emit('rpg:changed', undefined);
+    this.runtime.markDirty();
   }
 
   undo(): void {
@@ -144,6 +179,7 @@ export class GameSession {
     this.disposers.forEach((d) => d());
     this.engine.dispose();
     this.actors.dispose();
+    this.economy.dispose();
     this.bridge.clear();
     this.runtime.dispose();
   }

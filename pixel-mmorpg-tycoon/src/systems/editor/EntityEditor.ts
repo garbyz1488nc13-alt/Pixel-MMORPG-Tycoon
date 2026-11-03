@@ -7,6 +7,8 @@ import { getRegionType, type RegionType } from '@/data/regionTypes';
 import type { CreatureTemplate, EntityCollection, MapObject, NpcDef, Region, SpawnArea, WorldEntities } from '@/models/entities';
 import type { EntityChange } from '@/simulation/EntityStore';
 import type { WorldRuntime } from '@/simulation/WorldRuntime';
+import type { ItemDef } from '@/models/rpg';
+import { DEFAULT_NPC_GOLD, defaultLoot, defaultShop } from '@/data/rpgDefaults';
 import { EntityCommand, type History } from './History';
 import type { TileRect } from './shapes';
 
@@ -134,18 +136,18 @@ export class EntityEditor {
   }
 
   // ----------------------------------------------------------- NPCs & creatures
-  static makeNpc(type: NpcType, x: number, y: number, rand?: () => number): NpcDef {
+  static makeNpc(type: NpcType, x: number, y: number, rand?: () => number, items: ItemDef[] = []): NpcDef {
     const d = getNpcType(type).defaults;
     return {
       id: createId('npc'), name: randomNpcName(type, rand), type, level: d.level, maxHp: d.maxHp, x, y, speed: d.speed,
-      behavior: d.behavior, wanderRadius: 5, waypoints: [], inventory: [],
-      shop: { enabled: d.hasShop, items: [] }, workStart: d.workStart, workEnd: d.workEnd, interactionRadius: d.interactionRadius,
+      behavior: d.behavior, wanderRadius: 5, waypoints: [], inventory: [], gold: DEFAULT_NPC_GOLD[type] ?? 30,
+      shop: { enabled: d.hasShop, items: d.hasShop ? defaultShop(type, items) : [] }, workStart: d.workStart, workEnd: d.workEnd, interactionRadius: d.interactionRadius,
     };
   }
 
   addNpc(type: NpcType, x: number, y: number): NpcDef | null {
     if (!this.rt.nav.isWalkable(x, y)) return null;
-    const npc = EntityEditor.makeNpc(type, x, y);
+    const npc = EntityEditor.makeNpc(type, x, y, undefined, this.rt.entities.list('items'));
     const taken = new Set(this.rt.entities.list('npcs').map((n) => n.name));
     for (let t = 0; t < 30 && taken.has(npc.name); t++) npc.name = EntityEditor.makeNpc(type, x, y).name;
     this.commit(tr('Add {name}', { name: tr(getNpcType(type).name) }), [this.rt.entities.add('npcs', npc)]);
@@ -161,13 +163,13 @@ export class EntityEditor {
     return copy;
   }
 
-  static makeTemplate(type: CreatureType): CreatureTemplate {
+  static makeTemplate(type: CreatureType, items: ItemDef[] = []): CreatureTemplate {
     const t = getCreatureType(type);
-    return { id: createId('ctpl'), name: tr(t.name), type, ...t.defaults, loot: [], boss: type === 'boss' || type === 'dragon' };
+    return { id: createId('ctpl'), name: tr(t.name), type, ...t.defaults, loot: defaultLoot(type, items), boss: type === 'boss' || type === 'dragon' };
   }
 
   addTemplate(type: CreatureType): CreatureTemplate {
-    const tpl = EntityEditor.makeTemplate(type);
+    const tpl = EntityEditor.makeTemplate(type, this.rt.entities.list('items'));
     this.commit(tr('Add creature'), [this.rt.entities.add('creatureTemplates', tpl)]);
     return tpl;
   }

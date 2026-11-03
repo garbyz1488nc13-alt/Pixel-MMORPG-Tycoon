@@ -5,6 +5,7 @@ import { TILE_SIZE } from '@/data/terrain';
 import { ART_SCALE, ArtCanvas } from './ArtCanvas';
 import { drawCreature, drawHumanoid, NPC_LOOKS } from './characterArt';
 import { OBJECT_ART } from './objectArt';
+import { ICON_ART } from './iconArt';
 
 export interface Frame { x: number; y: number; w: number; h: number }
 export interface SpriteAtlasData { canvas: HTMLCanvasElement; frames: Record<string, Frame> }
@@ -32,6 +33,7 @@ export function getSpriteAtlas(): SpriteAtlasData {
     for (let f = 0; f < 2; f++) jobs.push({ name: `npc:${t.key}:${f}`, w: TILE_SIZE, h: TILE_SIZE, draw: (a) => drawHumanoid(a, NPC_LOOKS[t.key], f) });
   for (const t of CREATURE_TYPES)
     for (let f = 0; f < 2; f++) jobs.push({ name: `cr:${t.key}:${f}`, w: t.size * TILE_SIZE, h: t.size * TILE_SIZE, draw: (a) => drawCreature(a, t.key, f) });
+  for (const [key, paint] of Object.entries(ICON_ART)) jobs.push({ name: `icon:${key}`, w: TILE_SIZE, h: TILE_SIZE, draw: paint });
   jobs.push({
     name: 'fx:quest', w: 8 * ART_SCALE, h: 10 * ART_SCALE,
     draw: (a) => { a.rect(2, 0, 4, 6, '#1a1020'); a.rect(3, 1, 2, 4, '#f2c14e'); a.rect(2, 7, 4, 3, '#1a1020'); a.rect(3, 8, 2, 1, '#f2c14e'); },

@@ -34,6 +34,8 @@ export interface Actor {
   moving: boolean;
   /** Ticks left on the white "got hit" flash. */
   hitFlash: number;
+  /** Trade errand: walk to a merchant to sell loot/produce or buy food. */
+  errand: { kind: 'sell' | 'buy'; merchantId: EntityId; itemId?: EntityId } | null;
 }
 
 export function newActor(id: string, kind: ActorKind, defId: EntityId, x: number, y: number, maxHp: number): Actor {
@@ -41,7 +43,7 @@ export function newActor(id: string, kind: ActorKind, defId: EntityId, x: number
     id, kind, defId, x: x + 0.5, y: y + 0.5, homeX: x, homeY: y, hp: maxHp, maxHp,
     state: 'idle', path: null, pathIdx: 0, pathRev: -1, goalX: x, goalY: y,
     targetId: null, lastAttackerId: null, attackCd: 0, idleUntil: 0, nextThink: 0, respawnAt: 0,
-    waypointIdx: 0, facing: 1, moving: false, hitFlash: 0,
+    waypointIdx: 0, facing: 1, moving: false, hitFlash: 0, errand: null,
   };
 }
 

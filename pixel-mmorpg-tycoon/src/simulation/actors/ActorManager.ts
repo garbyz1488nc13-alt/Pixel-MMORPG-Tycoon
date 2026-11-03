@@ -30,6 +30,8 @@ export class ActorManager {
   readonly rng = new SeededRandom(Date.now() & 0x7fffffff);
   readonly stats: ActorStats = { creatureKills: 0, npcDeaths: 0, hits: 0 };
   tick = 0;
+  /** Called when an NPC reaches the merchant of its trade errand (set by the economy). */
+  errandHandler: ((a: Actor) => void) | null = null;
   private unsub: () => void;
 
   constructor(private world: WorldRuntime) {

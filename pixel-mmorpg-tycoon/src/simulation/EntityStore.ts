@@ -35,6 +35,8 @@ export class EntityStore {
       npcs: new Map(data.npcs.map((e) => [e.id, clone(e)])),
       creatureTemplates: new Map(data.creatureTemplates.map((e) => [e.id, clone(e)])),
       spawnAreas: new Map(data.spawnAreas.map((e) => [e.id, clone(e)])),
+      items: new Map(data.items.map((e) => [e.id, clone(e)])),
+      quests: new Map(data.quests.map((e) => [e.id, clone(e)])),
     } as EntityStore['maps'];
   }
 
@@ -108,6 +110,8 @@ export class EntityStore {
       npcs: this.list('npcs').map(clone),
       creatureTemplates: this.list('creatureTemplates').map(clone),
       spawnAreas: this.list('spawnAreas').map(clone),
+      items: this.list('items').map(clone),
+      quests: this.list('quests').map(clone),
     };
   }
 }

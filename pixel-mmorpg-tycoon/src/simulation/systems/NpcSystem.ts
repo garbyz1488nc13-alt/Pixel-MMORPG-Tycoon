@@ -78,6 +78,27 @@ export class NpcSystem implements SimulationSystem {
         a.lastAttackerId = null;
       }
 
+      // --- trade errand (walk to a merchant, trade, resume)
+      if (a.errand) {
+        const m = mgr.actors.get(a.errand.merchantId);
+        if (!m || m.state === 'dead') {
+          a.errand = null;
+        } else if (dist(a, m) <= 1.6) {
+          a.path = null;
+          a.moving = false;
+          a.state = 'idle';
+          mgr.errandHandler?.(a);
+          a.errand = null;
+          a.idleUntil = ctx.tick + 20;
+          continue;
+        } else {
+          if (!a.path && !mgr.goTo(a, Math.floor(m.x), Math.floor(m.y), 5000)) { a.errand = null; continue; }
+          a.state = 'walk';
+          mgr.step(a, def.speed);
+          continue;
+        }
+      }
+
       // --- schedule
       const atHome = Math.floor(a.x) === a.homeX && Math.floor(a.y) === a.homeY;
       if (!isWorkingHour(hour, def.workStart, def.workEnd)) {

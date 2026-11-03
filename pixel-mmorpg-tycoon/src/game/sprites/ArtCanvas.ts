@@ -5,11 +5,20 @@ export class ArtCanvas {
   constructor(private ctx: CanvasRenderingContext2D, private ox: number, private oy: number, readonly w: number, readonly h: number, private scale = ART_SCALE) {}
 
   px(x: number, y: number, c: string): void {
+    if (!c) { this.clear(x, y); return; }
     x = Math.round(x);
     y = Math.round(y);
     if (x < 0 || y < 0 || x >= this.w || y >= this.h) return;
     this.ctx.fillStyle = c;
     this.ctx.fillRect(this.ox + x * this.scale, this.oy + y * this.scale, this.scale, this.scale);
+  }
+
+  /** Punch a transparent pixel ('' colour). */
+  clear(x: number, y: number): void {
+    x = Math.round(x);
+    y = Math.round(y);
+    if (x < 0 || y < 0 || x >= this.w || y >= this.h) return;
+    this.ctx.clearRect(this.ox + x * this.scale, this.oy + y * this.scale, this.scale, this.scale);
   }
 
   rect(x: number, y: number, w: number, h: number, c: string): void {

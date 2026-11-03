@@ -10,6 +10,7 @@ import { EntityEditor } from '@/systems/editor/EntityEditor';
 import { createWorldSave } from '@/systems/generation/createWorld';
 import { populateRegion, generateStarterContent } from '@/systems/generation/Populate';
 import { migrate } from '@/persistence/serializer';
+import { WORLD_SCHEMA_VERSION } from '@/models/world';
 import { TerrainId } from '@/data/terrain';
 import { Pathfinder } from '@/simulation/nav/Pathfinder';
 import { getObjectDef } from '@/data/objects';
@@ -131,8 +132,9 @@ describe('save migration', () => {
     delete s.entities;
     s.schemaVersion = 1;
     const m = migrate(s);
-    expect(m.schemaVersion).toBe(2);
+    expect(m.schemaVersion).toBe(WORLD_SCHEMA_VERSION);
     expect(m.entities.objects).toEqual([]);
+    expect(m.entities.items.length).toBeGreaterThan(30);
   });
 });
 
