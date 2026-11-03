@@ -223,8 +223,10 @@ export class EconomyService {
     for (const m of this.merchants()) {
       const a = this.actors.actors.get(m.id);
       if (!a || a.state === 'dead') continue;
+      // Prefer a shop that already trades this item; otherwise the general store (merchant type).
       const stocks = itemId ? m.shop.items.some((s) => s.itemId === itemId) : true;
-      const score = Math.hypot(m.x - from.x, m.y - from.y) + (stocks ? 0 : 30);
+      const general = m.type === 'merchant';
+      const score = Math.hypot(m.x - from.x, m.y - from.y) + (stocks ? 0 : general ? 15 : 40);
       if (score < bestScore) { bestScore = score; best = m; }
     }
     return best;

@@ -186,3 +186,15 @@ describe('save migration v2 → v3', () => {
     expect(m.rpg.economy.treasury).toBe(5000);
   });
 });
+
+import { generateStarterContent } from '@/systems/generation/Populate';
+describe('starter quests', () => {
+  it('creates a chain of completable quests', () => {
+    const rt = new WorldRuntime(createWorldSave({ ...opts, width: 96, height: 96, worldType: 'continent', seed: 11 }));
+    generateStarterContent(rt, 15, 11);
+    const quests = rt.entities.list('quests');
+    expect(quests.length).toBeGreaterThanOrEqual(4);
+    expect(quests.filter((q) => !q.prerequisiteId)).toHaveLength(1);
+    for (const q of quests) expect(validateQuest(q, rt.entities, rt.rpg).filter((i) => i.level === 'error')).toEqual([]);
+  });
+});

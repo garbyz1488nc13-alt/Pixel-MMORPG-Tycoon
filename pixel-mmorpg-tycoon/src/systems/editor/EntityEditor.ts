@@ -7,7 +7,7 @@ import { getRegionType, type RegionType } from '@/data/regionTypes';
 import type { CreatureTemplate, EntityCollection, MapObject, NpcDef, Region, SpawnArea, WorldEntities } from '@/models/entities';
 import type { EntityChange } from '@/simulation/EntityStore';
 import type { WorldRuntime } from '@/simulation/WorldRuntime';
-import type { ItemDef } from '@/models/rpg';
+import type { ItemDef, QuestDef } from '@/models/rpg';
 import { DEFAULT_NPC_GOLD, defaultLoot, defaultShop } from '@/data/rpgDefaults';
 import { EntityCommand, type History } from './History';
 import type { TileRect } from './shapes';
@@ -109,6 +109,35 @@ export class EntityEditor {
     if (col === 'creatureTemplates') {
       for (const a of this.rt.entities.list('spawnAreas')) if (ids.includes(a.templateId)) changes.push(this.rt.entities.remove('spawnAreas', a.id));
     }
+    // Deleting items removes them from shops, inventories, loot tables and quest rewards; quest targets become empty.
+    if (col === 'items') {
+      const gone = new Set(ids);
+      for (const n of this.rt.entities.list('npcs')) {
+        if (n.inventory.some((s) => gone.has(s.itemId)) || n.shop.items.some((s) => gone.has(s.itemId)))
+          changes.push(this.rt.entities.update('npcs', n.id, { inventory: n.inventory.filter((s) => !gone.has(s.itemId)), shop: { ...n.shop, items: n.shop.items.filter((s) => !gone.has(s.itemId)) } }));
+      }
+      for (const c of this.rt.entities.list('creatureTemplates'))
+        if (c.loot.some((l) => gone.has(l.itemId))) changes.push(this.rt.entities.update('creatureTemplates', c.id, { loot: c.loot.filter((l) => !gone.has(l.itemId)) }));
+      for (const q of this.rt.entities.list('quests'))
+        if (q.rewards.items.some((s) => gone.has(s.itemId)) || q.objectives.some((o) => o.targetId && gone.has(o.targetId)))
+          changes.push(this.rt.entities.update('quests', q.id, {
+            rewards: { ...q.rewards, items: q.rewards.items.filter((s) => !gone.has(s.itemId)) },
+            objectives: q.objectives.map((o) => (o.targetId && gone.has(o.targetId) ? { ...o, targetId: null } : o)),
+          }));
+    }
+    // Quests: drop chains pointing at deleted quests; givers/targets pointing at deleted NPCs/regions/creatures become empty.
+    if (col === 'quests' || col === 'npcs' || col === 'regions' || col === 'creatureTemplates') {
+      const gone = new Set(ids);
+      for (const q of this.rt.entities.list('quests')) {
+        if (gone.has(q.id)) continue;
+        const patch: Partial<QuestDef> = {};
+        if (q.prerequisiteId && gone.has(q.prerequisiteId)) patch.prerequisiteId = null;
+        if (q.giverId && gone.has(q.giverId)) patch.giverId = null;
+        if (q.objectives.some((o) => (o.targetId && gone.has(o.targetId)) || (o.receiverId && gone.has(o.receiverId))))
+          patch.objectives = q.objectives.map((o) => ({ ...o, targetId: o.targetId && gone.has(o.targetId) ? null : o.targetId, receiverId: o.receiverId && gone.has(o.receiverId) ? null : o.receiverId }));
+        if (Object.keys(patch).length) changes.push(this.rt.entities.update('quests', q.id, patch));
+      }
+    }
     // Unlink portals pointing at deleted portals.
     if (col === 'objects') {
       for (const o of this.rt.entities.list('objects')) if (o.linkId && ids.includes(o.linkId)) changes.push(this.rt.entities.update('objects', o.id, { linkId: undefined }));
@@ -179,6 +208,39 @@ export class EntityEditor {
     if (!src) return null;
     const copy = { ...structuredClone(src), id: createId('ctpl'), name: tr('{name} (copy)', { name: src.name }) };
     this.commit(tr('Duplicate creature'), [this.rt.entities.add('creatureTemplates', copy)]);
+    return copy;
+  }
+
+  addItem(category: ItemDef['category']): ItemDef {
+    const icon = { weapon: 'sword', armor: 'tunic', potion: 'potion_red', resource: 'log', material: 'ingot', food: 'bread', accessory: 'ring', quest: 'letter', misc: 'coin' }[category];
+    const slot = category === 'weapon' ? 'mainhand' : category === 'armor' ? 'chest' : category === 'accessory' ? 'ring' : 'none';
+    const item: ItemDef = { id: createId('item'), name: tr('New item'), description: '', category, icon, rarity: 'common', value: 10, levelReq: 1, stats: {}, stackSize: ['weapon', 'armor', 'accessory'].includes(category) ? 1 : 20, slot };
+    this.commit(tr('Add item'), [this.rt.entities.add('items', item)]);
+    return item;
+  }
+
+  duplicateItem(id: EntityId): ItemDef | null {
+    const src = this.rt.entities.get('items', id);
+    if (!src) return null;
+    const copy: ItemDef = { ...structuredClone(src), id: createId('item'), key: undefined, name: tr('{name} (copy)', { name: src.name }) };
+    this.commit(tr('Duplicate item'), [this.rt.entities.add('items', copy)]);
+    return copy;
+  }
+
+  addQuest(giverId: EntityId | null): QuestDef {
+    const q: QuestDef = {
+      id: createId('quest'), name: tr('New quest'), description: '', giverId, requiredLevel: 1,
+      objectives: [], rewards: { xp: 100, currency: 20, items: [] }, prerequisiteId: null, repeatable: false,
+    };
+    this.commit(tr('Add quest'), [this.rt.entities.add('quests', q)]);
+    return q;
+  }
+
+  duplicateQuest(id: EntityId): QuestDef | null {
+    const src = this.rt.entities.get('quests', id);
+    if (!src) return null;
+    const copy: QuestDef = { ...structuredClone(src), id: createId('quest'), name: tr('{name} (copy)', { name: src.name }), objectives: src.objectives.map((o) => ({ ...o, id: createId('obj') })) };
+    this.commit(tr('Duplicate quest'), [this.rt.entities.add('quests', copy)]);
     return copy;
   }
 

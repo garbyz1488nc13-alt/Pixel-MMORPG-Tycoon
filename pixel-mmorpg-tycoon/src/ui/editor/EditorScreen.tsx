@@ -11,6 +11,10 @@ import { TopBar } from './TopBar';
 import { WorldSettingsPanel } from './WorldSettingsPanel';
 import { NpcTab } from './NpcTab';
 import { CreaturesTab } from './CreaturesTab';
+import { ItemsTab } from '../rpg/ItemsTab';
+import { EconomyTab } from '../rpg/EconomyTab';
+import { QuestsTab } from '../rpg/QuestsTab';
+import { ProgressionTab } from '../rpg/ProgressionTab';
 import type { GameSession } from '@/session/GameSession';
 
 export function EditorScreen() {
@@ -39,6 +43,10 @@ function Editor({ session }: { session: GameSession }) {
           )}
           {tab === 'npc' && <div className="center-overlay"><NpcTab session={session} /></div>}
           {tab === 'creatures' && <div className="center-overlay"><CreaturesTab session={session} /></div>}
+          {tab === 'items' && <div className="center-overlay"><ItemsTab session={session} /></div>}
+          {tab === 'economy' && <div className="center-overlay"><EconomyTab session={session} /></div>}
+          {tab === 'quests' && <div className="center-overlay"><QuestsTab session={session} /></div>}
+          {tab === 'progression' && <div className="center-overlay"><ProgressionTab session={session} /></div>}
         </div>
         <RightPanel session={session} />
       </div>

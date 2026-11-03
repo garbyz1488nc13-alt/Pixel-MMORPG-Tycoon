@@ -3,7 +3,10 @@ import { t } from '@/i18n';
 import type { NpcDef } from '@/models/entities';
 import type { GameSession } from '@/session/GameSession';
 import { useEditorStore } from '@/stores/editorStore';
-import { Field, NumberInput, RowEditor, Select, TextInput } from '../../components/Fields';
+import { Field, NumberInput, Select, TextInput } from '../../components/Fields';
+import { ItemRowEditor } from '../../rpg/ItemRowEditor';
+import { compact as compactInv } from '@/systems/rpg/inventory';
+import { sellPrice } from '@/systems/rpg/pricing';
 import { SpritePreview } from '../../components/SpritePreview';
 
 /** Full NPC editor; every change is one (merged) undo step and applies to the live NPC immediately. */
@@ -58,15 +61,21 @@ export function NpcForm({ session, npc, compact = false }: { session: GameSessio
       </Field>
       {!compact && (
         <>
-          <Field label="Inventory" hint="Item names link to the item database in Phase 3.">
-            <RowEditor rows={npc.inventory} empty="Empty inventory." make={() => ({ name: 'Bread', qty: 1 })} onChange={(inventory) => up({ inventory }, 'Edit inventory')}
-              columns={[{ key: 'name', label: 'Item', type: 'text' }, { key: 'qty', label: 'Qty', type: 'number', min: 1, max: 9999, width: 64 }]} />
+          <Field label={`${t('Gold')} (${session.runtime.rpg.economy.currencyName})`} hint={t('Coins this NPC carries. Changes as it trades.')}>
+            <NumberInput value={npc.gold} min={0} max={1e9} onChange={(gold) => up({ gold }, t('Edit gold'))} />
           </Field>
-          <Field label="Shop">
-            <label className="check"><input type="checkbox" checked={npc.shop.enabled} onChange={(e) => up({ shop: { ...npc.shop, enabled: e.target.checked } }, 'Toggle shop')} /> Sells items</label>
+          <Field label={t('Inventory')} hint={t('Stacks respect each item\'s stack size (max 24 slots).')}>
+            <ItemRowEditor session={session} rows={npc.inventory} empty={t('Empty inventory.')} make={(itemId) => ({ itemId, qty: 1 })}
+              onChange={(rows) => up({ inventory: compactInv(rows, (id) => session.runtime.entities.get('items', id)) }, t('Edit inventory'))}
+              columns={[{ key: 'qty', label: t('Qty'), min: 1, max: 9999 }]} />
+          </Field>
+          <Field label={t('Shop')} hint={npc.shop.enabled ? t('Prices follow supply and demand: low stock is pricier. Merchants restock towards Max stock.') : undefined}>
+            <label className="check"><input type="checkbox" checked={npc.shop.enabled} onChange={(e) => up({ shop: { ...npc.shop, enabled: e.target.checked } }, t('Toggle shop'))} /> {t('Sells items')}</label>
             {npc.shop.enabled && (
-              <RowEditor rows={npc.shop.items} empty="Nothing for sale yet." make={() => ({ name: 'Health Potion', price: 25, stock: 10 })} onChange={(items) => up({ shop: { ...npc.shop, items } }, 'Edit shop')}
-                columns={[{ key: 'name', label: 'Item', type: 'text' }, { key: 'price', label: 'Price', type: 'number', min: 0, max: 1e7, width: 70 }, { key: 'stock', label: 'Stock', type: 'number', min: 0, max: 9999, width: 60 }]} />
+              <ItemRowEditor session={session} rows={npc.shop.items} empty={t('Nothing for sale yet.')} make={(itemId) => ({ itemId, stock: 10, maxStock: 10 })}
+                onChange={(items) => up({ shop: { ...npc.shop, items } }, t('Edit shop'))}
+                columns={[{ key: 'stock', label: t('Stock'), min: 0, max: 9999 }, { key: 'maxStock', label: t('Max'), min: 0, max: 9999 }]}
+                extra={{ label: t('Price'), render: (row) => { const it = session.runtime.entities.get('items', row.itemId); return it ? sellPrice(it, row, session.runtime.rpg.economy) : '—'; } }} />
             )}
           </Field>
         </>

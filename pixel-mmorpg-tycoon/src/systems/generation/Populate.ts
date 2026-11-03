@@ -6,6 +6,8 @@ import type { NpcType } from '@/data/npcTypes';
 import { getObjectDef } from '@/data/objects';
 import { getTerrain, TerrainId } from '@/data/terrain';
 import type { CreatureTemplate, MapObject, NpcDef, Region, SpawnArea } from '@/models/entities';
+import type { QuestDef, QuestObjective } from '@/models/rpg';
+import { itemKeyIndex } from '@/data/rpgDefaults';
 import type { EntityChange } from '@/simulation/EntityStore';
 import type { WorldRuntime } from '@/simulation/WorldRuntime';
 import { EntityEditor } from '@/systems/editor/EntityEditor';
@@ -351,6 +353,39 @@ export function generateStarterContent(world: WorldRuntime, npcCount: number, se
       applyPlan(world, null, p, tr('Starter camp'));
     }
   }
+  const quests = createStarterQuests(world);
+  if (quests) results.push(tr('quests: {n}', { n: quests }));
   return results.join('; ') || tr('No suitable land found.');
+}
+
+/** A short starter quest chain wired to the generated content. Returns how many were created. */
+export function createStarterQuests(world: WorldRuntime): number {
+  const s = world.entities;
+  const npcs = s.list('npcs');
+  const giver = npcs.find((n) => n.type === 'questgiver') ?? npcs[0];
+  if (!giver) return 0;
+  const tpl = (type: string) => s.list('creatureTemplates').find((c) => c.type === type);
+  const items = itemKeyIndex(s.list('items'));
+  const smith = npcs.find((n) => n.type === 'blacksmith');
+  const forest = s.list('regions').find((r) => r.type === 'forest');
+  const made: QuestDef[] = [];
+  const add = (name: string, description: string, level: number, objectives: Omit<QuestObjective, 'id'>[], xp: number, currency: number, rewardItems: [string, number][]) => {
+    if (objectives.some((o) => !o.targetId)) return;
+    const q: QuestDef = {
+      id: createId('quest'), name: tr(name), description: tr(description), giverId: giver.id, requiredLevel: level,
+      objectives: objectives.map((o) => ({ ...o, id: createId('obj') })),
+      rewards: { xp, currency, items: rewardItems.filter(([k]) => items.has(k)).map(([k, qty]) => ({ itemId: items.get(k)!, qty })) },
+      prerequisiteId: made[made.length - 1]?.id ?? null, repeatable: false,
+    };
+    made.push(q);
+  };
+  add('Slime Trouble', 'Slimes are eating the crops near the camp. Clear some of them out.', 1, [{ type: 'kill', targetId: tpl('slime')?.id ?? null, count: 5 }], 120, 25, [['health_potion', 2]]);
+  if (smith) add('Meet the Smith', 'Introduce yourself to the town blacksmith.', 1, [{ type: 'talk', targetId: smith.id, count: 1 }], 60, 10, []);
+  add('Firewood', 'Winter is coming. Gather wood for the town.', 2, [{ type: 'gather', targetId: items.get('wood') ?? null, count: 10 }], 150, 30, [['bread', 3]]);
+  if (forest) add('Into the Woods', 'Scout the forest and report back.', 2, [{ type: 'explore', targetId: forest.id, count: 1 }], 180, 20, []);
+  if (tpl('wolf')) add('Wolf Pelts', 'Bring back wolf pelts for the tanner.', 3, [{ type: 'collect', targetId: items.get('wolf_pelt') ?? null, count: 3 }], 260, 45, [['leather_tunic', 1]]);
+  add('Goblin Menace', 'The goblin camp grows bolder every night. Teach them a lesson.', 4, [{ type: 'kill', targetId: tpl('goblin')?.id ?? null, count: 8 }], 450, 90, [['iron_sword', 1]]);
+  s.bulk(made.map((q) => ({ col: 'quests' as const, id: q.id, value: q })));
+  return made.length;
 }
 

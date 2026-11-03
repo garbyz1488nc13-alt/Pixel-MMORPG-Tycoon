@@ -2,7 +2,8 @@ import { AGGRESSIONS, CREATURE_TYPES } from '@/data/creatureTypes';
 import { t } from '@/i18n';
 import type { CreatureTemplate } from '@/models/entities';
 import type { GameSession } from '@/session/GameSession';
-import { Field, NumberInput, RowEditor, Select, TextInput } from '../../components/Fields';
+import { Field, NumberInput, Select, TextInput } from '../../components/Fields';
+import { ItemRowEditor } from '../../rpg/ItemRowEditor';
 import { SpritePreview } from '../../components/SpritePreview';
 
 export function CreatureForm({ session, tpl }: { session: GameSession; tpl: CreatureTemplate }) {
@@ -36,9 +37,10 @@ export function CreatureForm({ session, tpl }: { session: GameSession; tpl: Crea
           {AGGRESSIONS.map((a) => <button key={a.key} className={`btn small ${tpl.aggression === a.key ? 'active' : ''}`} onClick={() => up({ aggression: a.key })}>{t(a.label)}</button>)}
         </div>
       </Field>
-      <Field label="Loot table" hint="Chance in %. Drops are rolled by the player simulation (Phase 4).">
-        <RowEditor rows={tpl.loot} empty="No loot." make={() => ({ name: 'Gold Coin', chance: 50, min: 1, max: 5 })} onChange={(loot) => up({ loot }, 'Edit loot')}
-          columns={[{ key: 'name', label: 'Item', type: 'text' }, { key: 'chance', label: '%', type: 'number', min: 0, max: 100, width: 52 }, { key: 'min', label: 'Min', type: 'number', min: 0, max: 9999, width: 52 }, { key: 'max', label: 'Max', type: 'number', min: 0, max: 9999, width: 52 }]} />
+      <Field label={t('Loot table')} hint={t('Chance in %. The killer receives the drops (guards sell them to merchants).')}>
+        <ItemRowEditor session={session} rows={tpl.loot} empty={t('No loot.')} make={(itemId) => ({ itemId, chance: 50, min: 1, max: 1 })} onChange={(loot) => up({ loot }, t('Edit loot'))}
+          columns={[{ key: 'chance', label: '%', min: 0, max: 100, width: 50 }, { key: 'min', label: t('Min'), min: 0, max: 9999, width: 50 }, { key: 'max', label: t('Max'), min: 0, max: 9999, width: 50 }]}
+          extra={{ label: t('Avg'), width: 44, render: (r) => ((r.chance / 100) * ((r.min + r.max) / 2)).toFixed(2) }} />
       </Field>
     </div>
   );

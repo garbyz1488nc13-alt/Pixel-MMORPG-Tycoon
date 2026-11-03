@@ -137,3 +137,58 @@
 .pad { padding: 12px; }
 .terrain-list { display: flex; flex-direction: column; gap: 3px; }
 .panel-header select, .panel-header input, .panel-header .btn { font-family: var(--font-body); text-transform: none; font-size: 18px; }
+
+/* ---------- Phase 3: items, economy, quests, progression ---------- */
+.item-icon { display: inline-grid; place-items: center; background: #0f0c17; border: 2px solid #3a2f57; flex-shrink: 0; }
+.icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(34px, 1fr)); gap: 3px; }
+.icon-btn { display: grid; place-items: center; height: 34px; background: #1a1527; border: 2px solid var(--border-dark); cursor: pointer; }
+.icon-btn:hover { background: var(--panel-2); }
+.icon-btn.active { border-color: var(--gold); background: #3a2f22; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 4px 8px; }
+.stat-cell { display: grid; grid-template-columns: 1fr 70px; align-items: center; gap: 4px; font-size: 17px; color: var(--text-dim); }
+.stat-cell .input { padding: 2px 4px; font-size: 17px; }
+.usage { display: flex; flex-direction: column; gap: 3px; font-size: 18px; }
+.usage b { color: var(--text-dim); font-weight: normal; }
+.price-box { margin-top: 10px; padding: 8px; background: #15111f; border: 2px solid var(--border-dark); display: flex; flex-direction: column; gap: 3px; }
+.re-extra { text-align: right; color: var(--gold); font-variant-numeric: tabular-nums; }
+.data-table td.good { color: var(--green); }
+.data-table td.warn { color: var(--gold); }
+.compact-table td, .compact-table th { padding: 1px 6px; }
+.compact-table .input { padding: 1px 4px; font-size: 17px; width: 70px; }
+.topbar-stat.clickable { cursor: pointer; }
+.topbar-stat.clickable:hover { border-color: var(--gold-dark); }
+
+.econ-page { grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); }
+.econ-main { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: auto; padding-right: 2px; }
+.stat-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.stat-tiles.small { grid-template-columns: repeat(4, 1fr); }
+.stat-tile { padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+.stat-tile b { font-size: 24px; color: var(--gold); font-weight: normal; font-variant-numeric: tabular-nums; }
+.stat-tiles.small .stat-tile b { font-size: 20px; }
+.chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.chart svg { width: 100%; height: 140px; display: block; }
+.chart .grid-line { stroke: #3a2f57; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.chart .axis-label { fill: var(--text-faint); font-size: 12px; font-family: var(--font-body); }
+.chart-legend { display: flex; gap: 12px; font-size: 16px; color: var(--text-dim); }
+.chart-legend i { display: inline-block; width: 10px; height: 10px; margin-right: 4px; }
+.chart-empty { padding: 30px 8px; text-align: center; }
+.trade-list { max-height: 260px; padding: 4px 8px; }
+.trade-row { display: flex; gap: 8px; align-items: center; font-size: 17px; padding: 1px 0; }
+.trade-kind { min-width: 70px; color: var(--text-dim); }
+.trade-row.sale .trade-kind { color: var(--green); }
+.trade-row.purchase .trade-kind { color: var(--cyan); }
+.trade-row.loot .trade-kind, .trade-row.harvest .trade-kind { color: var(--gold); }
+
+.objectives { display: flex; flex-direction: column; gap: 6px; }
+.objective { background: #15111f; border: 2px solid var(--border-dark); padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+.objective.bad { border-color: #8a2f2a; }
+.obj-head { display: grid; grid-template-columns: 20px 1fr 28px; gap: 6px; align-items: center; }
+.obj-body { display: grid; grid-template-columns: 1fr 80px; gap: 6px; }
+.issues { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; }
+.issues li.error { color: #ffb3aa; }
+.issues li.warn { color: #ffd97a; }
+.check-ok { color: var(--green); }
+.gear-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; }
+.gear-slot { display: grid; grid-template-columns: 28px 1fr; gap: 4px; align-items: center; }
+.gear-slot.bad select { border-color: var(--red); }
+textarea.input { resize: vertical; font-size: 18px; }

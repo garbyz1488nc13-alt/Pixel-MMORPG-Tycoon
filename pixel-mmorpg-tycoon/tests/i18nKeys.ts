@@ -7,6 +7,7 @@ import { REGION_TYPES } from '@/data/regionTypes';
 import { TERRAINS } from '@/data/terrain';
 import { DIFFICULTIES, MAP_SIZES, WORLD_TYPES } from '@/data/worldPresets';
 import { SAVE_SLOTS } from '@/models/world';
+import { CLASS_SOURCE, DEFAULT_ECONOMY, DEFAULT_ITEMS, EQUIP_SLOTS, ITEM_CATEGORIES, OBJECTIVE_TYPES, RARITIES, STAT_KEYS } from '@/data/rpgDefaults';
 
 /** Every string literal passed to t()/tr() anywhere in src. */
 export function sourceKeys(dir = join(__dirname, '../src')): Set<string> {
@@ -48,5 +49,19 @@ export function dynamicKeys(): Set<string> {
   ['Brush', 'Fill', 'Rectangle', 'Picker', 'Click & drag to paint terrain.', 'Flood-fill a connected area of the same terrain.', 'Drag to paint a rectangle.', 'Click a tile to pick its terrain.'].forEach((s) => k.add(s));
   ['All', 'Events', 'Simulation', 'System'].forEach((s) => k.add(s));
   ['Map', 'NPC', 'Creatures', 'Economy', 'Items', 'Quests', 'Progression', 'Players', 'Events', 'Analytics', 'Settings'].forEach((s) => k.add(s));
+  DEFAULT_ITEMS.forEach((x) => { k.add(x.name); k.add(x.description); k.add(x.category); });
+  ITEM_CATEGORIES.forEach((x) => k.add(x.label));
+  RARITIES.forEach((x) => k.add(x.label));
+  EQUIP_SLOTS.forEach((x) => k.add(x.label));
+  STAT_KEYS.forEach((x) => k.add(x.label));
+  OBJECTIVE_TYPES.forEach((x) => { k.add(x.label); k.add(x.hint); });
+  CLASS_SOURCE.forEach((c) => { k.add(c.name); k.add(c.description); c.skills.forEach((s) => k.add(s[0])); });
+  k.add(DEFAULT_ECONOMY.currencyName);
+  ['sale', 'purchase', 'restock', 'loot', 'harvest', 'attack', 'heal', 'buff'].forEach((s) => k.add(s));
+  ['HP', 'Mana', 'Attack', 'Defense', 'STR', 'AGI', 'INT', 'VIT'].forEach((s) => k.add(s));
+  ['Economy', 'Items', 'Quests', 'Progression'].forEach((s) => k.add(s));
+  // Quest validation messages (validateQuest returns English keys; the UI translates them).
+  const questSrc = readFileSync(join(__dirname, '../src/systems/rpg/quests.ts'), 'utf8');
+  for (const m of questSrc.matchAll(/(?:err|warn)\(\s*'((?:\\.|[^'])*)'/g)) k.add(m[1].replace(/\\'/g, "'"));
   return k;
 }

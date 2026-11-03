@@ -9,6 +9,7 @@ import { useSessionStore } from '@/stores/sessionStore';
 import { toast } from '@/stores/toastStore';
 import { PixelIcon } from '../components/PixelIcon';
 import { useLiveCounts } from '../hooks/useEntities';
+import { useRpg } from '../rpg/useRpg';
 
 const SPEEDS: SimSpeed[] = [1, 2, 4];
 
@@ -43,7 +44,7 @@ export function TopBar() {
     s.go('menu');
   };
 
-  const treasury = session.runtime.config.startingGold;
+  const eco = useRpg(session, 1000).economy;
 
   return (
     <div className="topbar panel">
@@ -66,8 +67,8 @@ export function TopBar() {
       <div className="topbar-stat" title={t('Monsters alive / spawn slots. Killed this session: {n}', { n: live.kills })}>
         <PixelIcon name="skull" color="#e8e4d4" /> <span>{live.creaturesAlive}/{live.creaturesTotal}</span>
       </div>
-      <div className="topbar-stat" title="World treasury (starting gold). The economy system arrives in Phase 3.">
-        <PixelIcon name="gold" color="#6e4d14" /> <span>{treasury.toLocaleString()} gold</span>
+      <div className="topbar-stat clickable" title={t('World treasury — click to open the Economy tab')} onClick={() => useEditorStore.getState().setTab('economy')}>
+        <PixelIcon name="gold" color="#6e4d14" /> <span>{Math.round(eco.treasury).toLocaleString()} {eco.currencyName}</span>
       </div>
 
       <div className="grow" />

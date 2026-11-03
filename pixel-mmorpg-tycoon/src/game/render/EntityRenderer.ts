@@ -43,6 +43,8 @@ export class EntityRenderer {
   private overlaysDirty = true;
   private unsubs: (() => void)[] = [];
   private time = 0;
+  /** NPC ids that hand out at least one quest (shown with a "!" marker). */
+  private questGivers = new Set<string>();
 
   constructor(private scene: Phaser.Scene, private session: GameSession) {
     registerAtlas(scene);
@@ -50,10 +52,12 @@ export class EntityRenderer {
     this.overlayGfx = scene.add.graphics().setDepth(DEPTH.OVERLAY);
     this.hpGfx = scene.add.graphics().setDepth(DEPTH.LABELS);
     this.hoverLabel = this.makeText('', 12).setDepth(DEPTH.LABELS + 1).setVisible(false);
+    this.refreshQuestGivers();
 
     const rt = session.runtime;
     this.unsubs.push(
       rt.entities.events.on('changed', ({ col }) => {
+        if (col === 'quests') this.refreshQuestGivers();
         if (col === 'objects') this.objectsDirty = true;
         this.overlaysDirty = true;
       }),
@@ -72,6 +76,10 @@ export class EntityRenderer {
         if (s.selection !== p.selection || s.tab !== p.tab) this.overlaysDirty = true;
       }),
     );
+  }
+
+  private refreshQuestGivers(): void {
+    this.questGivers = new Set(this.session.runtime.entities.list('quests').map((q) => q.giverId).filter((x): x is string => !!x));
   }
 
   private makeText(text: string, size: number): Phaser.GameObjects.Text {
@@ -120,7 +128,7 @@ export class EntityRenderer {
     if (a.kind === 'npc') {
       const def = this.session.actors.npcDef(a);
       const type = def ? getNpcType(def.type).key : 'villager';
-      return { frame: `npc:${type}:${anim}`, scale: 1, quest: type === 'questgiver' };
+      return { frame: `npc:${type}:${anim}`, scale: 1, quest: this.questGivers.has(a.defId) };
     }
     const tpl = this.session.actors.template(a);
     const type = tpl ? getCreatureType(tpl.type).key : 'slime';
