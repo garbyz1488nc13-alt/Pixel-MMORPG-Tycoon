@@ -1,0 +1,181 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { randomSeed } from '@/core/random';
+import { getTerrain, TERRAINS } from '@/data/terrain';
+import { DIFFICULTIES, MAP_SIZES, MAX_MAP_SIZE, MIN_MAP_SIZE, WORLD_TYPES, type Difficulty, type WorldType } from '@/data/worldPresets';
+import { gridToCanvas } from '@/game/textures/mapImage';
+import type { TileGrid } from '@/models/TileGrid';
+import { createAndOpenWorld } from '@/session/sessionActions';
+import { generateTerrain } from '@/systems/generation/WorldGenerator';
+import { useSessionStore } from '@/stores/sessionStore';
+import { toast } from '@/stores/toastStore';
+import { PixelIcon } from '../components/PixelIcon';
+import { ScreenFrame } from './ScreenFrame';
+
+const STARTING_GOLD: Record<Difficulty, number> = { relaxed: 25000, normal: 10000, hard: 5000, brutal: 2000 };
+const NAMES = ['Eldoria', 'Mythgard', 'Ravenreach', 'Stormhollow', 'Aetheria', 'Duskmire', 'Frostvale', 'Emberfall', 'Silverglen', 'Thornwick'];
+
+export function CreateWorldScreen() {
+  const go = useSessionStore((s) => s.go);
+  const [name, setName] = useState(() => NAMES[Math.floor(Math.random() * NAMES.length)] + ' Online');
+  const [sizeKey, setSizeKey] = useState('small');
+  const [customW, setCustomW] = useState(128);
+  const [customH, setCustomH] = useState(128);
+  const [worldType, setWorldType] = useState<WorldType>('continent');
+  const [difficulty, setDifficulty] = useState<Difficulty>('normal');
+  const [startingGold, setStartingGold] = useState(STARTING_GOLD.normal);
+  const [npcs, setNpcs] = useState(20);
+  const [players, setPlayers] = useState(50);
+  const [seed, setSeed] = useState(randomSeed);
+  const [creating, setCreating] = useState(false);
+  const [preview, setPreview] = useState<TileGrid | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const { width, height } = useMemo(() => {
+    if (sizeKey === 'custom') {
+      const clamp = (v: number) => Math.max(MIN_MAP_SIZE, Math.min(MAX_MAP_SIZE, Math.round(v) || MIN_MAP_SIZE));
+      return { width: clamp(customW), height: clamp(customH) };
+    }
+    const p = MAP_SIZES.find((s) => s.key === sizeKey)!;
+    return { width: p.width, height: p.height };
+  }, [sizeKey, customW, customH]);
+
+  // Regenerate the real map (debounced) whenever its inputs change: the preview IS the world.
+  useEffect(() => {
+    const t = setTimeout(() => setPreview(generateTerrain(width, height, worldType, seed)), 150);
+    return () => clearTimeout(t);
+  }, [width, height, worldType, seed]);
+
+  useEffect(() => {
+    const c = canvasRef.current;
+    if (!c || !preview) return;
+    const src = gridToCanvas(preview);
+    c.width = preview.width;
+    c.height = preview.height;
+    c.getContext('2d')!.drawImage(src, 0, 0);
+  }, [preview]);
+
+  const composition = useMemo(() => {
+    if (!preview) return [];
+    const counts = preview.countByTerrain();
+    const total = preview.tiles.length;
+    return counts.map((c, id) => ({ id, pct: (c / total) * 100 })).filter((c) => c.pct > 0.5).sort((a, b) => b.pct - a.pct);
+  }, [preview]);
+
+  const onDifficulty = (d: Difficulty) => {
+    setDifficulty(d);
+    setStartingGold(STARTING_GOLD[d]);
+  };
+
+  const create = async () => {
+    if (!name.trim()) return toast('Please enter a world name.', 'error');
+    setCreating(true);
+    try {
+      await createAndOpenWorld(
+        { name, width, height, worldType, difficulty, seed, startingGold, initialNpcCount: npcs, initialPlayerCount: players },
+        preview && preview.width === width && preview.height === height ? preview : undefined,
+      );
+    } catch (e) {
+      toast(`Failed to create world: ${(e as Error).message}`, 'error');
+      setCreating(false);
+    }
+  };
+
+  return (
+    <ScreenFrame title="Create New World" onBack={() => go('menu')}>
+      <div className="create-grid">
+        <div className="create-form">
+          <div className="field">
+            <label>World name</label>
+            <input className="input" value={name} maxLength={48} onChange={(e) => setName(e.target.value)} />
+          </div>
+
+          <div className="field">
+            <label>Map size</label>
+            <div className="chip-row">
+              {MAP_SIZES.map((s) => (
+                <button key={s.key} className={`btn small ${sizeKey === s.key ? 'active' : ''}`} onClick={() => setSizeKey(s.key)}>{s.label}</button>
+              ))}
+              <button className={`btn small ${sizeKey === 'custom' ? 'active' : ''}`} onClick={() => setSizeKey('custom')}>Custom</button>
+            </div>
+            {sizeKey === 'custom' && (
+              <div className="row">
+                <input className="input" type="number" min={MIN_MAP_SIZE} max={MAX_MAP_SIZE} value={customW} onChange={(e) => setCustomW(+e.target.value)} style={{ width: 90 }} />
+                ×
+                <input className="input" type="number" min={MIN_MAP_SIZE} max={MAX_MAP_SIZE} value={customH} onChange={(e) => setCustomH(+e.target.value)} style={{ width: 90 }} />
+                <span className="hint">{MIN_MAP_SIZE}–{MAX_MAP_SIZE} tiles</span>
+              </div>
+            )}
+          </div>
+
+          <div className="field">
+            <label>World type</label>
+            <div className="type-grid">
+              {WORLD_TYPES.map((t) => (
+                <button key={t.key} className={`btn type-card ${worldType === t.key ? 'active' : ''}`} onClick={() => setWorldType(t.key)} title={t.description}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <span className="hint">{WORLD_TYPES.find((t) => t.key === worldType)?.description}</span>
+          </div>
+
+          <div className="field">
+            <label>Difficulty</label>
+            <div className="chip-row">
+              {DIFFICULTIES.map((d) => (
+                <button key={d.key} className={`btn small ${difficulty === d.key ? 'active' : ''}`} onClick={() => onDifficulty(d.key)} title={d.description}>{d.label}</button>
+              ))}
+            </div>
+          </div>
+
+          <div className="two-col">
+            <div className="field">
+              <label>Starting gold (treasury)</label>
+              <input className="input" type="number" min={0} step={500} value={startingGold} onChange={(e) => setStartingGold(Math.max(0, +e.target.value))} />
+            </div>
+            <div className="field">
+              <label>Seed</label>
+              <div className="row">
+                <input className="input grow" type="number" value={seed} onChange={(e) => setSeed(Math.abs(Math.floor(+e.target.value)) || 0)} />
+                <button className="btn icon" title="Random seed" onClick={() => setSeed(randomSeed())}><PixelIcon name="dice" /></button>
+              </div>
+            </div>
+          </div>
+
+          <div className="two-col">
+            <div className="field">
+              <label>Initial NPCs: <b>{npcs}</b></label>
+              <input type="range" min={0} max={200} value={npcs} onChange={(e) => setNpcs(+e.target.value)} />
+            </div>
+            <div className="field">
+              <label>Initial simulated players: <b>{players}</b></label>
+              <input type="range" min={0} max={1000} step={10} value={players} onChange={(e) => setPlayers(+e.target.value)} />
+            </div>
+          </div>
+          <div className="hint">
+            NPC and player counts are saved with the world now. NPCs get placed when the NPC system arrives (Phase 2); players spawn when the simulation arrives (Phase 4).
+          </div>
+        </div>
+
+        <div className="create-preview">
+          <div className="preview-frame">
+            <canvas ref={canvasRef} className="preview-canvas" />
+          </div>
+          <div className="hint center">{width} × {height} tiles · seed {seed}</div>
+          <div className="composition">
+            {composition.map((c) => (
+              <div key={c.id} className="comp-row">
+                <span className="comp-dot" style={{ background: getTerrain(c.id).palette[0] }} />
+                <span className="grow">{TERRAINS[c.id].name}</span>
+                <span>{c.pct.toFixed(0)}%</span>
+              </div>
+            ))}
+          </div>
+          <button className="btn big primary" disabled={creating || !preview} onClick={create}>
+            {creating ? 'Creating…' : 'Create World'}
+          </button>
+        </div>
+      </div>
+    </ScreenFrame>
+  );
+}
