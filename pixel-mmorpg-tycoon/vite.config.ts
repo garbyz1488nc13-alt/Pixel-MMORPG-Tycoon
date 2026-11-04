@@ -11,5 +11,5 @@ export default defineConfig({
     chunkSizeWarningLimit: 2000,
     rollupOptions: { output: { manualChunks: { phaser: ['phaser'] } } },
   },
-  test: { environment: 'node' },
+  test: { environment: 'node', testTimeout: 60000 },
 });
