@@ -17,6 +17,7 @@ import { QuestsTab } from '../rpg/QuestsTab';
 import { ProgressionTab } from '../rpg/ProgressionTab';
 import { PlayersTab } from '../sim/PlayersTab';
 import { StudioTab } from '../sim/StudioTab';
+import { CommunityTab } from '../sim/CommunityTab';
 import type { GameSession } from '@/session/GameSession';
 
 export function EditorScreen() {
@@ -51,6 +52,7 @@ function Editor({ session }: { session: GameSession }) {
           {tab === 'progression' && <div className="center-overlay"><ProgressionTab session={session} /></div>}
           {tab === 'players' && <div className="center-overlay"><PlayersTab session={session} /></div>}
           {tab === 'studio' && <div className="center-overlay"><StudioTab session={session} /></div>}
+          {tab === 'community' && <div className="center-overlay"><CommunityTab session={session} /></div>}
         </div>
         <RightPanel session={session} />
       </div>

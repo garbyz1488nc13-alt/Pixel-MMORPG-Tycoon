@@ -123,7 +123,7 @@ export class CommunityService {
     const hours = Math.max(1, p.playMinutes / 60);
     const kph = p.stats.kills / hours;
     const gph = p.stats.goldEarned / hours;
-    let s = p.reports * 6 + Math.max(0, kph - 10) * 2 + Math.max(0, gph - 80) / 5 + p.stats.pvpKills * 2;
+    let s = p.reports * 4 + Math.max(0, kph - 10) * 2 + Math.max(0, gph - 80) / 6 + p.stats.pvpKills * 2;
     if (p.cheat === 'speed') s += 20; // visibly too fast
     return Math.max(0, Math.min(100, Math.round(s)));
   }
@@ -178,13 +178,16 @@ export class CommunityService {
       if (p.cheat === 'gold') { p.gold += 80; p.stats.goldEarned += 80; }
       const a = this.actors.actors.get(p.id);
       if (!a) continue;
+      let reports = 0;
       for (const o of this.actors.spatial.query(a.x, a.y, 12)) {
         if (o.kind !== 'player' || o.id === a.id) continue;
         const other = this.pm.get(o.defId);
         if (!other || other.cheat) continue;
-        this.pm.feel(other, 'cheaters', 0.5);
-        if (this.rand() < 0.3) p.reports++;
+        this.pm.feel(other, 'cheaters', 0.25);
+        // Only some witnesses bother to report, and at most a few per hour.
+        if (reports < 3 && this.rand() < 0.12) reports++;
       }
+      p.reports += reports;
     }
 
     // Honest top players sometimes get reported by jealous rivals.

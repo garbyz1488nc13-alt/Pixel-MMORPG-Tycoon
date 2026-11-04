@@ -13,6 +13,7 @@ const TABS: { key: EditorTab; label: string; phase?: number }[] = [
   { key: 'progression', label: 'Progression' },
   { key: 'players', label: 'Players' },
   { key: 'studio', label: 'Studio' },
+  { key: 'community', label: 'Community' },
   { key: 'events', label: 'Events', phase: 6 },
   { key: 'analytics', label: 'Analytics', phase: 6 },
   { key: 'settings', label: 'Settings' },

@@ -8,6 +8,7 @@ import { xpToNext } from '@/systems/rpg/progression';
 import { useEditorStore } from '@/stores/editorStore';
 import { ItemIcon } from '../rpg/ItemIcon';
 import { SpritePreview } from '../components/SpritePreview';
+import { banPlayer } from './CommunityTab';
 
 export function moodColor(s: number): string {
   return s >= 65 ? '#6cc551' : s >= 40 ? '#f2c14e' : '#e2574c';
@@ -35,6 +36,7 @@ export function PlayerDetail({ session, player, compact = false }: { session: Ga
           <div className="inspect-title">{player.name}</div>
           <div className="hint">{t(pm.classDef(player).name)} · {t('Lv')} {player.level} · {t(getBehavior(player.behavior).name)}</div>
           <div className="hint">{player.online ? (actor?.state === 'dead' ? t('dead') : act ? t(ACTIVITY_LABEL[act.kind]) : t('Idle')) : t('Offline')}</div>
+          {player.streamer && <div><span className="badge live">LIVE</span> <span className="hint">{t('{n} viewers', { n: player.streamer.viewers.toLocaleString() })}</span></div>}
         </div>
       </div>
       <div className="mood-bar" title={t('Satisfaction')}>
@@ -48,6 +50,11 @@ export function PlayerDetail({ session, player, compact = false }: { session: Ga
       <div className="kv"><span>{t('Kills / deaths')}</span><span>{player.stats.kills} / {player.stats.deaths}</span></div>
       <div className="kv"><span>{t('Quests done')}</span><span>{player.stats.questsDone}</span></div>
       <div className="kv"><span>{t('Played')}</span><span>{Math.round(player.playMinutes / 60)} {t('h')}</span></div>
+      <div className="kv"><span>{t('Reports')}</span><span className={player.reports > 2 ? 'bad-text' : ''}>{player.reports}</span></div>
+      <div className="kv"><span>{t('Suspicion')}</span><span>{session.community.suspicion(player)}%</span></div>
+      <div className="chip-row">
+        <button className="btn small danger" onClick={() => banPlayer(session, player)}>{t('Ban')}</button>
+      </div>
       {player.online && actor && (
         <div className="chip-row">
           <button className="btn small" onClick={() => { setTab('map'); session.bridge.emit('camera:centerTile', { x: actor.x, y: actor.y }); setFocus(player.id); }}>{t('Show on map')}</button>

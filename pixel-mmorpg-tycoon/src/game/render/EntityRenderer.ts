@@ -131,11 +131,11 @@ export class EntityRenderer {
   }
 
   // ------------------------------------------------------------- actors
-  private actorFrame(a: Actor, moving: boolean): { frame: string; scale: number; quest: boolean } {
+  private actorFrame(a: Actor, moving: boolean): { frame: string; scale: number; quest: boolean; live?: boolean } {
     const anim = moving ? Math.floor(this.time / 180 + (a.id.charCodeAt(a.id.length - 1) % 2)) % 2 : 0;
     if (a.kind === 'player') {
       const p = this.session.players.get(a.defId);
-      return { frame: `pl:${p?.classKey ?? 'warrior'}:${anim}`, scale: 1, quest: false };
+      return { frame: `pl:${p?.classKey ?? 'warrior'}:${anim}`, scale: 1, quest: false, live: !!p?.streamer };
     }
     if (a.kind === 'npc') {
       const def = this.session.actors.npcDef(a);
@@ -192,12 +192,13 @@ export class EntityRenderer {
       else spr.clearTint();
 
       // Quest marker / sleeping marker
-      if (f.quest || a.state === 'rest') {
+      if (f.quest || a.state === 'rest' || f.live) {
         let m = this.markerPool[markers];
         if (!m) { m = this.scene.add.image(0, 0, ATLAS_KEY, 'fx:quest').setOrigin(0.5, 1); this.markerPool.push(m); }
         markers++;
-        const bob = Math.sin(this.time / 250) * 2;
-        m.setVisible(true).setFrame(a.state === 'rest' ? 'fx:zzz' : 'fx:quest').setPosition(px + (a.state === 'rest' ? 8 : 0), py - 22 + bob).setDepth(DEPTH.LABELS);
+        const bob = f.live ? 0 : Math.sin(this.time / 250) * 2;
+        const frame = f.live ? 'fx:live' : a.state === 'rest' ? 'fx:zzz' : 'fx:quest';
+        m.setVisible(true).setFrame(frame).setPosition(px + (a.state === 'rest' ? 8 : 0), py - (f.live ? 26 : 22) + bob).setDepth(DEPTH.LABELS).setAlpha(f.live && Math.floor(this.time / 600) % 2 ? 0.75 : 1);
       }
 
       // HP bar when damaged or selected

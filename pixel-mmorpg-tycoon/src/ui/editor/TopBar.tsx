@@ -10,6 +10,7 @@ import { toast } from '@/stores/toastStore';
 import { PixelIcon } from '../components/PixelIcon';
 import { useLiveCounts } from '../hooks/useEntities';
 import { useRpg } from '../rpg/useRpg';
+import { Stars } from '../sim/CommunityTab';
 
 const SPEEDS: SimSpeed[] = [1, 2, 4];
 
@@ -61,6 +62,10 @@ export function TopBar() {
       <div className="topbar-stat clickable" title={t('Players online / server capacity. Popularity: {p}%', { p: Math.round(session.runtime.sim.popularity) })} onClick={() => useEditorStore.getState().setTab('players')}>
         <PixelIcon name="user" /> <span>{t('{n} players', { n: session.players.online().length })}</span>
         <span className="hint">/{session.players.capacity()} · {Math.round(session.runtime.sim.popularity)}%</span>
+      </div>
+      <div className="topbar-stat clickable" title={t('Rating from player reviews — click to open the Community tab')} onClick={() => useEditorStore.getState().setTab('community')}>
+        <Stars value={session.runtime.sim.rating} size={12} />
+        <span>{session.runtime.sim.rating ? session.runtime.sim.rating.toFixed(1) : '—'}</span>
       </div>
       {session.studio.standard && (
         <div className={`topbar-stat clickable ${session.runtime.studio.funds < 0 ? 'danger' : ''}`} title={t('Studio funds — click to open the Studio tab')} onClick={() => useEditorStore.getState().setTab('studio')}>

@@ -41,6 +41,22 @@ export function getSpriteAtlas(): SpriteAtlasData {
     draw: (a) => { a.rect(2, 0, 4, 6, '#1a1020'); a.rect(3, 1, 2, 4, '#f2c14e'); a.rect(2, 7, 4, 3, '#1a1020'); a.rect(3, 8, 2, 1, '#f2c14e'); },
   });
   jobs.push({
+    name: 'fx:live', w: 14 * ART_SCALE, h: 7 * ART_SCALE,
+    draw: (a) => {
+      a.rect(0, 0, 14, 7, '#c8102e');
+      a.outlineRect(0, 0, 14, 7, '#5a0010');
+      const W = '#ffffff';
+      // L
+      a.vline(2, 2, 4, W); a.px(3, 4, W);
+      // I
+      a.vline(5, 2, 4, W);
+      // V
+      a.px(7, 2, W); a.px(7, 3, W); a.px(8, 4, W); a.px(9, 3, W); a.px(9, 2, W);
+      // E
+      a.vline(11, 2, 4, W); a.px(12, 2, W); a.px(12, 3, W); a.px(12, 4, W);
+    },
+  });
+  jobs.push({
     name: 'fx:zzz', w: 8 * ART_SCALE, h: 8 * ART_SCALE,
     draw: (a) => { a.hline(1, 4, 1, '#c9d6ff'); a.px(3, 2, '#c9d6ff'); a.px(2, 3, '#c9d6ff'); a.hline(1, 4, 4, '#c9d6ff'); a.hline(5, 7, 5, '#c9d6ff'); a.px(6, 6, '#c9d6ff'); a.hline(5, 7, 7, '#c9d6ff'); },
   });

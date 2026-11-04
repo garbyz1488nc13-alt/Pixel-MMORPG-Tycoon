@@ -6,7 +6,7 @@ import { TerrainId } from '@/data/terrain';
 import type { Selection } from '@/systems/editor/EntityEditor';
 import type { BrushShape } from '@/systems/editor/shapes';
 
-export type EditorTab = 'map' | 'npc' | 'creatures' | 'economy' | 'items' | 'quests' | 'progression' | 'players' | 'studio' | 'events' | 'analytics' | 'settings';
+export type EditorTab = 'map' | 'npc' | 'creatures' | 'economy' | 'items' | 'quests' | 'progression' | 'players' | 'studio' | 'community' | 'events' | 'analytics' | 'settings';
 
 /** Terrain tools + entity tools. */
 export type EditorTool =

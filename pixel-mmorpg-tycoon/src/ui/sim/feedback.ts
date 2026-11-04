@@ -15,6 +15,8 @@ export const FACTOR_HINT: Partial<Record<FactorKey, string>> = {
   queue: 'The server is full. Upgrade the server tier in the Studio tab.',
   unpaid: 'The treasury could not pay quest rewards. Raise taxes or lower rewards.',
   death: 'Players die a lot. Check monster damage, add healers or cheaper potions.',
+  cheaters: 'Cheaters are active. Check "Reports & suspects" in the Community tab and ban them, or turn on anti-cheat.',
+  antiCheatPain: 'Players hate the kernel-level anti-cheat. Consider the Advanced level instead.',
 };
 
 export interface FactorSummary { key: FactorKey; total: number; players: number }
