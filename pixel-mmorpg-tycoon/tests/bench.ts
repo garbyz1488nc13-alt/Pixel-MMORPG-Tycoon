@@ -18,6 +18,7 @@ import { ClanService } from '@/simulation/clans/ClanService';
 import { AuctionService } from '@/simulation/liveops/AuctionService';
 import { SeasonService } from '@/simulation/liveops/SeasonService';
 import { PatchService } from '@/simulation/liveops/PatchService';
+import { ChatService } from '@/simulation/social/ChatService';
 import { createWorldSave } from '@/systems/generation/createWorld';
 import { generateStarterContent } from '@/systems/generation/Populate';
 
@@ -52,6 +53,7 @@ export function buildWorld(opts: { size?: number; npcs?: number; seed?: number; 
   const seasons = new SeasonService(rt, actors, players, clans);
   const patches = new PatchService(rt, players, studio, () => actors.rand());
   players.xpMultiplier = () => events.xpMultiplier() * rt.sim.patches.xpRate;
+  const chat = new ChatService(rt, actors, players, clans, auction, patches);
   const engine = new SimulationEngine(rt);
   engine.addSystem(new ClockSystem(engine.events));
   engine.addSystem(new NpcSystem(actors));
@@ -59,7 +61,8 @@ export function buildWorld(opts: { size?: number; npcs?: number; seed?: number; 
   engine.addSystem(new EconomySystem(econ, actors));
   engine.addSystem(ps);
   engine.addSystem(clans);
+  engine.addSystem(chat);
   const hourly = new HourlySystem(players, studio, () => undefined, community, analytics, events, clans, [auction, seasons, patches]);
   engine.addSystem(hourly);
-  return { rt, actors, econ, studio, players, community, analytics, events, brain, ps, engine, hourly, clans, auction, seasons, patches };
+  return { rt, actors, econ, studio, players, community, analytics, events, brain, ps, engine, hourly, clans, auction, seasons, patches, chat };
 }

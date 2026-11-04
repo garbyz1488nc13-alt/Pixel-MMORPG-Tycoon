@@ -43,7 +43,9 @@ export async function createAndOpenWorld(opts: NewWorldOptions, preview?: TileGr
   await WorldRepository.save(save, 'slot1', makeThumbnail(grid));
   const session = openWorld(save, 'slot1');
   log.event(t('World "{name}" was created ({type}, seed {seed}).', { name: save.name, type: t(WORLD_TYPES.find((w) => w.key === opts.worldType)?.label ?? opts.worldType), seed: opts.seed }), 'success', save.clock.totalMinutes);
-  if (opts.initialNpcCount > 0) {
+  if (opts.startMode === 'empty') {
+    log.event(t('Empty start: build your world from scratch. Players log in once you place a player spawn point (Map → Spawns, or inside a tavern).'), 'info', save.clock.totalMinutes);
+  } else if (opts.initialNpcCount > 0) {
     session.studio.free = true;
     const summary = generateStarterContent(session.runtime, Math.min(200, opts.initialNpcCount), opts.seed);
     session.studio.free = false;
@@ -52,7 +54,7 @@ export async function createAndOpenWorld(opts: NewWorldOptions, preview?: TileGr
     for (const ev of EventService.starterEvents(session.runtime)) session.runtime.entities.add('events', ev);
     session.patches.resetSnapshot();
   }
-  if (opts.initialPlayerCount > 0) {
+  if (opts.initialPlayerCount > 0 && opts.startMode !== 'empty') {
     const n = session.players.seedInitial(opts.initialPlayerCount);
     log.event(t('{n} players are waiting for the servers to start.', { n }), 'info', save.clock.totalMinutes);
   }

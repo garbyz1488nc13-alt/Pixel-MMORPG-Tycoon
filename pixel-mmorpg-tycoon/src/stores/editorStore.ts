@@ -30,6 +30,9 @@ interface EditorState {
   regionType: RegionType;
   npcType: NpcType;
   templateId: EntityId | null;
+  /** Building whose interior is open. */
+  interiorId: string | null;
+  setInterior: (id: string | null) => void;
   /** Boss preset placed by the lair tool. */
   bossPreset: string;
   selection: Selection | null;
@@ -77,6 +80,7 @@ const initial = {
   npcType: 'villager' as NpcType,
   templateId: null,
   bossPreset: 'goblin_king',
+  interiorId: null,
   selection: null,
   focusPlayer: null,
   followPlayer: false,
@@ -100,6 +104,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   setNpcType: (npcType) => set({ npcType, tool: 'npc' }),
   setTemplateId: (templateId) => set({ templateId }),
   setBossPreset: (bossPreset) => set({ bossPreset, tool: 'lair' }),
+  setInterior: (interiorId) => set({ interiorId }),
   select: (selection) => set(selection && selection.ids.length ? { selection, focusPlayer: null, followPlayer: false } : { selection: null }),
   setFocusPlayer: (focusPlayer) => set(focusPlayer ? { focusPlayer, selection: null } : { focusPlayer: null, followPlayer: false }),
   setFollowPlayer: (followPlayer) => set({ followPlayer }),

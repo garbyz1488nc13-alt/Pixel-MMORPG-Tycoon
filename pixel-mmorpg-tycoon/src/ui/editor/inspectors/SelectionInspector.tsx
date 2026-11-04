@@ -1,3 +1,4 @@
+import { ENTERABLE } from '@/data/furniture';
 import { getObjectDef } from '@/data/objects';
 import { t } from '@/i18n';
 import { getRegionType, REGION_TYPES } from '@/data/regionTypes';
@@ -65,6 +66,15 @@ function ObjectInspector({ session, id, actions }: { session: GameSession; id: s
         </div>
       </div>
       <Field label={t('Label')}><TextInput value={o.name ?? ''} onChange={(name) => session.entities.update('objects', o.id, { name }, t('Rename object'))} /></Field>
+      {ENTERABLE.has(o.kind) && (
+        <>
+          <button className="btn primary" onClick={() => useEditorStore.getState().setInterior(o.id)}>{t('Enter building')}</button>
+          <div className="hint">
+            {o.interior?.furniture.some((f) => f.kind === 'spawn') ? '★ ' + t('Players spawn here') + ' · ' : ''}
+            {t('Furniture: {n}', { n: o.interior?.furniture.length ?? 0 })} · {t('Double-click the building on the map to go inside.')}
+          </div>
+        </>
+      )}
       {o.kind === 'portal' && (
         <Field label={t('Destination portal')} hint={portals.length ? t('Players will travel between linked portals (Phase 4).') : t('Place a second portal to link to.')}>
           <select className="input" value={o.linkId ?? ''} onChange={(e) => {

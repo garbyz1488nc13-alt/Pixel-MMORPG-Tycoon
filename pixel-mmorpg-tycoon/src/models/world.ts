@@ -18,7 +18,13 @@ export interface WorldConfig {
   initialNpcCount: number;
   /** Stored now, consumed by the player simulation (Phase 4). */
   initialPlayerCount: number;
+  /** 'ready': generated starter settlement. 'empty': build everything yourself (more money). */
+  startMode?: StartMode;
+  /** Empty start: servers open (queued players log in) once a spawn point exists. */
+  launched?: boolean;
 }
+
+export type StartMode = 'ready' | 'empty';
 
 export interface WorldClockState {
   /** Total in-game minutes since world creation. */

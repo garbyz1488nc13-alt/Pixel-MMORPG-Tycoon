@@ -2,6 +2,7 @@ import type { EntityId } from '@/core/ids';
 import { getBehavior } from '@/data/playerTypes';
 import { GATHER_SOURCES } from '@/data/rpgDefaults';
 import { getRegionType } from '@/data/regionTypes';
+import { doorTile } from '@/data/furniture';
 import type { PlayerState } from '@/models/sim';
 import { totalUnits } from '@/systems/rpg/inventory';
 import { sellPrice } from '@/systems/rpg/pricing';
@@ -124,6 +125,24 @@ export class PlayerBrain {
     return null;
   }
 
+  /** Nearest building with a bed (resting) or tables/chairs (hanging out) — players go inside. */
+  private innDoor(a: Actor, purpose: 'rest' | 'social' = 'rest'): { x: number; y: number } | null {
+    let best: { x: number; y: number } | null = null;
+    let bd = 60;
+    const want = purpose === 'rest' ? ['bed'] : ['table', 'chair', 'fireplace'];
+    for (const o of this.world.entities.list('objects')) {
+      if (!o.interior?.furniture.some((f) => want.includes(f.kind))) continue;
+      const d = doorTile(o);
+      const dist = Math.hypot(d.x - a.x, d.y - a.y);
+      if (dist < bd && this.world.nav.isWalkable(d.x, d.y)) { bd = dist; best = d; }
+    }
+    return best;
+  }
+
+  private restSpot(a: Actor): { x: number; y: number } {
+    return this.innDoor(a) ?? this.safeSpot(a);
+  }
+
   private safeSpot(a: Actor): { x: number; y: number } {
     const safe = this.world.entities.list('regions').filter((r) => getRegionType(r.type).safe);
     let best = safe[0];
@@ -176,7 +195,7 @@ export class PlayerBrain {
 
     const raid = this.clans?.raidOf(p.id);
     if (raid) add('raid', 2, () => ({ kind: 'raid', raidId: raid.id }));
-    if (hpPct < 0.35) add('rest', 1, () => ({ kind: 'rest', ...this.safeSpot(a) }));
+    if (hpPct < 0.35) add('rest', 1, () => ({ kind: 'rest', ...this.restSpot(a) }));
 
     const complete = p.quests.find((q) => q.status === 'complete');
     if (complete) {
@@ -236,7 +255,17 @@ export class PlayerBrain {
         const spot = this.actors.randomTileInArea({ ...festival, templateId: '', maxCount: 0 });
         return spot ? { kind: 'social', x: spot.x, y: spot.y, ticks: 0 } : null;
       });
-    } else add('social', 0.12 + 0.35 * w.social, () => ({ kind: 'social', ...this.safeSpot(a), ticks: 0 }));
+    } else {
+      // Tavern nights: in the evening people meet inside furnished taverns.
+      const hour = Math.floor(this.world.clock.totalMinutes / 60) % 24;
+      const evening = hour >= 19 || hour < 6;
+      const inn = this.innDoor(a, 'social');
+      const bonus = inn ? (evening ? 0.45 : 0.1) : 0;
+      add('social', 0.12 + 0.35 * w.social + bonus, () => {
+        const go = inn && (evening || this.rand() < 0.5);
+        return { kind: 'social', ...(go ? inn : this.safeSpot(a)), ticks: 0 };
+      });
+    }
 
     // Faction war: fighters and PvP players join the battle against the other faction.
     const war = this.events?.warRegion();

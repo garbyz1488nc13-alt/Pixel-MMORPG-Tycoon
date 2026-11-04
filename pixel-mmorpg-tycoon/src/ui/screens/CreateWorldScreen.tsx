@@ -1,3 +1,4 @@
+import type { StartMode } from '@/models/world';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { t, t as tr } from '@/i18n';
 import { randomSeed } from '@/core/random';
@@ -6,7 +7,7 @@ import { DIFFICULTIES, MAP_SIZES, MAX_MAP_SIZE, MIN_MAP_SIZE, WORLD_TYPES, type 
 import { gridToCanvas } from '@/game/textures/mapImage';
 import type { TileGrid } from '@/models/TileGrid';
 import { createAndOpenWorld } from '@/session/sessionActions';
-import { STARTING_FUNDS } from '@/data/studio';
+import { STARTING_FUNDS, EMPTY_START_FUNDS_MULT } from '@/data/studio';
 import type { GameMode } from '@/models/sim';
 import { generateTerrain } from '@/systems/generation/WorldGenerator';
 import { useSessionStore } from '@/stores/sessionStore';
@@ -31,6 +32,7 @@ export function CreateWorldScreen() {
   const [seed, setSeed] = useState(randomSeed);
   const [creating, setCreating] = useState(false);
   const [gameMode, setGameMode] = useState<GameMode>('standard');
+  const [startMode, setStartMode] = useState<StartMode>('ready');
   const [preview, setPreview] = useState<TileGrid | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -75,7 +77,7 @@ export function CreateWorldScreen() {
     setCreating(true);
     try {
       await createAndOpenWorld(
-        { name, width, height, worldType, difficulty, seed, startingGold, initialNpcCount: npcs, initialPlayerCount: players, gameMode },
+        { name, width, height, worldType, difficulty, seed, startingGold, initialNpcCount: npcs, initialPlayerCount: players, gameMode, startMode },
         preview && preview.width === width && preview.height === height ? preview : undefined,
       );
     } catch (e) {
@@ -94,11 +96,25 @@ export function CreateWorldScreen() {
               <button className={`mode-card ${gameMode === 'standard' ? 'active' : ''}`} onClick={() => setGameMode('standard')}>
                 <b className="pixel-title">{t('Standard game')}</b>
                 <span>{t('Run a real studio: building costs money, servers have limits, players pay subscriptions. Grow carefully.')}</span>
-                <span className="hint">{t('Starting funds')}: ${STARTING_FUNDS[difficulty].toLocaleString()}</span>
+                <span className="hint">{t('Starting funds')}: ${(STARTING_FUNDS[difficulty] * (startMode === 'empty' ? EMPTY_START_FUNDS_MULT : 1)).toLocaleString()}</span>
               </button>
               <button className={`mode-card ${gameMode === 'sandbox' ? 'active' : ''}`} onClick={() => setGameMode('sandbox')}>
                 <b className="pixel-title">{t('Sandbox')}</b>
                 <span>{t('Everything is free and unlimited. Build whatever you like and watch players react.')}</span>
+              </button>
+            </div>
+          </div>
+          <div className="field">
+            <label>{t('Start')}</label>
+            <div className="mode-cards">
+              <button className={`mode-card ${startMode === 'ready' ? 'active' : ''}`} onClick={() => setStartMode('ready')}>
+                <b className="pixel-title">{t('Ready world')}</b>
+                <span>{t('A starter settlement with NPCs, monsters and quests. Players log in right away.')}</span>
+              </button>
+              <button className={`mode-card ${startMode === 'empty' ? 'active' : ''}`} onClick={() => setStartMode('empty')}>
+                <b className="pixel-title">{t('Empty world')}</b>
+                <span>{t('Only the land. Build every house, NPC and monster yourself. Servers open when you place the first spawn point.')}</span>
+                {gameMode === 'standard' && <span className="hint">{t('Starting funds')}: ${(STARTING_FUNDS[difficulty] * EMPTY_START_FUNDS_MULT).toLocaleString()} (×{EMPTY_START_FUNDS_MULT})</span>}
               </button>
             </div>
           </div>
@@ -163,7 +179,7 @@ export function CreateWorldScreen() {
           <div className="two-col">
             <div className="field">
               <label>{t('Initial NPCs')}: <b>{npcs}</b></label>
-              <input type="range" min={0} max={200} value={npcs} onChange={(e) => setNpcs(+e.target.value)} />
+              <input type="range" min={0} max={200} value={npcs} disabled={startMode === 'empty'} onChange={(e) => setNpcs(+e.target.value)} />
             </div>
             <div className="field">
               <label>{t('Initial simulated players')}: <b>{players}</b></label>

@@ -1,4 +1,6 @@
 import { getObjectDef } from '@/data/objects';
+import { getFurniture } from '@/data/furniture';
+import type { FurnitureKind } from '@/models/entities';
 import { getTier, LAIR_BASE_COST, LAIR_COST_PER_RAIDER, MONSTER_SLOT_COST, NPC_HIRE_COST, NPC_UPKEEP_PER_DAY, OBJECT_COST, REFUND_RATE, SERVER_TIERS, SHOP_MODELS, SPONSOR_PER_VIEWER_HOUR } from '@/data/studio';
 import type { FactorKey, IncomeSource, PlayerState } from '@/models/sim';
 
@@ -15,7 +17,8 @@ export function entityCost(change: EntityChange['before'], col: EntityChange['co
   switch (col) {
     case 'objects': {
       const def = getObjectDef((change as { kind: string }).kind);
-      return def ? OBJECT_COST[def.category] : 0;
+      const furniture = (change as { interior?: { furniture: { kind: FurnitureKind }[] } }).interior?.furniture ?? [];
+      return (def ? OBJECT_COST[def.category] : 0) + furniture.reduce((n, f) => n + getFurniture(f.kind).cost, 0);
     }
     case 'npcs':
       return NPC_HIRE_COST;

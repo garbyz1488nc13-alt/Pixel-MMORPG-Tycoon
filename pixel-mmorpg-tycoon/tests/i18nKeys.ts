@@ -14,6 +14,8 @@ import { FACTOR_HINT } from '@/ui/sim/feedback';
 import { BOSS_PRESETS } from '@/data/bossTypes';
 import { QUEST_TEMPLATES } from '@/systems/rpg/questTemplates';
 import { LEAGUES } from '@/simulation/liveops/SeasonService';
+import { FURNITURE } from '@/data/furniture';
+import { CHAT } from '@/data/chatLines';
 import { CLAN_STYLES } from '@/data/clanData';
 import { EVENT_METRICS, EVENT_TYPES, TRIGGER_KINDS } from '@/data/eventTypes';
 import { ANTI_CHEAT, BANNED_INNOCENT_REVIEW, CHEAT_KINDS, REVIEW_OPENERS, REVIEW_PHRASES, STREAMER_REVIEW_BAD, STREAMER_REVIEW_GOOD } from '@/data/community';
@@ -86,6 +88,8 @@ export function dynamicKeys(): Set<string> {
   CHEAT_KINDS.forEach((c) => { k.add(c.label); k.add(c.hint); });
   ANTI_CHEAT.forEach((a) => { k.add(a.name); k.add(a.description); });
   LEAGUES.forEach((l) => k.add(l.label));
+  FURNITURE.forEach((f) => { k.add(f.name); if (f.hint) k.add(f.hint); });
+  Object.values(CHAT).forEach((l) => l.forEach((x) => k.add(x)));
   ['Runner-up', 'Third place', 'Auction', 'Seasons', 'Patches', 'Slower', 'Faster', 'Unchanged'].forEach((s) => k.add(s));
   const patchSrc = readFileSync(join(__dirname, '../src/simulation/liveops/PatchService.ts'), 'utf8');
   for (const m of patchSrc.matchAll(/(?:key|label): '([A-Z{](?:\\.|[^'])*)'/g)) k.add(m[1].replace(/\\'/g, "'"));

@@ -18,7 +18,13 @@ export interface MapObject {
   name?: string;
   /** Portal: id of the linked destination portal. */
   linkId?: EntityId;
+  /** Enterable buildings: furniture placed inside. */
+  interior?: Interior;
 }
+
+export type FurnitureKind = 'spawn' | 'bed' | 'table' | 'chair' | 'counter' | 'barrel' | 'fireplace' | 'rug' | 'plant' | 'shelf';
+export interface Furniture { kind: FurnitureKind; x: number; y: number }
+export interface Interior { furniture: Furniture[] }
 
 export interface Region {
   id: EntityId;

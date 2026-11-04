@@ -26,6 +26,7 @@ import { SeasonsTab } from '../sim/SeasonsTab';
 import { PatchesTab } from '../sim/PatchesTab';
 import type { GameSession } from '@/session/GameSession';
 import { useWorldMusic } from '../hooks/useAudio';
+import { InteriorModal } from './InteriorModal';
 
 export function EditorScreen() {
   const session = useSessionStore((s) => s.session);
@@ -38,6 +39,8 @@ function Editor({ session }: { session: GameSession }) {
   useEditorHotkeys(session);
   useAutosave(session);
   useWorldMusic(session);
+  const interiorId = useEditorStore((s) => s.interiorId);
+  const setInterior = useEditorStore((s) => s.setInterior);
 
   return (
     <div className="editor">
@@ -69,6 +72,7 @@ function Editor({ session }: { session: GameSession }) {
           {tab === 'analytics' && <div className="center-overlay"><AnalyticsTab session={session} /></div>}
         </div>
         <RightPanel session={session} />
+        {interiorId && <InteriorModal session={session} objectId={interiorId} onClose={() => setInterior(null)} />}
       </div>
       <BottomLog />
     </div>

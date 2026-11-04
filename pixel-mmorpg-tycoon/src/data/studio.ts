@@ -46,8 +46,11 @@ export const WORLD_FIRST_SPONSOR_PER_LEVEL = 60;
 
 import type { SimState, StudioState, GameMode, ShopModel } from '@/models/sim';
 
-export function createDefaultStudio(mode: GameMode, difficulty: Difficulty): StudioState {
-  return { funds: mode === 'standard' ? STARTING_FUNDS[difficulty] : 0, serverTier: 1, subscriptionPrice: DEFAULT_SUBSCRIPTION, shopModel: 'cosmetic', sandboxMaxOnline: 150, ledger: [], daysInDebt: 0 };
+/** An empty start (no starter town) gives this many times the usual funds. */
+export const EMPTY_START_FUNDS_MULT = 3;
+
+export function createDefaultStudio(mode: GameMode, difficulty: Difficulty, start: 'ready' | 'empty' = 'ready'): StudioState {
+  return { funds: mode === 'standard' ? STARTING_FUNDS[difficulty] * (start === 'empty' ? EMPTY_START_FUNDS_MULT : 1) : 0, serverTier: 1, subscriptionPrice: DEFAULT_SUBSCRIPTION, shopModel: 'cosmetic', sandboxMaxOnline: 150, ledger: [], daysInDebt: 0 };
 }
 
 export function createDefaultSim(): SimState {

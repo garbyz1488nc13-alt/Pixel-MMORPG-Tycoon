@@ -122,6 +122,16 @@ export function CommunityTab({ session }: { session: GameSession }) {
             ))}
           </div>
         </div>
+        <div className="panel">
+          <div className="panel-header">{t('Server chat')}</div>
+          <div className="review-list scroll">
+            {session.chat.log.length === 0 && <div className="hint pad">{t('Quiet for now. Players chat when they meet, level up, die, raid and trade.')}</div>}
+            {[...session.chat.log].reverse().slice(0, 40).map((l, i) => (
+              <div key={i} className="chat-line"><span className="hint">{formatGameTime(l.at)}</span> <b>{l.name}:</b> {t(l.key, l.params)}</div>
+            ))}
+          </div>
+          <div className="hint pad">{t('Zoom in on the map to see chat bubbles above players’ heads.')}</div>
+        </div>
       </div>
 
       <div className="panel tab-detail scroll">

@@ -9,6 +9,9 @@ import type { GameSession } from '@/session/GameSession';
 import type { Actor } from '@/simulation/actors/Actor';
 import { ATTACK_COOLDOWN_TICKS } from '@/simulation/actors/combat';
 import { audio } from '@/audio/AudioEngine';
+
+/** Camera zoom from which chat bubbles are shown. */
+export const BUBBLE_ZOOM = 1.3;
 import { useEditorStore } from '@/stores/editorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { ATLAS_KEY, getSpriteAtlas } from '../sprites/SpriteAtlas';
@@ -43,6 +46,9 @@ export class EntityRenderer {
   /** Particles and shockwaves. */
   private fxGfx: Phaser.GameObjects.Graphics;
   private particles: Particle[] = [];
+  private inside = new Set<string>();
+  private bubblePool: Phaser.GameObjects.Text[] = [];
+  private insideAt = -1e9;
   private waves: { x: number; y: number; r: number; max: number; life: number; color: number }[] = [];
   private overlayGfx: Phaser.GameObjects.Graphics;
   private regionGfx: Phaser.GameObjects.Graphics;
@@ -198,9 +204,14 @@ export class EntityRenderer {
     const k = Math.min(1, dt / 60);
     const alive = new Set<string>();
 
+    // Chat bubbles only when zoomed in (like nameplates in a real MMO).
+    const showChat = cam.zoom >= BUBBLE_ZOOM;
+    let bubbles = 0;
+    if (this.time - this.insideAt > 500) { this.inside = this.session.playersInside(); this.insideAt = this.time; }
     for (const a of this.session.actors.actors.values()) {
       alive.add(a.id);
       if (a.state === 'dead') { this.renderPos.delete(a.id); continue; }
+      if (this.inside.has(a.id)) continue; // resting inside a building
       let rp = this.renderPos.get(a.id);
       if (!rp || Math.hypot(rp.x - a.x, rp.y - a.y) > 3) {
         rp = { x: a.x, y: a.y };
@@ -229,6 +240,17 @@ export class EntityRenderer {
       if (a.hitFlash > 0) spr.setTintFill(0xffffff);
       else if (a.enraged) spr.setTint(Math.floor(this.time / 200) % 2 ? 0xff6060 : 0xff9090);
       else spr.clearTint();
+      const b = showChat && a.kind === 'player' ? this.session.chat.bubbles.get(a.id) : undefined;
+      if (b && bubbles < 40) {
+        let tx = this.bubblePool[bubbles];
+        if (!tx) {
+          tx = this.scene.add.text(0, 0, '', { fontFamily: canvasFont().family, fontSize: `${Math.round(18 * canvasFont().scale)}px`, color: '#1a1530', backgroundColor: '#f4f1e6', padding: { x: 4, y: 1 }, resolution: 2 }).setOrigin(0.5, 1).setDepth(DEPTH.LABELS + 3);
+          this.bubblePool.push(tx);
+        }
+        bubbles++;
+        const text = t(b.key, b.params);
+        tx.setText(text.length > 40 ? text.slice(0, 38) + '…' : text).setPosition(px, py - (f.scale > 1 ? 60 : 36)).setScale(1 / cam.zoom * 1.1).setVisible(true);
+      }
       if (f.clanColor !== undefined) {
         ground.fillStyle(f.clanColor, 0.25).fillEllipse(px, py + 5, 22, 9);
         ground.lineStyle(2, f.clanColor, 1).strokeEllipse(px, py + 5, 22, 9);
@@ -264,6 +286,7 @@ export class EntityRenderer {
       }
     }
     for (let i = used; i < this.actorPool.length; i++) this.actorPool[i].setVisible(false);
+    for (let i = bubbles; i < this.bubblePool.length; i++) this.bubblePool[i].setVisible(false);
     for (let i = markers; i < this.markerPool.length; i++) this.markerPool[i].setVisible(false);
     for (const id of this.renderPos.keys()) if (!alive.has(id)) this.renderPos.delete(id);
   }

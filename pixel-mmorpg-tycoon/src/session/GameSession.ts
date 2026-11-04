@@ -22,7 +22,10 @@ import { ClanService } from '@/simulation/clans/ClanService';
 import { AuctionService } from '@/simulation/liveops/AuctionService';
 import { SeasonService, leagueFor } from '@/simulation/liveops/SeasonService';
 import { PatchService } from '@/simulation/liveops/PatchService';
+import { ChatService } from '@/simulation/social/ChatService';
 import { audio } from '@/audio/AudioEngine';
+import { doorTile } from '@/data/furniture';
+import type { PlayerState } from '@/models/sim';
 import { WORLD_FIRST_SPONSOR_PER_LEVEL } from '@/data/studio';
 import { getItemName } from '@/simulation/clans/clanText';
 import { AnalyticsService } from '@/simulation/analytics/AnalyticsService';
@@ -77,6 +80,7 @@ export class GameSession {
   readonly auction: AuctionService;
   readonly seasons: SeasonService;
   readonly patches: PatchService;
+  readonly chat: ChatService;
   readonly bridge = new EventBus<BridgeEvents>();
   slot: SaveSlotKey;
   /** Copied objects for Ctrl+C / Ctrl+V. */
@@ -124,6 +128,8 @@ export class GameSession {
     this.seasons = new SeasonService(this.runtime, this.actors, this.players, this.clans);
     this.patches = new PatchService(this.runtime, this.players, this.studio, () => this.actors.rand());
     this.players.xpMultiplier = () => this.worldEvents.xpMultiplier() * this.runtime.sim.patches.xpRate;
+    this.chat = new ChatService(this.runtime, this.actors, this.players, this.clans, this.auction, this.patches);
+    this.engine.addSystem(this.chat);
     this.engine.addSystem(new HourlySystem(this.players, this.studio, (debt) => {
       if (debt > 0) log.event(t('The studio is in debt (day {n}). Building is blocked until funds are positive.', { n: debt }), 'warn', this.runtime.clock.totalMinutes);
     }, this.community, this.analytics, this.worldEvents, this.clans, [this.auction, this.seasons, this.patches]));
@@ -218,6 +224,10 @@ export class GameSession {
         if (level % 5 === 0) log.sim(t('{name} reached level {n}!', { name: player.name, n: level }), 'success', this.runtime.clock.totalMinutes);
       }),
       this.players.events.on('questDone', ({ player, quest }) => log.sim(t('{name} completed the quest "{quest}".', { name: player.name, quest: quest.name }), 'info', this.runtime.clock.totalMinutes)),
+      this.players.events.on('launched', ({ count }) => {
+        log.event(t('Servers are open! {n} players rush into your world.', { n: count }), 'success', this.runtime.clock.totalMinutes);
+        audio.play('fanfare');
+      }),
       this.players.events.on('turnedAway', ({ count }) => log.sim(t('Server full: {n} players could not log in.', { n: count }), 'warn', this.runtime.clock.totalMinutes)),
       this.economy.events.on('trade', (tr) => {
         if (tr.kind !== 'sale' && tr.kind !== 'purchase') return;
@@ -312,6 +322,24 @@ export class GameSession {
     }
   }
 
+  /** Online players resting inside a building (standing at its door with a "rest" activity). */
+  guestsOf(o: MapObject): PlayerState[] {
+    if (!o.interior?.furniture.length) return [];
+    const d = doorTile(o);
+    return this.players.online().filter((p) => {
+      const a = this.actors.actors.get(p.id);
+      const kind = a && this.playerSystem.activityOf(a.id)?.kind;
+      return a && a.state !== 'dead' && !a.moving && (kind === 'rest' || kind === 'social') && Math.hypot(a.x - (d.x + 0.5), a.y - (d.y + 0.5)) < 3.5;
+    });
+  }
+
+  /** Ids of all players currently inside buildings (hidden on the map). */
+  playersInside(): Set<string> {
+    const out = new Set<string>();
+    for (const o of this.runtime.entities.list('objects')) if (o.interior) for (const p of this.guestsOf(o)) out.add(p.id);
+    return out;
+  }
+
   dispose(): void {
     window.clearInterval(this.uiTimer);
     this.disposers.forEach((d) => d());
@@ -324,6 +352,7 @@ export class GameSession {
     this.worldEvents.dispose();
     this.clans.dispose();
     this.seasons.dispose();
+    this.chat.dispose();
     this.players.dispose();
     if (EntityCommand.budget === this.studio) EntityCommand.budget = null;
     this.bridge.clear();

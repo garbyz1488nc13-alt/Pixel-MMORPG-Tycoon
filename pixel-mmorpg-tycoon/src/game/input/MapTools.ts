@@ -5,6 +5,7 @@ import { getNpcType } from '@/data/npcTypes';
 import { getObjectDef } from '@/data/objects';
 import { getBossPreset, LAIR_SIZE } from '@/data/bossTypes';
 import { getRegionType } from '@/data/regionTypes';
+import { ENTERABLE } from '@/data/furniture';
 import { TILE_SIZE } from '@/data/terrain';
 import type { GameSession } from '@/session/GameSession';
 import { displayName } from '@/simulation/actors/combat';
@@ -145,6 +146,11 @@ export class MapTools {
         const pl = this.pickPlayer(t.wx, t.wy);
         if (pl) { ed.setFocusPlayer(pl); break; }
         const hit = this.pick(t.wx, t.wy, t.x, t.y);
+        // Double-click a building to walk inside.
+        if (hit?.col === 'objects' && p.event.detail >= 2) {
+          const o = this.rt.entities.get('objects', hit.id);
+          if (o && ENTERABLE.has(o.kind)) { ed.setInterior(o.id); break; }
+        }
         if (!hit) {
           if (!p.event.shiftKey) ed.select(null);
           this.dragRect = { x: t.x, y: t.y };

@@ -1,7 +1,7 @@
 import { createId } from '@/core/ids';
 import type { Difficulty, WorldType } from '@/data/worldPresets';
 import type { TileGrid } from '@/models/TileGrid';
-import { WORLD_SCHEMA_VERSION, type WorldSave } from '@/models/world';
+import { WORLD_SCHEMA_VERSION, type StartMode, type WorldSave } from '@/models/world';
 import { emptyEntities } from '@/models/entities';
 import { createDefaultItems, createDefaultRpg } from '@/data/rpgDefaults';
 import { createDefaultSim, createDefaultStudio } from '@/data/studio';
@@ -20,6 +20,7 @@ export interface NewWorldOptions {
   startingGold: number;
   initialNpcCount: number;
   initialPlayerCount: number;
+  startMode?: StartMode;
 }
 
 /** Build a fresh WorldSave from creation options. Optionally reuse a pre-generated grid (preview). */
@@ -43,12 +44,14 @@ export function createWorldSave(opts: NewWorldOptions, pregenerated?: TileGrid):
       startingGold: opts.startingGold,
       initialNpcCount: opts.initialNpcCount,
       initialPlayerCount: opts.initialPlayerCount,
+      startMode: opts.startMode ?? 'ready',
+      launched: (opts.startMode ?? 'ready') !== 'empty',
     },
     map: { width: grid.width, height: grid.height, tilesRle: grid.toRle() },
     clock: { totalMinutes: START_MINUTES },
     entities: { ...emptyEntities(), items: createDefaultItems() },
     rpg: createDefaultRpg(opts.startingGold),
     sim: createDefaultSim(),
-    studio: createDefaultStudio(opts.gameMode ?? 'sandbox', opts.difficulty),
+    studio: createDefaultStudio(opts.gameMode ?? 'sandbox', opts.difficulty, opts.startMode ?? 'ready'),
   };
 }

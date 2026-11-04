@@ -3,6 +3,7 @@ import { EventBus } from '@/core/EventBus';
 import { BEHAVIORS, CLASS_SHARES, FACTORS, getBehavior, playerName } from '@/data/playerTypes';
 import { itemKeyIndex } from '@/data/rpgDefaults';
 import { getTier } from '@/data/studio';
+import { doorTile } from '@/data/furniture';
 import type { ClassDef, EquipSlot, ItemDef, QuestDef } from '@/models/rpg';
 import type { FactorKey, PlayerBehavior, PlayerState } from '@/models/sim';
 import { addItem, countItem, removeItem } from '@/systems/rpg/inventory';
@@ -25,6 +26,8 @@ export type PlayerEvents = {
   levelUp: { player: PlayerState; level: number };
   questDone: { player: PlayerState; quest: QuestDef; paid: number };
   turnedAway: { count: number };
+  /** Empty start: the servers opened. */
+  launched: { count: number };
 };
 
 /** Churn multiplier for clan members. */
@@ -242,7 +245,9 @@ export class PlayerManager {
 
   // -------------------------------------------------------- population
   spawnPoint(): { x: number; y: number } {
-    const spawns = this.world.entities.list('objects').filter((o) => o.kind === 'player_spawn');
+    // Map spawn points and spawn points inside buildings (players walk out of the door).
+    const spawns = this.world.entities.list('objects').filter((o) => o.kind === 'player_spawn' || o.interior?.furniture.some((f) => f.kind === 'spawn'))
+      .map((o) => (o.kind === 'player_spawn' ? { x: o.x, y: o.y } : doorTile(o)));
     const s = spawns[Math.floor(this.rand() * spawns.length)];
     if (s) {
       const near = this.actors.randomWalkableNear(s.x, s.y, 1);
@@ -301,9 +306,19 @@ export class PlayerManager {
     this.spawnActor(p, sp.x, sp.y);
   }
 
+  /** Somewhere for players to appear: a spawn point on the map or inside a building. */
+  hasSpawn(): boolean {
+    return this.world.entities.list('objects').some((o) => o.kind === 'player_spawn' || o.interior?.furniture.some((f) => f.kind === 'spawn'));
+  }
+
+  /** Empty start: servers stay closed until the designer builds a spawn point. */
+  get serversOpen(): boolean {
+    return this.world.config.launched !== false;
+  }
+
   /** A brand new player joins (if the server has room). */
   join(): PlayerState | null {
-    if (this.online().length >= this.capacity()) return null;
+    if (!this.serversOpen || this.online().length >= this.capacity()) return null;
     const p = this.createPlayer();
     this.world.sim.players.push(p);
     this.byId.set(p.id, p);
@@ -347,6 +362,14 @@ export class PlayerManager {
   /** Once per game hour: returning players, newcomers, popularity drift. */
   hourly(): void {
     const sim = this.world.sim;
+    if (!this.serversOpen) {
+      if (!this.hasSpawn()) return;
+      // Launch day: the queue of waiting players logs in at once.
+      this.world.config.launched = true;
+      const n = this.seedInitial(this.world.config.initialPlayerCount);
+      this.events.emit('launched', { count: n });
+      return;
+    }
     const now = this.world.clock.totalMinutes;
     const cap = this.capacity();
     let turnedAway = 0;

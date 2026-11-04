@@ -66,7 +66,14 @@ class Planner {
     const d = getObjectDef(kind)!;
     const set = d.flat ? this.flat : this.solid;
     for (let ty = y; ty < y + d.h; ty++) for (let tx = x; tx < x + d.w; tx++) set.add(ty * this.world.grid.width + tx);
-    this.objects.push({ id: createId('obj'), kind, x, y });
+    const obj: MapObject = { id: createId('obj'), kind, x, y };
+    // Generated taverns come furnished: beds for resting players, tables, a fireplace.
+    if (kind === 'tavern') obj.interior = { furniture: [
+      { kind: 'fireplace', x: 1, y: 1 }, { kind: 'counter', x: 5, y: 1 }, { kind: 'counter', x: 6, y: 1 }, { kind: 'barrel', x: 7, y: 1 },
+      { kind: 'table', x: 3, y: 3 }, { kind: 'chair', x: 2, y: 3 }, { kind: 'table', x: 7, y: 4 }, { kind: 'chair', x: 8, y: 4 },
+      { kind: 'bed', x: 10, y: 1 }, { kind: 'bed', x: 10, y: 3 }, { kind: 'bed', x: 10, y: 5 }, { kind: 'rug', x: 5, y: 5 }, { kind: 'plant', x: 1, y: 6 },
+    ] };
+    this.objects.push(obj);
     return true;
   }
 

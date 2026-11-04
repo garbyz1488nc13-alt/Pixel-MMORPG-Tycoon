@@ -60,6 +60,11 @@ export function TopBar() {
         <PixelIcon name={phase === 'night' ? 'moon' : 'sun'} accent={phase === 'night' ? '#7fd7ff' : '#f2c14e'} color={phase === 'night' ? '#c9d6ff' : '#ffd97a'} />
         <span>{formatGameTime(s.gameMinutes)}</span>
       </div>
+      {!session.players.serversOpen && (
+        <div className="topbar-stat event-chip" title={t('Place a player spawn point on the map (Spawns) or inside a building to open the servers.')}>
+          <span>{t('Servers closed: place a spawn point')}</span>
+        </div>
+      )}
       <div className="topbar-stat clickable" title={t('Players online / server capacity. Popularity: {p}%', { p: Math.round(session.runtime.sim.popularity) })} onClick={() => useEditorStore.getState().setTab('players')}>
         <PixelIcon name="user" /> <span>{t('{n} players', { n: session.players.online().length })}</span>
         <span className="hint">/{session.players.capacity()} · {Math.round(session.runtime.sim.popularity)}%</span>
