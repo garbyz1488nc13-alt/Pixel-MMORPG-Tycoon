@@ -19,6 +19,9 @@ import { HourlySystem } from '@/simulation/systems/HourlySystem';
 import { StudioService } from '@/simulation/studio/StudioService';
 import { CommunityService } from '@/simulation/community/CommunityService';
 import { ClanService } from '@/simulation/clans/ClanService';
+import { AuctionService } from '@/simulation/liveops/AuctionService';
+import { SeasonService, leagueFor } from '@/simulation/liveops/SeasonService';
+import { PatchService } from '@/simulation/liveops/PatchService';
 import { audio } from '@/audio/AudioEngine';
 import { WORLD_FIRST_SPONSOR_PER_LEVEL } from '@/data/studio';
 import { getItemName } from '@/simulation/clans/clanText';
@@ -71,6 +74,9 @@ export class GameSession {
   readonly analytics: AnalyticsService;
   readonly worldEvents: EventService;
   readonly clans: ClanService;
+  readonly auction: AuctionService;
+  readonly seasons: SeasonService;
+  readonly patches: PatchService;
   readonly bridge = new EventBus<BridgeEvents>();
   slot: SaveSlotKey;
   /** Copied objects for Ctrl+C / Ctrl+V. */
@@ -113,9 +119,14 @@ export class GameSession {
     this.clans.replan = (id) => this.playerSystem.replan(id);
     this.playerSystem.bossKilled = (boss, raiders, drops) => this.clans.onBossKilled(boss, raiders, drops);
     this.engine.addSystem(this.clans);
+    this.auction = new AuctionService(this.runtime, this.players, this.economy, () => this.actors.rand());
+    this.playerSystem.auction = this.auction;
+    this.seasons = new SeasonService(this.runtime, this.actors, this.players, this.clans);
+    this.patches = new PatchService(this.runtime, this.players, this.studio, () => this.actors.rand());
+    this.players.xpMultiplier = () => this.worldEvents.xpMultiplier() * this.runtime.sim.patches.xpRate;
     this.engine.addSystem(new HourlySystem(this.players, this.studio, (debt) => {
       if (debt > 0) log.event(t('The studio is in debt (day {n}). Building is blocked until funds are positive.', { n: debt }), 'warn', this.runtime.clock.totalMinutes);
-    }, this.community, this.analytics, this.worldEvents, this.clans));
+    }, this.community, this.analytics, this.worldEvents, this.clans, [this.auction, this.seasons, this.patches]));
 
     const store = useSessionStore.getState();
     store.patch({
@@ -151,6 +162,15 @@ export class GameSession {
         log.event(t('Event started: {name} ({type}) for {h} h{auto}.', { name: active.name, type: t(getEventType(active.type).name), h: Math.round((active.endsAt - active.startedAt) / 60), auto: manual ? '' : ' · ' + t('triggered automatically') }), 'success', this.runtime.clock.totalMinutes)),
       this.worldEvents.events.on('ended', ({ record }) =>
         log.event(t('Event ended: {name}. Participants: {p}, kills: {k}, popularity {d}.', { name: record.name, p: record.participants, k: record.kills, d: (record.popularityDelta >= 0 ? '+' : '') + record.popularityDelta }), 'info', this.runtime.clock.totalMinutes)),
+      this.seasons.events.on('ended', ({ record, next }) => {
+        const top = record.topClans[0];
+        log.event(top
+          ? t('Season {n} is over! Champions: [{tag}] {clan} ({p} points, {league}). Season {next} begins.', { n: record.number, tag: top.tag, clan: top.name, p: top.points, league: t(leagueFor(top.points).label), next })
+          : t('Season {n} is over. Season {next} begins.', { n: record.number, next }), 'success', this.runtime.clock.totalMinutes);
+        audio.play('fanfare');
+      }),
+      this.patches.events.on('released', ({ record }) =>
+        log.event(t('Patch {v} is live! Hype {h}, new bugs: {b}.', { v: record.version, h: record.hype, b: record.bugsIntroduced }), 'success', this.runtime.clock.totalMinutes)),
       this.clans.events.on('founded', ({ clan, founder }) =>
         log.event(t('{name} founded the clan "{clan}" [{tag}].', { name: founder.name, clan: clan.name, tag: clan.tag }), 'success', this.runtime.clock.totalMinutes)),
       this.clans.events.on('disbanded', ({ clan, reason }) =>
@@ -303,6 +323,7 @@ export class GameSession {
     this.analytics.dispose();
     this.worldEvents.dispose();
     this.clans.dispose();
+    this.seasons.dispose();
     this.players.dispose();
     if (EntityCommand.budget === this.studio) EntityCommand.budget = null;
     this.bridge.clear();

@@ -51,7 +51,7 @@ export function createDefaultStudio(mode: GameMode, difficulty: Difficulty): Stu
 }
 
 export function createDefaultSim(): SimState {
-  return { players: [], popularity: 20, totalJoined: 0, totalLeft: 0, arrivalCarry: 0, ...defaultCommunity(), ...defaultManagement(), ...defaultClans() };
+  return { players: [], popularity: 20, totalJoined: 0, totalLeft: 0, arrivalCarry: 0, ...defaultCommunity(), ...defaultManagement(), ...defaultClans(), ...defaultLiveOps() };
 }
 
 export function defaultCommunity(): Pick<SimState, 'reviews' | 'rating' | 'ratingHistory' | 'antiCheat' | 'bans'> {
@@ -60,6 +60,14 @@ export function defaultCommunity(): Pick<SimState, 'reviews' | 'rating' | 'ratin
 
 export function defaultManagement(): Pick<SimState, 'history' | 'totals' | 'regionVisits' | 'activeEvents' | 'eventHistory' | 'eventLastRun'> {
   return { history: [], totals: { kills: 0, deaths: 0, quests: 0, pvpKills: 0, levelUps: 0 }, regionVisits: {}, activeEvents: [], eventHistory: [], eventLastRun: {} };
+}
+
+export function defaultLiveOps(): Pick<SimState, 'auction' | 'season' | 'patches'> {
+  return {
+    auction: { listings: [], sales: [], feePct: 5, avgPrice: {}, volume: 0, fees: 0 },
+    season: { number: 1, startedAt: 0, lengthDays: 7, clanPoints: {}, playerPoints: {}, pvp: {}, history: [] },
+    patches: { major: 1, minor: 0, lastAt: null, snapshot: {}, bugs: 0, xpRate: 1, history: [] },
+  };
 }
 
 export function defaultClans(): Pick<SimState, 'clans' | 'raids' | 'raidHistory' | 'lairStats'> {

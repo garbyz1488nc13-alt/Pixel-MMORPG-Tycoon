@@ -50,6 +50,7 @@ export async function createAndOpenWorld(opts: NewWorldOptions, preview?: TileGr
     log.event(t('Starter content: {summary}', { summary }), 'success', save.clock.totalMinutes);
     focusFirstRegion(session);
     for (const ev of EventService.starterEvents(session.runtime)) session.runtime.entities.add('events', ev);
+    session.patches.resetSnapshot();
   }
   if (opts.initialPlayerCount > 0) {
     const n = session.players.seedInitial(opts.initialPlayerCount);

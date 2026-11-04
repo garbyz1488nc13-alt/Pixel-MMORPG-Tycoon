@@ -36,6 +36,8 @@ export class PlayerSystem implements SimulationSystem {
     return m;
   }
 
+  /** Auction house (drop-only loot is listed there instead of sold to merchants). */
+  auction: { isDropOnly(itemId: string): boolean } | null = null;
   /** Clans & raids (set by the session). */
   clans: ClanService | null = null;
 
@@ -376,6 +378,7 @@ export class PlayerSystem implements SimulationSystem {
           const it = world.entities.get('items', s.itemId);
           if (it && ((it.stats.heal ?? 0) > 0)) continue; // keep healing items
           if (it && it.slot !== 'none' && it.levelReq > p.level) continue; // keep future gear
+          if (this.auction?.isDropOnly(s.itemId)) continue; // rare loot goes to the auction house
           if (this.econ.sellToMerchant(trader, act.merchantId, s.itemId, s.qty) > 0) traded = true;
         }
         if (act.buyItemId) {

@@ -36,6 +36,7 @@ export function PlayerDetail({ session, player, compact = false }: { session: Ga
           <div className="inspect-title">{player.name}</div>
           <div className="hint">{t(pm.classDef(player).name)} · {t('Lv')} {player.level} · {t(getBehavior(player.behavior).name)}</div>
           <div className="hint">{player.online ? (actor?.state === 'dead' ? t('dead') : act ? t(ACTIVITY_LABEL[act.kind]) : t('Idle')) : t('Offline')}</div>
+          {player.titles?.map((ti) => { const [name, season] = ti.split(' · '); return <div key={ti} className="good-text">★ {t(name)} · {season}</div>; })}
           {player.streamer && <div><span className="badge live">LIVE</span> <span className="hint">{t('{n} viewers', { n: player.streamer.viewers.toLocaleString() })}</span></div>}
         </div>
       </div>

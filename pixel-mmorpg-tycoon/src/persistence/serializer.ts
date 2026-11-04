@@ -3,7 +3,7 @@ import { MAX_MAP_SIZE, MIN_MAP_SIZE } from '@/data/worldPresets';
 import { TileGrid } from '@/models/TileGrid';
 import { WORLD_SCHEMA_VERSION, type WorldMeta, type WorldSave } from '@/models/world';
 import { emptyEntities } from '@/models/entities';
-import { createDefaultSim, createDefaultStudio, defaultCommunity, defaultManagement, defaultClans } from '@/data/studio';
+import { createDefaultSim, createDefaultStudio, defaultCommunity, defaultManagement, defaultClans, defaultLiveOps } from '@/data/studio';
 import { createDefaultItems, createDefaultRpg, defaultLoot, defaultShop, DEFAULT_NPC_GOLD } from '@/data/rpgDefaults';
 
 export const EXPORT_FORMAT = 'pixel-mmorpg-tycoon/world';
@@ -65,6 +65,10 @@ export function migrate(save: WorldSave): WorldSave {
   if (s.schemaVersion < 8 || !s.studio.shopModel) {
     const daily = Math.max(0, Math.min(15, Math.round((s.studio.subscriptionPrice ?? 10) * 0.3)));
     s = { ...s, studio: { ...s.studio, subscriptionPrice: daily, shopModel: 'cosmetic' } };
+  }
+  // v8 -> v9: auction house, seasons, patches.
+  if (s.schemaVersion < 9 || !s.sim.auction) {
+    s = { ...s, sim: { ...defaultLiveOps(), ...s.sim } };
   }
   return { ...s, schemaVersion: WORLD_SCHEMA_VERSION };
 }

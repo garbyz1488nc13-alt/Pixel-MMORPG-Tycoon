@@ -86,6 +86,11 @@ export class EconomyService {
     this.events.emit('trade', t);
   }
 
+  /** Auction house fees and other income for the world treasury. */
+  addToTreasury(amount: number): void {
+    this.payTax(amount);
+  }
+
   private payTax(amount: number): void {
     if (amount <= 0) return;
     this.eco.treasury += amount;

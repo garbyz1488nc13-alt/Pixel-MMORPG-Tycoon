@@ -21,6 +21,9 @@ import { CommunityTab } from '../sim/CommunityTab';
 import { AnalyticsTab } from '../sim/AnalyticsTab';
 import { EventsTab } from '../sim/EventsTab';
 import { ClansTab } from '../sim/ClansTab';
+import { AuctionTab } from '../sim/AuctionTab';
+import { SeasonsTab } from '../sim/SeasonsTab';
+import { PatchesTab } from '../sim/PatchesTab';
 import type { GameSession } from '@/session/GameSession';
 import { useWorldMusic } from '../hooks/useAudio';
 
@@ -59,6 +62,9 @@ function Editor({ session }: { session: GameSession }) {
           {tab === 'studio' && <div className="center-overlay"><StudioTab session={session} /></div>}
           {tab === 'community' && <div className="center-overlay"><CommunityTab session={session} /></div>}
           {tab === 'clans' && <div className="center-overlay"><ClansTab session={session} /></div>}
+          {tab === 'auction' && <div className="center-overlay"><AuctionTab session={session} /></div>}
+          {tab === 'seasons' && <div className="center-overlay"><SeasonsTab session={session} /></div>}
+          {tab === 'patches' && <div className="center-overlay"><PatchesTab session={session} /></div>}
           {tab === 'events' && <div className="center-overlay"><EventsTab session={session} /></div>}
           {tab === 'analytics' && <div className="center-overlay"><AnalyticsTab session={session} /></div>}
         </div>

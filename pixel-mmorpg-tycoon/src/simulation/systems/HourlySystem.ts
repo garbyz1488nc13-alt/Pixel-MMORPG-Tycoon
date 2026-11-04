@@ -16,6 +16,8 @@ export class HourlySystem implements SimulationSystem {
     private players: PlayerManager, private studio: StudioService, private onDay: (debtDays: number) => void,
     private community?: CommunityService, private analytics?: AnalyticsService, private worldEvents?: EventService,
     private clans?: ClanService,
+    /** Live ops (auction, seasons, patches). */
+    private extra: { hourly(): void }[] = [],
   ) {}
 
   update(ctx: SimContext, dt: number): void {
@@ -27,6 +29,7 @@ export class HourlySystem implements SimulationSystem {
       this.community?.hourly();
       this.worldEvents?.hourly();
       this.clans?.hourly();
+      for (const x of this.extra) x.hourly();
       this.studio.hourly(this.players.online(), { feel: (p, k, m) => this.players.feel(p, k, m), gainXp: (p, n) => this.players.gainXp(p, n) });
       this.analytics?.hourly();
     }

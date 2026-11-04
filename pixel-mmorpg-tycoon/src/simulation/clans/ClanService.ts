@@ -20,6 +20,8 @@ export type ClanEvents = {
   raidPulled: { raid: RaidState; clan: Clan | null; boss: CreatureTemplate; present: number; early: boolean };
   raidEnded: { record: RaidRecord };
   ninja: { clan: Clan | null; player: PlayerState; itemId: EntityId };
+  /** Everyone who took part in a boss kill (for season points). */
+  raidMembers: { members: EntityId[]; level: number };
 };
 
 /** Gathering gives up after this many game minutes. */
@@ -384,6 +386,7 @@ export class ClanService implements SimulationSystem {
     stats.lastKillAt = this.now;
     if (worldFirst) stats.firstKill = { clanName: clan?.name ?? '', at: this.now };
     for (const p of raiders) this.pm.feel(p, 'raid', worldFirst ? 1.5 : 1);
+    this.events.emit('raidMembers', { members: raiders.map((p) => p.id), level: tpl.level });
     this.sim.popularity = Math.min(100, this.sim.popularity + (worldFirst ? 3 : 0.5));
     if (clan) {
       clan.fame += tpl.level * 10 * (worldFirst ? 3 : 1);

@@ -11,7 +11,8 @@ export type FactorKey =
   | 'combat' | 'levelup' | 'quest' | 'loot' | 'explore' | 'trade' | 'social'
   | 'death' | 'noContent' | 'tooHard' | 'noQuests' | 'crowded' | 'expensive' | 'poor' | 'pvpKilled' | 'boredom' | 'queue' | 'unpaid'
   | 'cheaters' | 'justice' | 'antiCheatPain' | 'event'
-  | 'clan' | 'raid' | 'drama' | 'p2w';
+  | 'clan' | 'raid' | 'drama' | 'p2w'
+  | 'patch' | 'bugs' | 'nerf' | 'season';
 
 export type CheatKind = 'speed' | 'damage' | 'gold' | 'griefer';
 
@@ -74,6 +75,8 @@ export interface PlayerState {
   reports: number;
   /** Clan membership. */
   clanId?: EntityId;
+  /** Season titles ("Season 2 champion"). */
+  titles?: string[];
 }
 
 export type ClanStyle = 'hardcore' | 'casual' | 'pvp' | 'traders';
@@ -174,6 +177,71 @@ export interface SimState {
   raidHistory: RaidRecord[];
   /** Per boss lair (spawn area id). */
   lairStats: Record<EntityId, LairStats>;
+  auction: AuctionState;
+  season: SeasonState;
+  patches: PatchState;
+}
+
+// ------------------------------------------------------------- auction house
+export interface AuctionListing { id: EntityId; sellerId: EntityId; sellerName: string; itemId: EntityId; qty: number; /** Per unit. */ price: number; listedAt: number }
+export interface AuctionSale { itemId: EntityId; qty: number; price: number; at: number; seller: string; buyer: string }
+export interface AuctionState {
+  listings: AuctionListing[];
+  /** Most recent sales (newest last). */
+  sales: AuctionSale[];
+  /** House fee in % of each sale (goes to the world treasury). */
+  feePct: number;
+  /** Market price per item (moving average of sales). */
+  avgPrice: Record<EntityId, number>;
+  /** Lifetime totals. */
+  volume: number;
+  fees: number;
+}
+
+// ------------------------------------------------------------- seasons
+export interface SeasonRecord {
+  number: number;
+  endedAt: number;
+  topClans: { name: string; tag: string; points: number }[];
+  topPlayers: { name: string; points: number }[];
+  topPvp: { name: string; kills: number }[];
+}
+export interface SeasonState {
+  number: number;
+  startedAt: number;
+  lengthDays: number;
+  clanPoints: Record<EntityId, number>;
+  playerPoints: Record<EntityId, number>;
+  pvp: Record<EntityId, number>;
+  history: SeasonRecord[];
+}
+
+// ------------------------------------------------------------- patches
+export interface PatchNote { key: string; params?: Record<string, string | number> }
+export interface PatchRecord {
+  version: string;
+  at: number;
+  notes: PatchNote[];
+  hype: number;
+  bugsIntroduced: number;
+  bugsFixed: number;
+  moodBefore: number;
+  /** Average mood one game day later. */
+  moodAfter: number | null;
+  popularityBefore: number;
+  popularityAfter: number | null;
+}
+export interface PatchState {
+  major: number;
+  minor: number;
+  lastAt: number | null;
+  /** Content counts when the last patch shipped (to detect new content). */
+  snapshot: Record<string, number>;
+  /** Known bugs live on the servers. */
+  bugs: number;
+  /** Global XP rate set by patches (1 = normal). */
+  xpRate: number;
+  history: PatchRecord[];
 }
 
 export type ShopModel = 'none' | 'cosmetic' | 'boosts' | 'p2w';
