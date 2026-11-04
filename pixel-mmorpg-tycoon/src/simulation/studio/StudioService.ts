@@ -10,7 +10,7 @@ export function entityCost(change: EntityChange['before'], col: EntityChange['co
   switch (col) {
     case 'objects': {
       const def = getObjectDef((change as { kind: string }).kind);
-      return def ? OBJECT_COST[def.category] * def.w * def.h : 0;
+      return def ? OBJECT_COST[def.category] : 0;
     }
     case 'npcs':
       return NPC_HIRE_COST;

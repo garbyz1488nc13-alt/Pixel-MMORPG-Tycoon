@@ -6,6 +6,8 @@ import { DIFFICULTIES, MAP_SIZES, MAX_MAP_SIZE, MIN_MAP_SIZE, WORLD_TYPES, type 
 import { gridToCanvas } from '@/game/textures/mapImage';
 import type { TileGrid } from '@/models/TileGrid';
 import { createAndOpenWorld } from '@/session/sessionActions';
+import { STARTING_FUNDS } from '@/data/studio';
+import type { GameMode } from '@/models/sim';
 import { generateTerrain } from '@/systems/generation/WorldGenerator';
 import { useSessionStore } from '@/stores/sessionStore';
 import { toast } from '@/stores/toastStore';
@@ -28,6 +30,7 @@ export function CreateWorldScreen() {
   const [players, setPlayers] = useState(50);
   const [seed, setSeed] = useState(randomSeed);
   const [creating, setCreating] = useState(false);
+  const [gameMode, setGameMode] = useState<GameMode>('standard');
   const [preview, setPreview] = useState<TileGrid | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -72,7 +75,7 @@ export function CreateWorldScreen() {
     setCreating(true);
     try {
       await createAndOpenWorld(
-        { name, width, height, worldType, difficulty, seed, startingGold, initialNpcCount: npcs, initialPlayerCount: players },
+        { name, width, height, worldType, difficulty, seed, startingGold, initialNpcCount: npcs, initialPlayerCount: players, gameMode },
         preview && preview.width === width && preview.height === height ? preview : undefined,
       );
     } catch (e) {
@@ -85,6 +88,20 @@ export function CreateWorldScreen() {
     <ScreenFrame title={t('Create New World')} onBack={() => go('menu')}>
       <div className="create-grid">
         <div className="create-form">
+          <div className="field">
+            <label>{t('Game mode')}</label>
+            <div className="mode-cards">
+              <button className={`mode-card ${gameMode === 'standard' ? 'active' : ''}`} onClick={() => setGameMode('standard')}>
+                <b className="pixel-title">{t('Standard game')}</b>
+                <span>{t('Run a real studio: building costs money, servers have limits, players pay subscriptions. Grow carefully.')}</span>
+                <span className="hint">{t('Starting funds')}: ${STARTING_FUNDS[difficulty].toLocaleString()}</span>
+              </button>
+              <button className={`mode-card ${gameMode === 'sandbox' ? 'active' : ''}`} onClick={() => setGameMode('sandbox')}>
+                <b className="pixel-title">{t('Sandbox')}</b>
+                <span>{t('Everything is free and unlimited. Build whatever you like and watch players react.')}</span>
+              </button>
+            </div>
+          </div>
           <div className="field">
             <label>{t('World name')}</label>
             <input className="input" value={name} maxLength={48} onChange={(e) => setName(e.target.value)} />
@@ -154,7 +171,7 @@ export function CreateWorldScreen() {
             </div>
           </div>
           <div className="hint">
-            {t('The NPCs are placed in a generated starter settlement. Simulated players are stored with the world and spawn when the player simulation arrives (Phase 4).')}
+            {t('The NPCs live in a generated starter settlement. Simulated players log in as soon as you press Play (limited by server capacity).')}
           </div>
         </div>
 

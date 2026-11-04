@@ -153,6 +153,16 @@ export class WorldScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     this.camCtl.update(delta);
     this.entities.update(delta);
+    // Follow the focused player.
+    const ed = useEditorStore.getState();
+    if (ed.followPlayer && ed.focusPlayer) {
+      const pos = this.entities.actorScreenPos(ed.focusPlayer);
+      if (pos) {
+        const cam = this.cameras.main;
+        const k = Math.min(1, delta / 200);
+        cam.centerOn(cam.midPoint.x + (pos.x * TILE_SIZE - cam.midPoint.x) * k, cam.midPoint.y + (pos.y * TILE_SIZE - cam.midPoint.y) * k);
+      }
+    }
     const settings = useSettingsStore.getState();
     const cam = this.cameras.main;
 

@@ -11,6 +11,7 @@ import { PixelIcon, type IconName } from '../components/PixelIcon';
 import { SpritePreview } from '../components/SpritePreview';
 import { TerrainSwatch } from '../components/TilePreview';
 import { useEntityList } from '../hooks/useEntities';
+import { MONSTER_SLOT_COST, NPC_HIRE_COST, NPC_UPKEEP_PER_DAY, OBJECT_COST } from '@/data/studio';
 
 const SECTIONS: { key: LeftSection; label: string }[] = [
   { key: 'terrain', label: 'Terrain' },
@@ -49,7 +50,7 @@ export function LeftPanel({ session }: { session: GameSession }) {
         ))}
       </div>
       {ed.section === 'terrain' && <TerrainSection />}
-      {ed.section === 'objects' && <ObjectsSection />}
+      {ed.section === 'objects' && <ObjectsSection standard={session.studio.standard} />}
       {ed.section === 'regions' && <RegionsSection session={session} />}
       {ed.section === 'npc' && <NpcSection session={session} />}
       {ed.section === 'creatures' && <CreaturesSection session={session} />}
@@ -98,7 +99,7 @@ function TerrainSection() {
   );
 }
 
-function ObjectsSection() {
+function ObjectsSection({ standard }: { standard: boolean }) {
   const ed = useEditorStore();
   const [cat, setCat] = useState<ObjectCategory>('trees');
   const items = OBJECTS.filter((o) => o.category === cat);
@@ -114,6 +115,7 @@ function ObjectsSection() {
           <button key={o.key} className={`sprite-btn ${ed.tool === 'place-object' && ed.objectKind === o.key ? 'active' : ''}`} title={`${tr(o.name)} · ${o.w}×${o.h}${o.blocks ? ' · ' + tr('blocks movement') : ''}`} onClick={() => ed.setObjectKind(o.key)}>
             <SpritePreview frame={`obj:${o.key}`} box={40} />
             <span>{tr(o.name)}</span>
+            {standard && <span className="cost">${OBJECT_COST[o.category]}</span>}
           </button>
         ))}
       </div>
@@ -151,6 +153,7 @@ function NpcSection({ session }: { session: GameSession }) {
   return (
     <div className="section">
       <div className="hint">{tr('Pick a type, then click a walkable tile to place an NPC.')}</div>
+      {session.studio.standard && <div className="hint cost-line">{tr('Hire an NPC')}: ${NPC_HIRE_COST} + ${NPC_UPKEEP_PER_DAY}/{tr('day')}</div>}
       <div className="sprite-grid">
         {NPC_TYPES.map((t) => (
           <button key={t.key} className={`sprite-btn ${ed.tool === 'npc' && ed.npcType === t.key ? 'active' : ''}`} onClick={() => ed.setNpcType(t.key)} title={tr(t.name)}>
@@ -171,6 +174,7 @@ function CreaturesSection({ session }: { session: GameSession }) {
   return (
     <div className="section">
       <div className="hint">{tr('Pick a creature, then drag on the map to draw its spawn area.')}</div>
+      {session.studio.standard && <div className="hint cost-line">{tr('Monster slot')}: ${MONSTER_SLOT_COST}</div>}
       {templates.length === 0 && <div className="hint">{tr('No creatures yet — create one below.')}</div>}
       <div className="sprite-grid">
         {templates.map((t) => (

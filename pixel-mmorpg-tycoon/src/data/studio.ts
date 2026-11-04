@@ -15,9 +15,9 @@ export const getTier = (n: number) => SERVER_TIERS[Math.max(0, Math.min(SERVER_T
 
 export const STARTING_FUNDS: Record<Difficulty, number> = { relaxed: 25000, normal: 12000, hard: 6000, brutal: 3000 };
 
-/** Build costs in $ (standard mode). */
+/** Build cost of one object in $ (standard mode). */
 export const OBJECT_COST: Record<ObjectCategory, number> = {
-  trees: 4, rocks: 4, bushes: 3, houses: 120, buildings: 300, roads: 2, bridges: 15, decorations: 8, special: 500, spawns: 50,
+  trees: 4, rocks: 5, bushes: 3, houses: 350, buildings: 900, roads: 2, bridges: 15, decorations: 10, special: 700, spawns: 50,
 };
 export const NPC_HIRE_COST = 150;
 export const NPC_UPKEEP_PER_DAY = 12;

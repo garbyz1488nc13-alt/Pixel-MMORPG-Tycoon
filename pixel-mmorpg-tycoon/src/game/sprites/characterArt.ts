@@ -23,7 +23,7 @@ export const HUMANOID_FRAMES = [[...HEAD_BODY, ...LEGS_A], [...HEAD_BODY, ...LEG
 export interface HumanoidLook {
   h: string; s: string; b: string; B: string; a: string; l: string; f: string; e?: string;
   accessory?: NpcTypeDef['accessory'] | 'ears' | 'ribs' | 'tusks' | 'horns';
-  weapon?: 'spear' | 'dagger' | 'axe' | 'hammer' | 'staff';
+  weapon?: 'spear' | 'dagger' | 'axe' | 'hammer' | 'staff' | 'sword' | 'bow';
 }
 
 export function drawHumanoid(a: ArtCanvas, look: HumanoidLook, frame: number, ox = 0, oy = 0) {
@@ -93,6 +93,14 @@ export function drawHumanoid(a: ArtCanvas, look: HumanoidLook, frame: number, ox
       for (let y = 1; y <= 13; y++) P(14, y, '#6e4a2c');
       P(14, 0, look.a); P(13, 0, look.a); P(15, 0, look.a);
       break;
+    case 'sword':
+      for (let y = 2; y <= 8; y++) P(14, y, '#e0e8f0');
+      P(13, 9, '#b0832a'); P(14, 9, '#b0832a'); P(15, 9, '#b0832a'); P(14, 10, '#5e3b20');
+      break;
+    case 'bow':
+      for (let y = 3; y <= 12; y++) P(y < 5 || y > 10 ? 13 : 14, y, '#8a5a34');
+      for (let y = 3; y <= 12; y++) P(12, y, '#e8e4d4');
+      break;
   }
 }
 
@@ -102,6 +110,15 @@ export function npcLook(t: NpcTypeDef): HumanoidLook {
 }
 
 export const NPC_LOOKS = Object.fromEntries(NPC_TYPES.map((t) => [t.key, npcLook(t)]));
+
+/** Simulated players: one look per class (they're adventurers, so brighter than townsfolk). */
+export const PLAYER_LOOKS: Record<string, HumanoidLook> = {
+  warrior: { h: '#6a3a1a', s: '#f0c39a', b: '#c23b32', B: '#5f6873', a: '#d8dde2', l: '#5f6873', f: '#2a2f36', accessory: 'helmet', weapon: 'sword' },
+  mage: { h: '#d8d8f0', s: '#f2c9a5', b: '#3a5ad2', B: '#22348a', a: '#7fd7ff', l: '#2a3a8a', f: '#1a1a3a', accessory: 'hat', weapon: 'staff' },
+  archer: { h: '#c9883a', s: '#e8b98f', b: '#3f8a4a', B: '#5e3b20', a: '#f2c14e', l: '#4a3a22', f: '#2b1d12', accessory: 'hood', weapon: 'bow' },
+  rogue: { h: '#1a1a24', s: '#d9a07a', b: '#3a2a4a', B: '#14101a', a: '#b56cff', l: '#24182e', f: '#100c14', accessory: 'hood', weapon: 'dagger' },
+  paladin: { h: '#f5e6a8', s: '#f2c9a5', b: '#f0eadc', B: '#b0832a', a: '#f2c14e', l: '#c9c1b1', f: '#6a5b4a', accessory: 'crown', weapon: 'hammer' },
+};
 
 const HUMANOID_CREATURES: Partial<Record<CreatureType, HumanoidLook>> = {
   goblin: { h: '#2f4a1a', s: '#6fae3a', b: '#7a5a3a', B: '#4a3420', a: '#c9b05a', l: '#5a4630', f: '#2b1d12', e: '#ffd04a', accessory: 'ears', weapon: 'dagger' },

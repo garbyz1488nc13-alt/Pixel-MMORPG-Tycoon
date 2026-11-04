@@ -82,12 +82,12 @@ describe('standard mode budget', () => {
     const funds0 = w.rt.studio.funds;
     const house = w.ed.placeObject('house_small', 10, 10)!;
     expect(house).toBeTruthy();
-    expect(w.rt.studio.funds).toBe(funds0 - 120 * 4);
+    expect(w.rt.studio.funds).toBe(funds0 - 350);
     w.history.undo(w.rt);
     expect(w.rt.studio.funds).toBe(funds0);
     w.history.redo(w.rt);
     w.ed.remove('objects', [house.id]);
-    expect(w.rt.studio.funds).toBe(funds0 - 480 + 240);
+    expect(w.rt.studio.funds).toBe(funds0 - 350 + 175);
     w.rt.studio.funds = 100;
     let spot = { x: 0, y: 0 };
     for (let y = 5; y < 90 && !spot.x; y++) for (let x = 5; x < 90; x++) if (w.rt.nav.isWalkable(x, y)) { spot = { x, y }; break; }

@@ -72,6 +72,14 @@ export class EntityRenderer {
           this.spawnFloat(victim.x * S, (victim.y - 1) * S, `+${xp} XP`, '#9cf0c0');
         }
       }),
+      session.players.events.on('levelUp', ({ player, level }) => {
+        const a = session.actors.actors.get(player.id);
+        if (a) this.spawnFloat(a.x * S, (a.y - 1.1) * S, t('LEVEL {n}!', { n: level }), '#f2c14e');
+      }),
+      session.players.events.on('questDone', ({ player }) => {
+        const a = session.actors.actors.get(player.id);
+        if (a) this.spawnFloat(a.x * S, (a.y - 1.4) * S, t('Quest complete!'), '#7fd7ff');
+      }),
       useEditorStore.subscribe((s, p) => {
         if (s.selection !== p.selection || s.tab !== p.tab) this.overlaysDirty = true;
       }),
@@ -125,6 +133,10 @@ export class EntityRenderer {
   // ------------------------------------------------------------- actors
   private actorFrame(a: Actor, moving: boolean): { frame: string; scale: number; quest: boolean } {
     const anim = moving ? Math.floor(this.time / 180 + (a.id.charCodeAt(a.id.length - 1) % 2)) % 2 : 0;
+    if (a.kind === 'player') {
+      const p = this.session.players.get(a.defId);
+      return { frame: `pl:${p?.classKey ?? 'warrior'}:${anim}`, scale: 1, quest: false };
+    }
     if (a.kind === 'npc') {
       const def = this.session.actors.npcDef(a);
       const type = def ? getNpcType(def.type).key : 'villager';
@@ -146,6 +158,7 @@ export class EntityRenderer {
     hp.clear();
     const sel = useEditorStore.getState().selection;
     const selectedNpc = sel?.col === 'npcs' ? new Set(sel.ids) : null;
+    const focus = useEditorStore.getState().focusPlayer;
     const k = Math.min(1, dt / 60);
     const alive = new Set<string>();
 
@@ -188,7 +201,7 @@ export class EntityRenderer {
       }
 
       // HP bar when damaged or selected
-      const selected = selectedNpc?.has(a.defId);
+      const selected = selectedNpc?.has(a.defId) || (a.kind === 'player' && focus === a.defId);
       if (a.hp < a.maxHp || selected) {
         const w = 22 * f.scale * (a.kind === 'creature' && f.frame.includes('dragon') ? 2 : 1);
         const top = py - (f.frame.startsWith('cr:dragon') || f.frame.startsWith('cr:boss') ? 58 : 26 * f.scale);

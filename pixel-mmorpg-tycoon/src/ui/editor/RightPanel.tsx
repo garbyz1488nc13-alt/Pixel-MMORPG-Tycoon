@@ -6,6 +6,16 @@ import { useEditorStore } from '@/stores/editorStore';
 import { TerrainSwatch } from '../components/TilePreview';
 import { Minimap } from './Minimap';
 import { SelectionInspector } from './inspectors/SelectionInspector';
+import { PlayerDetail } from '../sim/PlayerDetail';
+import { useSimTick } from '../sim/useSimTick';
+
+function FocusedPlayer({ session, id }: { session: GameSession; id: string }) {
+  useSimTick(500);
+  const p = session.players.get(id);
+  const clear = useEditorStore((s) => s.setFocusPlayer);
+  if (!p) return <div className="hint">{t('This player has left the game.')} <button className="btn small" onClick={() => clear(null)}>OK</button></div>;
+  return <PlayerDetail session={session} player={p} compact />;
+}
 
 function useTerrainStats(session: GameSession) {
   const [counts, setCounts] = useState(() => session.runtime.grid.countByTerrain());
@@ -31,6 +41,7 @@ function useTerrainStats(session: GameSession) {
 
 export function RightPanel({ session }: { session: GameSession }) {
   const hover = useEditorStore((s) => s.hover);
+  const focusPlayer = useEditorStore((s) => s.focusPlayer);
   const terrain = useEditorStore((s) => s.terrain);
   const counts = useTerrainStats(session);
   const total = counts.reduce((a, b) => a + b, 0) || 1;
@@ -45,9 +56,9 @@ export function RightPanel({ session }: { session: GameSession }) {
         <Minimap session={session} />
       </div>
 
-      <div className="panel-header">{t('Selection')}</div>
+      <div className="panel-header">{focusPlayer ? t('Player') : t('Selection')}</div>
       <div className="section">
-        <SelectionInspector session={session} />
+        {focusPlayer ? <FocusedPlayer session={session} id={focusPlayer} /> : <SelectionInspector session={session} />}
       </div>
 
       <div className="panel-header">{t('Tile')}</div>

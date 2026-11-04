@@ -6,7 +6,7 @@ import { TerrainId } from '@/data/terrain';
 import type { Selection } from '@/systems/editor/EntityEditor';
 import type { BrushShape } from '@/systems/editor/shapes';
 
-export type EditorTab = 'map' | 'npc' | 'creatures' | 'economy' | 'items' | 'quests' | 'progression' | 'players' | 'events' | 'analytics' | 'settings';
+export type EditorTab = 'map' | 'npc' | 'creatures' | 'economy' | 'items' | 'quests' | 'progression' | 'players' | 'studio' | 'events' | 'analytics' | 'settings';
 
 /** Terrain tools + entity tools. */
 export type EditorTool =
@@ -31,6 +31,9 @@ interface EditorState {
   npcType: NpcType;
   templateId: EntityId | null;
   selection: Selection | null;
+  /** Simulated player shown in the inspector (and followed by the camera). */
+  focusPlayer: string | null;
+  followPlayer: boolean;
   hover: HoverInfo | null;
   canUndo: boolean;
   canRedo: boolean;
@@ -47,6 +50,8 @@ interface EditorState {
   setNpcType: (t: NpcType) => void;
   setTemplateId: (id: EntityId | null) => void;
   select: (s: Selection | null) => void;
+  setFocusPlayer: (id: string | null) => void;
+  setFollowPlayer: (v: boolean) => void;
   setHover: (h: HoverInfo | null) => void;
   setHistoryFlags: (canUndo: boolean, canRedo: boolean) => void;
   setZoom: (z: number) => void;
@@ -69,6 +74,8 @@ const initial = {
   npcType: 'villager' as NpcType,
   templateId: null,
   selection: null,
+  focusPlayer: null,
+  followPlayer: false,
   hover: null,
   canUndo: false,
   canRedo: false,
@@ -88,7 +95,9 @@ export const useEditorStore = create<EditorState>((set) => ({
   setRegionType: (regionType) => set({ regionType, tool: 'region' }),
   setNpcType: (npcType) => set({ npcType, tool: 'npc' }),
   setTemplateId: (templateId) => set({ templateId }),
-  select: (selection) => set({ selection: selection && selection.ids.length ? selection : null }),
+  select: (selection) => set(selection && selection.ids.length ? { selection, focusPlayer: null, followPlayer: false } : { selection: null }),
+  setFocusPlayer: (focusPlayer) => set(focusPlayer ? { focusPlayer, selection: null } : { focusPlayer: null, followPlayer: false }),
+  setFollowPlayer: (followPlayer) => set({ followPlayer }),
   setHover: (hover) => set({ hover }),
   setHistoryFlags: (canUndo, canRedo) => set({ canUndo, canRedo }),
   setZoom: (zoom) => set({ zoom }),

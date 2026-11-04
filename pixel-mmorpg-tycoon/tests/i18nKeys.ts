@@ -7,6 +7,10 @@ import { REGION_TYPES } from '@/data/regionTypes';
 import { TERRAINS } from '@/data/terrain';
 import { DIFFICULTIES, MAP_SIZES, WORLD_TYPES } from '@/data/worldPresets';
 import { SAVE_SLOTS } from '@/models/world';
+import { BEHAVIORS, FACTORS } from '@/data/playerTypes';
+import { SERVER_TIERS } from '@/data/studio';
+import { ACTIVITY_LABEL } from '@/simulation/players/PlayerBrain';
+import { FACTOR_HINT } from '@/ui/sim/feedback';
 import { CLASS_SOURCE, DEFAULT_ECONOMY, DEFAULT_ITEMS, EQUIP_SLOTS, ITEM_CATEGORIES, OBJECTIVE_TYPES, RARITIES, STAT_KEYS } from '@/data/rpgDefaults';
 
 /** Every string literal passed to t()/tr() anywhere in src. */
@@ -60,6 +64,12 @@ export function dynamicKeys(): Set<string> {
   ['sale', 'purchase', 'restock', 'loot', 'harvest', 'attack', 'heal', 'buff'].forEach((s) => k.add(s));
   ['HP', 'Mana', 'Attack', 'Defense', 'STR', 'AGI', 'INT', 'VIT'].forEach((s) => k.add(s));
   ['Economy', 'Items', 'Quests', 'Progression'].forEach((s) => k.add(s));
+  BEHAVIORS.forEach((b) => { k.add(b.name); k.add(b.description); });
+  Object.values(FACTORS).forEach((f) => k.add(f.label));
+  Object.values(FACTOR_HINT).forEach((h) => k.add(h!));
+  Object.values(ACTIVITY_LABEL).forEach((a) => k.add(a));
+  SERVER_TIERS.forEach((s) => k.add(s.name));
+  ['Players', 'Studio'].forEach((s) => k.add(s));
   // Quest validation messages (validateQuest returns English keys; the UI translates them).
   const questSrc = readFileSync(join(__dirname, '../src/systems/rpg/quests.ts'), 'utf8');
   for (const m of questSrc.matchAll(/(?:err|warn)\(\s*'((?:\\.|[^'])*)'/g)) k.add(m[1].replace(/\\'/g, "'"));

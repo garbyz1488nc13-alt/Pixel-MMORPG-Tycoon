@@ -192,3 +192,36 @@
 .gear-slot { display: grid; grid-template-columns: 28px 1fr; gap: 4px; align-items: center; }
 .gear-slot.bad select { border-color: var(--red); }
 textarea.input { resize: vertical; font-size: 18px; }
+
+/* ---------- Phase 4: players, studio, modes ---------- */
+.tab-page.single { grid-template-columns: minmax(0, 640px); justify-content: center; }
+.stat-tile.danger b, .topbar-stat.danger { color: var(--red); }
+.topbar-stat .money { color: var(--green); font-weight: bold; }
+.warn-box { padding: 8px 12px; color: #ffd97a; border-color: var(--gold-dark); }
+.mood-bar { position: relative; height: 18px; background: #0f0c17; border: 2px solid var(--border-dark); }
+.mood-bar > div { height: 100%; }
+.mood-bar span { position: absolute; inset: 0; display: grid; place-items: center; font-size: 15px; color: #fff; text-shadow: 1px 1px 0 #000; }
+.thought { font-size: 17px; }
+.thought.good { color: #b9f09f; }
+.thought.bad { color: #ffb3aa; }
+.gear-list { display: flex; flex-direction: column; gap: 2px; font-size: 17px; }
+.gear-row { display: flex; align-items: center; gap: 6px; }
+.inv-grid { display: grid; grid-template-columns: repeat(auto-fill, 30px); gap: 3px; }
+.inv-cell { position: relative; }
+.inv-cell b { position: absolute; right: 1px; bottom: -2px; font-size: 13px; color: #fff; text-shadow: 1px 1px 0 #000; font-weight: normal; }
+.quest-row { font-size: 17px; padding: 2px 0; border-bottom: 1px solid #1a1527; }
+.feedback { padding: 4px 0; border-bottom: 1px solid #1a1527; font-size: 18px; }
+.feedback.bad b { color: #ffb3aa; font-weight: normal; }
+.feedback.good b { color: #b9f09f; font-weight: normal; }
+.coverage { gap: 4px; }
+.cov-row { display: grid; grid-template-columns: 70px 1fr 54px; gap: 6px; align-items: center; font-size: 16px; }
+.cov-bars { display: flex; flex-direction: column; gap: 2px; }
+.cov-bars .bar { height: 7px; }
+.cov-num { text-align: right; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.mode-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mode-card { display: flex; flex-direction: column; gap: 6px; text-align: left; padding: 10px; background: #1a1527; border: 3px solid var(--border-dark); cursor: pointer; font-size: 17px; color: var(--text-dim); }
+.mode-card b { font-size: 10px; color: var(--text); }
+.mode-card:hover { background: var(--panel-2); }
+.mode-card.active { border-color: var(--gold); background: #2f2618; }
+.mode-card.active b { color: var(--gold); }
+.sprite-btn .cost, .cost-line { color: var(--green); font-size: 14px; }

@@ -15,6 +15,7 @@ import { DEPTH } from '../render/depth';
 import type { EntityRenderer } from '../render/EntityRenderer';
 import { ATLAS_KEY } from '../sprites/SpriteAtlas';
 import type { CameraController } from './CameraController';
+import { ACTIVITY_LABEL } from '@/simulation/players/PlayerBrain';
 
 const S = TILE_SIZE;
 
@@ -60,6 +61,19 @@ export class MapTools {
   private anchorFor(kind: string, tx: number, ty: number) {
     const d = getObjectDef(kind)!;
     return { x: tx - Math.floor((d.w - 1) / 2), y: ty - (d.h - 1) };
+  }
+
+  /** Simulated player under the cursor, if any. */
+  pickPlayer(wx: number, wy: number): string | null {
+    let best: string | null = null;
+    let bestD = 0.7;
+    for (const a of this.session.actors.actors.values()) {
+      if (a.kind !== 'player' || a.state === 'dead') continue;
+      const rp = this.renderer.actorScreenPos(a.id) ?? a;
+      const d = Math.hypot(rp.x - wx, rp.y - 0.3 - wy);
+      if (d < bestD) { bestD = d; best = a.defId; }
+    }
+    return best;
   }
 
   /** What is under the cursor, in priority order: NPC, object, spawn area, region. */
@@ -109,6 +123,8 @@ export class MapTools {
         this.dragRect = { x: t.x, y: t.y };
         break;
       case 'select': {
+        const pl = this.pickPlayer(t.wx, t.wy);
+        if (pl) { ed.setFocusPlayer(pl); break; }
         const hit = this.pick(t.wx, t.wy, t.x, t.y);
         if (!hit) {
           if (!p.event.shiftKey) ed.select(null);
@@ -139,7 +155,9 @@ export class MapTools {
         this.session.entities.removeObjectAt(t.x, t.y, this.strokeKey);
         break;
       case 'npc': {
+        this.session.entities.lastError = null;
         const npc = this.session.entities.addNpc(ed.npcType, t.x, t.y);
+        if (!npc && this.session.entities.lastError) { toast(this.session.entities.lastError, 'error'); break; }
         if (npc) {
           ed.select({ col: 'npcs', ids: [npc.id] });
           log.event(tr('{name} joined the world.', { name: npc.name }), 'info', this.rt.clock.totalMinutes);
@@ -164,8 +182,13 @@ export class MapTools {
     if (key === this.lastStrokeTile) return;
     this.lastStrokeTile = key;
     const a = this.anchorFor(ed.objectKind, tx, ty);
-    this.session.entities.placeObject(ed.objectKind, a.x, a.y, this.strokeKey ?? undefined);
+    this.session.entities.lastError = null;
+    if (!this.session.entities.placeObject(ed.objectKind, a.x, a.y, this.strokeKey ?? undefined) && this.session.entities.lastError) {
+      if (this.lastBudgetToast !== this.session.entities.lastError) toast(this.session.entities.lastError, 'error');
+      this.lastBudgetToast = this.session.entities.lastError;
+    }
   }
+  private lastBudgetToast: string | null = null;
 
   // ------------------------------------------------------------- move
   private onMove(p: Phaser.Input.Pointer): void {
@@ -203,6 +226,15 @@ export class MapTools {
         return;
       }
     }
+    const pl = this.pickPlayer(t.wx, t.wy);
+    const ps = pl ? this.session.players.get(pl) : undefined;
+    const pa = pl ? this.session.actors.actors.get(pl) : undefined;
+    if (ps && pa) {
+      const rp = this.renderer.actorScreenPos(pa.id) ?? pa;
+      const act = this.session.playerSystem.activityOf(pa.id);
+      this.renderer.showHoverLabel(`${ps.name} · ${tr(this.session.players.classDef(ps).name)} ${tr('Lv')} ${ps.level}${act ? ' · ' + tr(ACTIVITY_LABEL[act.kind]) : ''}`, rp.x * S, (rp.y - 0.8) * S);
+      return;
+    }
     // Creatures (not selectable, but inspectable)
     for (const a of this.session.actors.actors.values()) {
       if (a.kind !== 'creature' || a.state === 'dead') continue;
@@ -225,6 +257,7 @@ export class MapTools {
       this.session.painter.endStroke(tr('Paint'));
     }
     this.strokeKey = null;
+    this.lastBudgetToast = null;
     if (this.dragRect) {
       const r = this.clampRect(normalizeRect(this.dragRect.x, this.dragRect.y, t.x, t.y));
       this.dragRect = null;
@@ -260,8 +293,10 @@ export class MapTools {
       }
       case 'spawn-area': {
         if (!ed.templateId || !this.rt.entities.get('creatureTemplates', ed.templateId)) { toast(tr('Pick a creature first'), 'error'); return; }
+        this.session.entities.lastError = null;
         const area = this.session.entities.addSpawnArea(ed.templateId, r);
         if (area) ed.select({ col: 'spawnAreas', ids: [area.id] });
+        else if (this.session.entities.lastError) toast(this.session.entities.lastError, 'error');
         break;
       }
       case 'select': {

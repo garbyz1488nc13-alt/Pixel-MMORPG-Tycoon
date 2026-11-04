@@ -58,9 +58,15 @@ export function TopBar() {
         <PixelIcon name={phase === 'night' ? 'moon' : 'sun'} accent={phase === 'night' ? '#7fd7ff' : '#f2c14e'} color={phase === 'night' ? '#c9d6ff' : '#ffd97a'} />
         <span>{formatGameTime(s.gameMinutes)}</span>
       </div>
-      <div className="topbar-stat" title={t('Simulated players online. Player simulation arrives in Phase 4 — until then this is honestly 0.')}>
-        <PixelIcon name="user" /> <span>{t('{n} players', { n: 0 })}</span>
+      <div className="topbar-stat clickable" title={t('Players online / server capacity. Popularity: {p}%', { p: Math.round(session.runtime.sim.popularity) })} onClick={() => useEditorStore.getState().setTab('players')}>
+        <PixelIcon name="user" /> <span>{t('{n} players', { n: session.players.online().length })}</span>
+        <span className="hint">/{session.players.capacity()} · {Math.round(session.runtime.sim.popularity)}%</span>
       </div>
+      {session.studio.standard && (
+        <div className={`topbar-stat clickable ${session.runtime.studio.funds < 0 ? 'danger' : ''}`} title={t('Studio funds — click to open the Studio tab')} onClick={() => useEditorStore.getState().setTab('studio')}>
+          <span className="money">$</span><span>{Math.round(session.runtime.studio.funds).toLocaleString()}</span>
+        </div>
+      )}
       <div className="topbar-stat" title={t('NPCs alive / total. Deaths this session: {n}', { n: live.npcDeaths })}>
         <PixelIcon name="npc" /> <span>{live.npcsAlive}/{live.npcsTotal} {t('NPC')}</span>
       </div>

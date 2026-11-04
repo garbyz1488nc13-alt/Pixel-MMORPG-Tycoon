@@ -15,6 +15,8 @@ import { ItemsTab } from '../rpg/ItemsTab';
 import { EconomyTab } from '../rpg/EconomyTab';
 import { QuestsTab } from '../rpg/QuestsTab';
 import { ProgressionTab } from '../rpg/ProgressionTab';
+import { PlayersTab } from '../sim/PlayersTab';
+import { StudioTab } from '../sim/StudioTab';
 import type { GameSession } from '@/session/GameSession';
 
 export function EditorScreen() {
@@ -47,6 +49,8 @@ function Editor({ session }: { session: GameSession }) {
           {tab === 'economy' && <div className="center-overlay"><EconomyTab session={session} /></div>}
           {tab === 'quests' && <div className="center-overlay"><QuestsTab session={session} /></div>}
           {tab === 'progression' && <div className="center-overlay"><ProgressionTab session={session} /></div>}
+          {tab === 'players' && <div className="center-overlay"><PlayersTab session={session} /></div>}
+          {tab === 'studio' && <div className="center-overlay"><StudioTab session={session} /></div>}
         </div>
         <RightPanel session={session} />
       </div>
