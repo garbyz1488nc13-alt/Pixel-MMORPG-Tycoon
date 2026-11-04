@@ -3,7 +3,7 @@ import { MAX_MAP_SIZE, MIN_MAP_SIZE } from '@/data/worldPresets';
 import { TileGrid } from '@/models/TileGrid';
 import { WORLD_SCHEMA_VERSION, type WorldMeta, type WorldSave } from '@/models/world';
 import { emptyEntities } from '@/models/entities';
-import { createDefaultSim, createDefaultStudio } from '@/data/studio';
+import { createDefaultSim, createDefaultStudio, defaultCommunity } from '@/data/studio';
 import { createDefaultItems, createDefaultRpg, defaultLoot, defaultShop, DEFAULT_NPC_GOLD } from '@/data/rpgDefaults';
 
 export const EXPORT_FORMAT = 'pixel-mmorpg-tycoon/world';
@@ -48,6 +48,10 @@ export function migrate(save: WorldSave): WorldSave {
   // v3 -> v4: game mode, players, studio. Older worlds become sandbox worlds.
   if (s.schemaVersion < 4 || !s.sim || !s.studio) {
     s = { ...s, config: { ...s.config, gameMode: s.config.gameMode ?? 'sandbox' }, sim: s.sim ?? createDefaultSim(), studio: s.studio ?? createDefaultStudio('sandbox', s.config.difficulty) };
+  }
+  // v4 -> v5: reviews, rating, anti-cheat, bans; players get a report counter.
+  if (s.schemaVersion < 5 || !s.sim.reviews) {
+    s = { ...s, sim: { ...defaultCommunity(), ...s.sim, players: s.sim.players.map((p) => ({ ...p, reports: p.reports ?? 0 })) } };
   }
   return { ...s, schemaVersion: WORLD_SCHEMA_VERSION };
 }

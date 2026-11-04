@@ -8,7 +8,28 @@ export type PlayerBehavior = 'explorer' | 'fighter' | 'grinder' | 'trader' | 'qu
 /** Things that make players happy or unhappy. Accumulated per player (for reviews & feedback). */
 export type FactorKey =
   | 'combat' | 'levelup' | 'quest' | 'loot' | 'explore' | 'trade' | 'social'
-  | 'death' | 'noContent' | 'tooHard' | 'noQuests' | 'crowded' | 'expensive' | 'poor' | 'pvpKilled' | 'boredom' | 'queue' | 'unpaid';
+  | 'death' | 'noContent' | 'tooHard' | 'noQuests' | 'crowded' | 'expensive' | 'poor' | 'pvpKilled' | 'boredom' | 'queue' | 'unpaid'
+  | 'cheaters' | 'justice' | 'antiCheatPain';
+
+export type CheatKind = 'speed' | 'damage' | 'gold' | 'griefer';
+
+/** A line of review text: an English source key + params, translated when displayed. */
+export interface ReviewLine { key: string; params?: Record<string, string | number> }
+
+export interface Review {
+  id: EntityId;
+  playerName: string;
+  stars: number;
+  lines: ReviewLine[];
+  at: number;
+  level: number;
+  hours: number;
+  streamer: boolean;
+  /** Weight in the rating (streamers count more). */
+  weight: number;
+  /** Main reason (for complaint statistics). */
+  reason: FactorKey | null;
+}
 
 export interface PlayerQuest { questId: EntityId; counts: number[]; status: 'active' | 'complete' }
 
@@ -43,6 +64,12 @@ export interface PlayerState {
   x: number;
   y: number;
   stats: { kills: number; deaths: number; questsDone: number; goldEarned: number; pvpKills: number };
+  /** Streamers broadcast the game to their viewers. */
+  streamer?: { viewers: number; streamedMinutes: number };
+  /** Hidden from the UI: what this player cheats with (if anything). */
+  cheat?: CheatKind;
+  /** How many times other players reported this player. */
+  reports: number;
 }
 
 export interface SimState {
@@ -53,6 +80,15 @@ export interface SimState {
   totalLeft: number;
   /** Fractional arrivals carried between hours. */
   arrivalCarry: number;
+  /** Most recent reviews (newest last). */
+  reviews: Review[];
+  /** Weighted average stars of recent reviews (0 = no reviews yet). */
+  rating: number;
+  /** Daily rating snapshots. */
+  ratingHistory: number[];
+  /** 0 none, 1 basic, 2 advanced, 3 kernel-level. */
+  antiCheat: number;
+  bans: { cheaters: number; innocent: number; auto: number };
 }
 
 export interface StudioState {

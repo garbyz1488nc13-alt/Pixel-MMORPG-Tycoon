@@ -33,5 +33,9 @@ export function createDefaultStudio(mode: GameMode, difficulty: Difficulty): Stu
 }
 
 export function createDefaultSim(): SimState {
-  return { players: [], popularity: 20, totalJoined: 0, totalLeft: 0, arrivalCarry: 0 };
+  return { players: [], popularity: 20, totalJoined: 0, totalLeft: 0, arrivalCarry: 0, ...defaultCommunity() };
+}
+
+export function defaultCommunity(): Pick<SimState, 'reviews' | 'rating' | 'ratingHistory' | 'antiCheat' | 'bans'> {
+  return { reviews: [], rating: 0, ratingHistory: [], antiCheat: 0, bans: { cheaters: 0, innocent: 0, auto: 0 } };
 }

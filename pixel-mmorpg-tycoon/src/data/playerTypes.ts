@@ -45,6 +45,9 @@ export const FACTORS: Record<FactorKey, { delta: number; label: string; positive
   boredom: { delta: -1, label: 'Boredom', positive: false },
   queue: { delta: -4, label: 'Server full / queues', positive: false },
   unpaid: { delta: -4, label: 'Quest rewards not paid', positive: false },
+  cheaters: { delta: -3, label: 'Cheaters ruin the game', positive: false },
+  justice: { delta: 4, label: 'Cheaters get banned', positive: true },
+  antiCheatPain: { delta: -1, label: 'Intrusive anti-cheat', positive: false },
 };
 
 const PREFIX = ['Dark', 'Shadow', 'Pixel', 'Iron', 'Silent', 'Crimson', 'Lucky', 'Frost', 'Storm', 'Mighty', 'Sneaky', 'Epic', 'Lazy', 'Golden', 'Wild', 'Cosmic'];

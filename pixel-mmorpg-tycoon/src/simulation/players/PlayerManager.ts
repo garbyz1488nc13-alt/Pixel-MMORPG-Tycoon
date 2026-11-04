@@ -87,7 +87,9 @@ export class PlayerManager {
     const p = this.byId.get(a.defId);
     if (!p) return null;
     const s = this.stats(p);
-    return { damage: s.attack, defense: s.defense, attackRange: RANGED.has(p.classKey) ? 3.2 : 1.3, speed: 1.6 + Math.min(1, s.agi / 60) };
+    const dmgHack = p.cheat === 'damage' ? 3 : p.cheat === 'griefer' ? 2 : 1;
+    const speedHack = p.cheat === 'speed' ? 2.5 : 1;
+    return { damage: s.attack * dmgHack, defense: s.defense, attackRange: RANGED.has(p.classKey) ? 3.2 : 1.3, speed: (1.6 + Math.min(1, s.agi / 60)) * speedHack };
   }
 
   /** Items rating for equipment comparison. */
@@ -258,6 +260,7 @@ export class PlayerManager {
       inventory: [], equipment: {}, quests: [], completedQuests: [], satisfaction: 60, factors: {}, visitedRegions: [],
       online: false, returnAt: 0, sessionLeft: 0, playMinutes: 0, joinedAt: now, x: 0, y: 0,
       stats: { kills: 0, deaths: 0, questsDone: 0, goldEarned: 0, pvpKills: 0 },
+      reports: 0,
     };
     const keys = itemKeyIndex(this.world.entities.list('items'));
     for (const k of STARTER_GEAR[classKey] ?? []) { const id = keys.get(k); if (id) this.giveItem(p, id, 1); }
@@ -290,6 +293,17 @@ export class PlayerManager {
     this.startSession(p);
     this.events.emit('joined', { player: p, returning: false });
     return p;
+  }
+
+  /** Remove a player for good (ban). */
+  removePlayer(p: PlayerState): void {
+    const a = this.actors.actors.get(p.id);
+    if (a) this.actors.removeActor(a);
+    this.hunting.delete(p.id);
+    p.online = false;
+    this.world.sim.players = this.world.sim.players.filter((x) => x.id !== p.id);
+    this.byId.delete(p.id);
+    this.world.sim.totalLeft++;
   }
 
   /** End a session: the player either returns later or quits for good. */

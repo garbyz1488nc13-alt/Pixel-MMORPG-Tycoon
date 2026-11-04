@@ -16,6 +16,7 @@ import { rollLoot } from '@/systems/rpg/loot';
 import { characterStats, levelForXp, totalXpFor, xpToNext } from '@/systems/rpg/progression';
 import { QuestTracker, validateQuest } from '@/systems/rpg/quests';
 import { migrate } from '@/persistence/serializer';
+import { WORLD_SCHEMA_VERSION } from '@/models/world';
 import { itemKeyIndex } from '@/data/rpgDefaults';
 import type { QuestDef } from '@/models/rpg';
 
@@ -177,7 +178,7 @@ describe('save migration v2 → v3', () => {
     s.entities.npcs = [{ id: 'n1', name: 'Bob', type: 'merchant', level: 1, maxHp: 10, x: 1, y: 1, speed: 1, behavior: 'stationary', wanderRadius: 3, waypoints: [], inventory: [{ name: 'Bread', qty: 2 }, { name: 'Magic Bean', qty: 1 }], shop: { enabled: true, items: [{ name: 'Health Potion', price: 25, stock: 5 }] }, workStart: 0, workEnd: 24, interactionRadius: 2 }];
     s.entities.creatureTemplates = [{ id: 'c1', name: 'Slime', type: 'slime', level: 1, maxHp: 10, damage: 1, defense: 0, speed: 1, aggression: 'passive', aggroRange: 1, attackRange: 1, respawnMinutes: 1, xpReward: 1, loot: [], boss: false }];
     const m = migrate(s);
-    expect(m.schemaVersion).toBe(4);
+    expect(m.schemaVersion).toBe(WORLD_SCHEMA_VERSION);
     expect(m.config.gameMode).toBe('sandbox');
     expect(m.sim.players).toEqual([]);
     const items = new Map(m.entities.items.map((i) => [i.id, i.name]));

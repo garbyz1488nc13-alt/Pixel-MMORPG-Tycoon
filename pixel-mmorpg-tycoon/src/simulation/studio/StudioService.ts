@@ -1,6 +1,7 @@
 import { getObjectDef } from '@/data/objects';
 import { getTier, MONSTER_SLOT_COST, NPC_HIRE_COST, NPC_UPKEEP_PER_DAY, OBJECT_COST, REFUND_RATE, SERVER_TIERS } from '@/data/studio';
 import { t } from '@/i18n';
+import { ANTI_CHEAT } from '@/data/community';
 import type { EntityChange } from '../EntityStore';
 import type { WorldRuntime } from '../WorldRuntime';
 
@@ -101,7 +102,8 @@ export class StudioService {
   hourly(online: number): { income: number; expenses: number } {
     if (!this.standard) return { income: 0, expenses: 0 };
     const income = (online * this.state.subscriptionPrice) / 30 / 24;
-    const expenses = (this.tier().upkeepPerDay + this.world.entities.count('npcs') * NPC_UPKEEP_PER_DAY) / 24;
+    const antiCheat = ANTI_CHEAT[this.world.sim.antiCheat]?.costPerDay ?? 0;
+    const expenses = (this.tier().upkeepPerDay + this.world.entities.count('npcs') * NPC_UPKEEP_PER_DAY + antiCheat) / 24;
     this.state.funds += income - expenses;
     const row = this.today();
     row.income += income;

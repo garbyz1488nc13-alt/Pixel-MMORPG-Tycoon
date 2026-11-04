@@ -218,9 +218,10 @@ export class PlayerBrain {
 
     add('social', 0.12 + 0.35 * w.social, () => ({ kind: 'social', ...this.safeSpot(a), ticks: 0 }));
 
-    if (w.pvp > 0) {
-      const victims = this.actors.spatial.query(a.x, a.y, 14).filter((o) => o.kind === 'player' && o.id !== a.id && o.state !== 'dead' && !this.isSafe(Math.floor(o.x), Math.floor(o.y)));
-      if (victims.length) add('pvp', 0.25 + 0.5 * w.pvp, () => ({ kind: 'pvp', targetId: victims[Math.floor(this.rand() * victims.length)].id, ticks: 0 }));
+    const griefer = p.cheat === 'griefer';
+    if (w.pvp > 0 || griefer) {
+      const victims = this.actors.spatial.query(a.x, a.y, 14).filter((o) => o.kind === 'player' && o.id !== a.id && o.state !== 'dead' && (griefer || !this.isSafe(Math.floor(o.x), Math.floor(o.y))));
+      if (victims.length) add('pvp', griefer ? 1.2 : 0.25 + 0.5 * w.pvp, () => ({ kind: 'pvp', targetId: victims[Math.floor(this.rand() * victims.length)].id, ticks: 0 }));
     }
 
     options.sort((x, y) => y[0] - x[0]);

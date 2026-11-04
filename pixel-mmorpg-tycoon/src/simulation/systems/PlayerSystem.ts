@@ -84,7 +84,13 @@ export class PlayerSystem implements SimulationSystem {
       p.stats.deaths++;
       p.gold = Math.floor(p.gold * 0.9);
       this.pm.feel(p, 'death');
-      if (killer?.kind === 'player') this.pm.feel(p, 'pvpKilled');
+      if (killer?.kind === 'player') {
+        this.pm.feel(p, 'pvpKilled');
+        const k = this.pm.get(killer.defId);
+        // Victims of cheaters (or ganks inside safe zones) report the killer.
+        if (k?.cheat) { this.pm.feel(p, 'cheaters'); k.reports++; }
+        else if (this.brain.isSafe(Math.floor(victim.x), Math.floor(victim.y)) && k) k.reports++;
+      }
       else if (killer?.kind === 'creature' && (this.mgr.template(killer)?.level ?? 0) > p.level + 2) this.pm.feel(p, 'tooHard');
       this.pm.hunting.delete(p.id);
       const m = this.minds.get(victim.id);
@@ -346,7 +352,7 @@ export class PlayerSystem implements SimulationSystem {
       }
       case 'pvp': {
         const t = this.mgr.actors.get(act.targetId);
-        if (!t || !isAlive(t) || ++act.ticks > 250 || this.brain.isSafe(Math.floor(t.x), Math.floor(t.y))) return this.done(m, tick);
+        if (!t || !isAlive(t) || ++act.ticks > 250 || (p.cheat !== 'griefer' && this.brain.isSafe(Math.floor(t.x), Math.floor(t.y)))) return this.done(m, tick);
         a.targetId = t.id;
         return;
       }
