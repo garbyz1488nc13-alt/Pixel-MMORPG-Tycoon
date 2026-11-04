@@ -283,6 +283,12 @@ export class EntityEditor {
     return q;
   }
 
+  /** Add several ready-made quests as one undo step. */
+  addQuests(quests: QuestDef[], label: string): QuestDef[] {
+    const ok = this.commit(label, quests.map((q) => this.rt.entities.add('quests', q)));
+    return ok.length ? quests : [];
+  }
+
   duplicateQuest(id: EntityId): QuestDef | null {
     const src = this.rt.entities.get('quests', id);
     if (!src) return null;

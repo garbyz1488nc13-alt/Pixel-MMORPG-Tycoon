@@ -20,6 +20,7 @@ import { StudioService } from '@/simulation/studio/StudioService';
 import { CommunityService } from '@/simulation/community/CommunityService';
 import { ClanService } from '@/simulation/clans/ClanService';
 import { audio } from '@/audio/AudioEngine';
+import { WORLD_FIRST_SPONSOR_PER_LEVEL } from '@/data/studio';
 import { getItemName } from '@/simulation/clans/clanText';
 import { AnalyticsService } from '@/simulation/analytics/AnalyticsService';
 import { EventService } from '@/simulation/events/EventService';
@@ -166,6 +167,13 @@ export class GameSession {
         const who = record.clanName || t('A pick-up group');
         const now = this.runtime.clock.totalMinutes;
         if (record.result !== 'abandoned') audio.play(record.result === 'win' ? 'fanfare' : 'wipe');
+        if (record.worldFirst && this.studio.standard) {
+          const area = this.runtime.entities.get('spawnAreas', record.lairId);
+          const lvl = (area && this.runtime.entities.get('creatureTemplates', area.templateId)?.level) ?? 1;
+          const bonus = lvl * WORLD_FIRST_SPONSOR_PER_LEVEL;
+          this.studio.earn(bonus, 'sponsors');
+          log.event(t('Sponsors loved the world-first kill and paid the studio {sum}.', { sum: '$' + bonus.toLocaleString() }), 'success', this.runtime.clock.totalMinutes);
+        }
         if (record.result === 'win') log.event(record.worldFirst ? t('WORLD FIRST! {who} defeated {boss}! The whole server is talking about it.', { who, boss: record.bossName }) : t('{who} defeated {boss} ({n} raiders).', { who, boss: record.bossName, n: record.members }), 'success', now);
         else if (record.result === 'wipe') log.event(t('{who} wiped on {boss}. Someone blames the healer.', { who, boss: record.bossName }), 'warn', now);
         else log.event(t('{who} gave up on {boss}: not enough people showed up.', { who, boss: record.bossName }), 'warn', now);

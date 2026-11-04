@@ -27,7 +27,7 @@ export class HourlySystem implements SimulationSystem {
       this.community?.hourly();
       this.worldEvents?.hourly();
       this.clans?.hourly();
-      this.studio.hourly(this.players.online().length);
+      this.studio.hourly(this.players.online(), { feel: (p, k, m) => this.players.feel(p, k, m), gainXp: (p, n) => this.players.gainXp(p, n) });
       this.analytics?.hourly();
     }
     if (Math.floor(now / MINUTES_PER_DAY) > Math.floor(before / MINUTES_PER_DAY)) {

@@ -281,3 +281,6 @@ button.link { background: none; border: none; color: var(--cyan); cursor: pointe
 .raid-row .hint { flex-basis: 100%; }
 .lair-section { margin-top: 10px; border-top: 2px solid var(--panel-3); padding-top: 6px; display: flex; flex-direction: column; gap: 6px; }
 .sprite-btn .sub { font-size: 0.85em; color: var(--text-dim); }
+
+.quest-templates { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-bottom: 2px solid var(--panel-3); background: var(--panel-2); }
+.quest-templates .row { align-items: center; gap: 6px; flex-wrap: wrap; }

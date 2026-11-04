@@ -11,6 +11,7 @@ import { Field, NumberInput, TextInput } from '../components/Fields';
 import { useEntityList } from '../hooks/useEntities';
 import { ItemRowEditor } from './ItemRowEditor';
 import { useRpg } from './useRpg';
+import { QuestTemplatesPanel } from './QuestTemplatesPanel';
 
 export function QuestsTab({ session }: { session: GameSession }) {
   const quests = useEntityList(session, 'quests');
@@ -29,6 +30,7 @@ export function QuestsTab({ session }: { session: GameSession }) {
         <div className="panel-header">{t('Quests')} ({quests.length})
           <button className="btn small primary" onClick={() => setCurrent(session.entities.addQuest(defaultGiver).id)}>+ {t('New quest')}</button>
         </div>
+        <QuestTemplatesPanel session={session} giverId={defaultGiver} onCreated={setCurrent} />
         <div className="table-scroll scroll">
           <table className="data-table">
             <thead><tr><th>{t('Name')}</th><th>{t('Quest giver')}</th><th>{t('Lv')}</th><th>{t('Chain')}</th><th>{t('Objectives')}</th><th>{t('Status')}</th></tr></thead>

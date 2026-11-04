@@ -16,6 +16,7 @@ export const FACTOR_HINT: Partial<Record<FactorKey, string>> = {
   unpaid: 'The treasury could not pay quest rewards. Raise taxes or lower rewards.',
   death: 'Players die a lot. Check monster damage, add healers or cheaper potions.',
   cheaters: 'Cheaters are active. Check "Reports & suspects" in the Community tab and ban them, or turn on anti-cheat.',
+  p2w: 'Players hate the pay-to-win cash shop. Switch the Studio cash shop to cosmetics or boosts.',
   drama: 'Clans fall apart after wipes and loot fights. Make bosses beatable for their level and raid size.',
   antiCheatPain: 'Players hate the kernel-level anti-cheat. Consider the Advanced level instead.',
 };

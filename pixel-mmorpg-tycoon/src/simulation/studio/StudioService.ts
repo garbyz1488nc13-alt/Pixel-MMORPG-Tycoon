@@ -1,5 +1,9 @@
 import { getObjectDef } from '@/data/objects';
-import { getTier, LAIR_BASE_COST, LAIR_COST_PER_RAIDER, MONSTER_SLOT_COST, NPC_HIRE_COST, NPC_UPKEEP_PER_DAY, OBJECT_COST, REFUND_RATE, SERVER_TIERS } from '@/data/studio';
+import { getTier, LAIR_BASE_COST, LAIR_COST_PER_RAIDER, MONSTER_SLOT_COST, NPC_HIRE_COST, NPC_UPKEEP_PER_DAY, OBJECT_COST, REFUND_RATE, SERVER_TIERS, SHOP_MODELS, SPONSOR_PER_VIEWER_HOUR } from '@/data/studio';
+import type { FactorKey, IncomeSource, PlayerState } from '@/models/sim';
+
+/** What the cash shop needs from the player simulation. */
+export interface ShopPlayers { feel(p: PlayerState, key: FactorKey, mult?: number): void; gainXp(p: PlayerState, amount: number): void; rand?: () => number }
 import { t } from '@/i18n';
 import { ANTI_CHEAT } from '@/data/community';
 import type { EntityChange } from '../EntityStore';
@@ -100,18 +104,68 @@ export class StudioService {
     return row;
   }
 
-  /** Hourly finances: subscriptions in, servers & staff out. */
-  hourly(online: number): { income: number; expenses: number } {
+  /** Add income from a source (also used for sponsorships). */
+  earn(amount: number, source: IncomeSource): void {
+    if (!this.standard || amount <= 0) return;
+    this.state.funds += amount;
+    const row = this.today();
+    row.income += amount;
+    (row.sources ??= {})[source] = (row.sources[source] ?? 0) + amount;
+    this.world.events.emit('studio:changed', undefined);
+  }
+
+  /**
+   * Hourly finances: subscriptions from every active player, cash shop purchases
+   * from online players, streamer sponsorships in; servers, staff and anti-cheat out.
+   */
+  hourly(online: PlayerState[], pm?: ShopPlayers): { income: number; expenses: number } {
     if (!this.standard) return { income: 0, expenses: 0 };
-    const income = (online * this.state.subscriptionPrice) / 30 / 24;
+    const before = this.today().income;
+    const active = this.world.sim.players.length;
+    this.earn((active * this.state.subscriptionPrice) / 24, 'subs');
+    this.earn(this.cashShop(online, pm), 'shop');
+    const viewers = online.reduce((n, p) => n + (p.streamer?.viewers ?? 0), 0);
+    this.earn(viewers * SPONSOR_PER_VIEWER_HOUR, 'sponsors');
     const antiCheat = ANTI_CHEAT[this.world.sim.antiCheat]?.costPerDay ?? 0;
     const expenses = (this.tier().upkeepPerDay + this.world.entities.count('npcs') * NPC_UPKEEP_PER_DAY + antiCheat) / 24;
-    this.state.funds += income - expenses;
+    this.state.funds -= expenses;
     const row = this.today();
-    row.income += income;
     row.expenses += expenses;
     this.world.events.emit('studio:changed', undefined);
-    return { income, expenses };
+    return { income: row.income - before, expenses };
+  }
+
+  /** Online players buy things in the cash shop: happy players and whales spend more. */
+  private cashShop(online: PlayerState[], pm?: ShopPlayers): number {
+    const model = SHOP_MODELS[this.state.shopModel ?? 'cosmetic'];
+    if (!model.chance) return 0;
+    let total = 0;
+    const rand = pm?.rand ?? Math.random;
+    for (const p of online) {
+      if (p.satisfaction < 30 || p.cheat) continue;
+      const whale = p.streamer ? 2 : p.behavior === 'grinder' || p.behavior === 'pvp' ? 1.5 : p.behavior === 'casual' ? 0.7 : 1;
+      const chance = model.chance * whale * Math.min(1.4, p.satisfaction / 70);
+      if (rand() < chance) {
+        const price = model.price * (0.5 + rand());
+        total += price;
+        if (pm && this.state.shopModel === 'boosts') pm.gainXp(p, p.level * 40);
+        if (pm && this.state.shopModel === 'cosmetic') pm.feel(p, 'loot', 0.3);
+      } else if (pm && model.anger && rand() < model.anger) pm.feel(p, 'p2w', model.anger);
+    }
+    return total;
+  }
+
+  /** Estimated income per day at the current state (for the Studio tab). */
+  estimateDaily(online: PlayerState[]): Record<IncomeSource, number> {
+    const model = SHOP_MODELS[this.state.shopModel ?? 'cosmetic'];
+    let shop = 0;
+    for (const p of online) {
+      if (p.satisfaction < 30 || p.cheat) continue;
+      const whale = p.streamer ? 2 : p.behavior === 'grinder' || p.behavior === 'pvp' ? 1.5 : p.behavior === 'casual' ? 0.7 : 1;
+      shop += model.chance * whale * Math.min(1.4, p.satisfaction / 70) * model.price * 24;
+    }
+    const viewers = online.reduce((n, p) => n + (p.streamer?.viewers ?? 0), 0);
+    return { subs: this.world.sim.players.length * this.state.subscriptionPrice, shop, sponsors: viewers * SPONSOR_PER_VIEWER_HOUR * 24 };
   }
 
   /** Called at the start of each game day. Returns days in debt. */

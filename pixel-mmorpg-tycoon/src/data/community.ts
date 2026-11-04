@@ -28,6 +28,7 @@ export const REVIEW_PHRASES: Partial<Record<FactorKey, string[]>> = {
   queue: ['Server is always full, I cannot log in.', 'Queues, queues, queues.'],
   unpaid: ['Quest rewards did not even pay out.', 'The treasury is broke, no quest gold.'],
   cheaters: ['Full of cheaters and nobody bans them.', 'A speedhacker ruined my session.'],
+  p2w: ['Pay-to-win garbage, whales one-shot everyone.', 'The cash shop sells the best gear. Uninstalled.'],
   drama: ['Guild drama ruined everything, the officers are clowns.', 'Our clan fell apart over one epic drop. Never again.'],
   antiCheatPain: ['The anti-cheat is so intrusive it slows my PC.', 'Kernel anti-cheat? No thanks.'],
 };

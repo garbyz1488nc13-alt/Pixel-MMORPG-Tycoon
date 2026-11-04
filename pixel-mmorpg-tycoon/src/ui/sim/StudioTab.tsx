@@ -1,5 +1,6 @@
 import { OBJECT_CATEGORIES } from '@/data/objects';
-import { MONSTER_SLOT_COST, NPC_HIRE_COST, NPC_UPKEEP_PER_DAY, OBJECT_COST, REFUND_RATE, SERVER_TIERS } from '@/data/studio';
+import { MAX_SUBSCRIPTION, MONSTER_SLOT_COST, NPC_HIRE_COST, NPC_UPKEEP_PER_DAY, OBJECT_COST, REFUND_RATE, SERVER_TIERS, SHOP_MODELS } from '@/data/studio';
+import type { IncomeSource, ShopModel } from '@/models/sim';
 import { t } from '@/i18n';
 import type { GameSession } from '@/session/GameSession';
 import { toast } from '@/stores/toastStore';
@@ -40,7 +41,13 @@ export function StudioTab({ session }: { session: GameSession }) {
   const tier = studio.tier();
   const next = SERVER_TIERS[st.serverTier];
   const today = st.ledger[st.ledger.length - 1];
-  const incomePerDay = (online * st.subscriptionPrice) / 30;
+  const est = studio.estimateDaily(session.players.online());
+  const incomePerDay = est.subs + est.shop + est.sponsors;
+  const SOURCES: { key: IncomeSource; label: string; color: string }[] = [
+    { key: 'subs', label: 'Subscriptions', color: '#6cc551' },
+    { key: 'shop', label: 'Cash shop', color: '#f2c14e' },
+    { key: 'sponsors', label: 'Sponsors', color: '#b56cff' },
+  ];
   const costPerDay = tier.upkeepPerDay + counts.npcs * NPC_UPKEEP_PER_DAY;
   const net = st.ledger.map((r) => Math.round(r.income - r.expenses - r.build));
   const upgrade = () => {
@@ -64,6 +71,21 @@ export function StudioTab({ session }: { session: GameSession }) {
           <div className="panel stat-tile"><span className="hint">{t('Today')}</span><b>{today ? money(today.income - today.expenses - today.build) : '—'}</b></div>
         </div>
         {st.daysInDebt > 0 && <div className="panel warn-box">{t('The studio is in debt (day {n}). Building is blocked until funds are positive.', { n: st.daysInDebt })}</div>}
+        <div className="panel">
+          <div className="panel-header">{t('Where the money comes from')}</div>
+          <div className="section">
+            <table className="data-table compact-table">
+              <thead><tr><th>{t('Source')}</th><th>{t('Expected per day')}</th><th>{t('Today')}</th></tr></thead>
+              <tbody>
+                {SOURCES.map((x) => (
+                  <tr key={x.key}><td><span className="clan-dot" style={{ background: x.color }} /> {t(x.label)}</td><td>{money(est[x.key])}</td><td>{money(today?.sources?.[x.key] ?? 0)}</td></tr>
+                ))}
+                <tr><td>{t('Running costs')}</td><td className="bad-text">−{money(costPerDay)}</td><td className="bad-text">−{money(today?.expenses ?? 0)}</td></tr>
+              </tbody>
+            </table>
+            <div className="hint">{t('Subscriptions are paid every game day by every active player (online or not). More happy players = more money.')}</div>
+          </div>
+        </div>
         <div className="panel">
           <div className="panel-header">{t('Daily result (income, costs and building)')}</div>
           <div className="section"><LineChart series={[{ label: '$', values: net, color: '#6cc551' }]} xLabels={[t('older'), t('now')]} empty={t('Run the simulation for a day to see results.')} /></div>
@@ -95,9 +117,18 @@ export function StudioTab({ session }: { session: GameSession }) {
           <div className="kv"><span>{t('Monster slots')}</span><span>{counts.monsters} / {tier.maxMonsters}</span></div>{usage(counts.monsters, tier.maxMonsters)}
           <div className="kv"><span>{t('Objects')}</span><span>{counts.objects} / {tier.maxObjects}</span></div>{usage(counts.objects, tier.maxObjects)}
           <div className="field">
-            <label>{t('Subscription')}: {money(st.subscriptionPrice)} {t('per month')}</label>
-            <input type="range" min={0} max={30} step={1} value={st.subscriptionPrice} onChange={(e) => { st.subscriptionPrice = +e.target.value; changed(); }} />
-            <span className="hint">{t('Higher price = more income per player, but fewer newcomers. ~$10 is the comfortable price.')}</span>
+            <label>{t('Subscription')}: {money(st.subscriptionPrice)} {t('per player per day')}</label>
+            <input type="range" min={0} max={MAX_SUBSCRIPTION} step={1} value={st.subscriptionPrice} onChange={(e) => { st.subscriptionPrice = +e.target.value; changed(); }} />
+            <span className="hint">{t('Higher price = more income per player, but fewer newcomers. ~$3 is the comfortable price; $0 = free-to-play.')}</span>
+          </div>
+          <div className="field">
+            <label>{t('Cash shop')}</label>
+            {(Object.keys(SHOP_MODELS) as ShopModel[]).map((k) => (
+              <button key={k} className={`anticheat ${st.shopModel === k ? 'active' : ''}`} onClick={() => { st.shopModel = k; changed(); }}>
+                <b>{t(SHOP_MODELS[k].label)}</b>
+                <span className="hint">{t(SHOP_MODELS[k].hint)}</span>
+              </button>
+            ))}
           </div>
           <div className="el-title">{t('Build prices')}</div>
           {OBJECT_CATEGORIES.map((c) => <div key={c.key} className="kv"><span>{t(c.label)}</span><span>{money(OBJECT_COST[c.key])}</span></div>)}

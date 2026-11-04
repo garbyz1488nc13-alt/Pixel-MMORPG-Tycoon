@@ -113,9 +113,11 @@ describe('standard mode budget', () => {
 
   it('earns subscriptions and pays server upkeep hourly', () => {
     const w = build('standard', 0);
+    for (let i = 0; i < 30; i++) w.players.join();
+    w.rt.studio.shopModel = 'none';
     const f0 = w.rt.studio.funds;
-    const r = w.studio.hourly(30);
-    expect(r.income).toBeCloseTo((30 * 10) / 30 / 24);
+    const r = w.studio.hourly(w.players.online());
+    expect(r.income).toBeCloseTo((30 * 3) / 24);
     expect(w.rt.studio.funds).toBeCloseTo(f0 + r.income - r.expenses);
   });
 });

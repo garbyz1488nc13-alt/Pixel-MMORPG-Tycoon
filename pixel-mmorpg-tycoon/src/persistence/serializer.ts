@@ -61,6 +61,11 @@ export function migrate(save: WorldSave): WorldSave {
   if (s.schemaVersion < 7 || !s.sim.clans) {
     s = { ...s, sim: { ...defaultClans(), ...s.sim } };
   }
+  // v7 -> v8: subscription is billed per game day; cash shop model.
+  if (s.schemaVersion < 8 || !s.studio.shopModel) {
+    const daily = Math.max(0, Math.min(15, Math.round((s.studio.subscriptionPrice ?? 10) * 0.3)));
+    s = { ...s, studio: { ...s.studio, subscriptionPrice: daily, shopModel: 'cosmetic' } };
+  }
   return { ...s, schemaVersion: WORLD_SCHEMA_VERSION };
 }
 

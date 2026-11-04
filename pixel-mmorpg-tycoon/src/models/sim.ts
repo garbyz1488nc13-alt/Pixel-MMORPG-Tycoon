@@ -11,7 +11,7 @@ export type FactorKey =
   | 'combat' | 'levelup' | 'quest' | 'loot' | 'explore' | 'trade' | 'social'
   | 'death' | 'noContent' | 'tooHard' | 'noQuests' | 'crowded' | 'expensive' | 'poor' | 'pvpKilled' | 'boredom' | 'queue' | 'unpaid'
   | 'cheaters' | 'justice' | 'antiCheatPain' | 'event'
-  | 'clan' | 'raid' | 'drama';
+  | 'clan' | 'raid' | 'drama' | 'p2w';
 
 export type CheatKind = 'speed' | 'damage' | 'gold' | 'griefer';
 
@@ -176,15 +176,29 @@ export interface SimState {
   lairStats: Record<EntityId, LairStats>;
 }
 
+export type ShopModel = 'none' | 'cosmetic' | 'boosts' | 'p2w';
+export type IncomeSource = 'subs' | 'shop' | 'sponsors';
+
+export interface LedgerRow {
+  day: number;
+  income: number;
+  expenses: number;
+  build: number;
+  /** Income split by source. */
+  sources?: Partial<Record<IncomeSource, number>>;
+}
+
 export interface StudioState {
   /** Studio money in $ (standard mode). */
   funds: number;
   serverTier: number;
-  /** $ per player per 30 game days. */
+  /** $ per active player per game day. */
   subscriptionPrice: number;
+  /** How the in-game cash shop makes money. */
+  shopModel: ShopModel;
   /** Sandbox only: performance cap for online players. */
   sandboxMaxOnline: number;
   /** Per game day: income/expenses. */
-  ledger: { day: number; income: number; expenses: number; build: number }[];
+  ledger: LedgerRow[];
   daysInDebt: number;
 }

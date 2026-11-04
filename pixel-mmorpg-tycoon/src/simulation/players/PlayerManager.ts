@@ -358,7 +358,7 @@ export class PlayerManager {
     }
     // Newcomers: driven by popularity (and subscription price in standard mode).
     let rate = sim.popularity / 8;
-    if (this.world.config.gameMode === 'standard') rate *= Math.max(0.2, Math.min(1.5, 2 - this.world.studio.subscriptionPrice / 10));
+    if (this.world.config.gameMode === 'standard') rate *= Math.max(0.2, Math.min(1.5, 2 - this.world.studio.subscriptionPrice / 3));
     sim.arrivalCarry += rate;
     while (sim.arrivalCarry >= 1) {
       sim.arrivalCarry -= 1;
