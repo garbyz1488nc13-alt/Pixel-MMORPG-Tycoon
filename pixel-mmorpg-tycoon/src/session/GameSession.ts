@@ -18,6 +18,9 @@ import { PlayerSystem } from '@/simulation/systems/PlayerSystem';
 import { HourlySystem } from '@/simulation/systems/HourlySystem';
 import { StudioService } from '@/simulation/studio/StudioService';
 import { CommunityService } from '@/simulation/community/CommunityService';
+import { AnalyticsService } from '@/simulation/analytics/AnalyticsService';
+import { EventService } from '@/simulation/events/EventService';
+import { getEventType } from '@/data/eventTypes';
 import { CHEAT_KINDS } from '@/data/community';
 import { EntityCommand } from '@/systems/editor/History';
 import { FACTORS } from '@/data/playerTypes';
@@ -61,6 +64,8 @@ export class GameSession {
   readonly playerSystem: PlayerSystem;
   readonly studio: StudioService;
   readonly community: CommunityService;
+  readonly analytics: AnalyticsService;
+  readonly worldEvents: EventService;
   readonly bridge = new EventBus<BridgeEvents>();
   slot: SaveSlotKey;
   /** Copied objects for Ctrl+C / Ctrl+V. */
@@ -88,12 +93,18 @@ export class GameSession {
       EntityCommand.budget = this.studio;
     } else EntityCommand.budget = null;
     this.players = new PlayerManager(this.runtime, this.actors, this.economy);
-    this.playerSystem = new PlayerSystem(this.actors, this.players, new PlayerBrain(this.runtime, this.actors, this.players, this.economy), this.economy, () => this.runtime);
+    const brain = new PlayerBrain(this.runtime, this.actors, this.players, this.economy);
+    this.playerSystem = new PlayerSystem(this.actors, this.players, brain, this.economy, () => this.runtime);
     this.engine.addSystem(this.playerSystem);
     this.community = new CommunityService(this.runtime, this.actors, this.players);
+    this.analytics = new AnalyticsService(this.runtime, this.actors, this.players, this.economy);
+    this.worldEvents = new EventService(this.runtime, this.actors, this.players, this.studio);
+    brain.events = this.worldEvents;
+    this.players.xpMultiplier = () => this.worldEvents.xpMultiplier();
+    this.playerSystem.eventKill = (areaId, killer) => this.worldEvents.onEventKill(areaId, killer);
     this.engine.addSystem(new HourlySystem(this.players, this.studio, (debt) => {
       if (debt > 0) log.event(t('The studio is in debt (day {n}). Building is blocked until funds are positive.', { n: debt }), 'warn', this.runtime.clock.totalMinutes);
-    }, this.community));
+    }, this.community, this.analytics, this.worldEvents));
 
     const store = useSessionStore.getState();
     store.patch({
@@ -125,6 +136,10 @@ export class GameSession {
           ? t('{name} quit the game. Main complaint: {reason}.', { name: player.name, reason: t(FACTORS[reason].label) })
           : t('{name} quit the game.', { name: player.name }), 'warn', this.runtime.clock.totalMinutes);
       }),
+      this.worldEvents.events.on('started', ({ active, manual }) =>
+        log.event(t('Event started: {name} ({type}) for {h} h{auto}.', { name: active.name, type: t(getEventType(active.type).name), h: Math.round((active.endsAt - active.startedAt) / 60), auto: manual ? '' : ' · ' + t('triggered automatically') }), 'success', this.runtime.clock.totalMinutes)),
+      this.worldEvents.events.on('ended', ({ record }) =>
+        log.event(t('Event ended: {name}. Participants: {p}, kills: {k}, popularity {d}.', { name: record.name, p: record.participants, k: record.kills, d: (record.popularityDelta >= 0 ? '+' : '') + record.popularityDelta }), 'info', this.runtime.clock.totalMinutes)),
       this.community.events.on('streamStart', ({ player }) =>
         log.event(t('{name} started streaming your game to {viewers} viewers!', { name: player.name, viewers: player.streamer!.viewers.toLocaleString() }), 'success', this.runtime.clock.totalMinutes)),
       this.community.events.on('streamEnd', ({ player, happy }) =>
@@ -245,6 +260,8 @@ export class GameSession {
     this.economy.dispose();
     this.playerSystem.dispose();
     this.community.dispose();
+    this.analytics.dispose();
+    this.worldEvents.dispose();
     this.players.dispose();
     if (EntityCommand.budget === this.studio) EntityCommand.budget = null;
     this.bridge.clear();

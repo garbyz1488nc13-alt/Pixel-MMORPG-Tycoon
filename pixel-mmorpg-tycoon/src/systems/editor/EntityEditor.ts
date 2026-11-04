@@ -8,6 +8,7 @@ import type { CreatureTemplate, EntityCollection, MapObject, NpcDef, Region, Spa
 import type { EntityChange } from '@/simulation/EntityStore';
 import type { WorldRuntime } from '@/simulation/WorldRuntime';
 import type { ItemDef, QuestDef } from '@/models/rpg';
+import type { EventDef } from '@/models/events';
 import type { StudioService } from '@/simulation/studio/StudioService';
 import { DEFAULT_NPC_GOLD, defaultLoot, defaultShop } from '@/data/rpgDefaults';
 import { EntityCommand, type History } from './History';
@@ -253,6 +254,19 @@ export class EntityEditor {
     if (!src) return null;
     const copy: QuestDef = { ...structuredClone(src), id: createId('quest'), name: tr('{name} (copy)', { name: src.name }), objectives: src.objectives.map((o) => ({ ...o, id: createId('obj') })) };
     this.commit(tr('Duplicate quest'), [this.rt.entities.add('quests', copy)]);
+    return copy;
+  }
+
+  addEvent(def: EventDef): EventDef {
+    this.commit(tr('Add event'), [this.rt.entities.add('events', def)]);
+    return def;
+  }
+
+  duplicateEvent(id: EntityId): EventDef | null {
+    const src = this.rt.entities.get('events', id);
+    if (!src) return null;
+    const copy: EventDef = { ...structuredClone(src), id: createId('evdef'), name: tr('{name} (copy)', { name: src.name }) };
+    this.commit(tr('Duplicate event'), [this.rt.entities.add('events', copy)]);
     return copy;
   }
 

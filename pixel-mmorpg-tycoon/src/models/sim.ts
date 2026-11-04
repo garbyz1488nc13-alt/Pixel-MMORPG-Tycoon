@@ -1,5 +1,6 @@
 import type { EntityId } from '@/core/ids';
 import type { ClassKey, EquipSlot, ItemStack } from './rpg';
+import type { ActiveEvent, EventRecord, HistorySample } from './events';
 
 export type GameMode = 'sandbox' | 'standard';
 
@@ -9,7 +10,7 @@ export type PlayerBehavior = 'explorer' | 'fighter' | 'grinder' | 'trader' | 'qu
 export type FactorKey =
   | 'combat' | 'levelup' | 'quest' | 'loot' | 'explore' | 'trade' | 'social'
   | 'death' | 'noContent' | 'tooHard' | 'noQuests' | 'crowded' | 'expensive' | 'poor' | 'pvpKilled' | 'boredom' | 'queue' | 'unpaid'
-  | 'cheaters' | 'justice' | 'antiCheatPain';
+  | 'cheaters' | 'justice' | 'antiCheatPain' | 'event';
 
 export type CheatKind = 'speed' | 'damage' | 'gold' | 'griefer';
 
@@ -89,6 +90,16 @@ export interface SimState {
   /** 0 none, 1 basic, 2 advanced, 3 kernel-level. */
   antiCheat: number;
   bans: { cheaters: number; innocent: number; auto: number };
+  /** Hourly analytics samples (last 7 game days). */
+  history: HistorySample[];
+  /** Lifetime counters (survive players quitting). */
+  totals: { kills: number; deaths: number; quests: number; pvpKills: number; levelUps: number };
+  /** Player-hours spent in each region. */
+  regionVisits: Record<EntityId, number>;
+  activeEvents: ActiveEvent[];
+  eventHistory: EventRecord[];
+  /** Game minute each event definition last started (cooldowns). */
+  eventLastRun: Record<EntityId, number>;
 }
 
 export interface StudioState {

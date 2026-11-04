@@ -3,6 +3,7 @@ import type { Aggression, CreatureType } from '@/data/creatureTypes';
 import type { NpcBehavior, NpcType } from '@/data/npcTypes';
 import type { RegionType } from '@/data/regionTypes';
 import type { ItemDef, ItemStack, LootEntry, QuestDef, ShopEntry } from './rpg';
+import type { EventDef } from './events';
 
 export type { ItemStack, LootEntry, ShopEntry } from './rpg';
 
@@ -55,6 +56,8 @@ export interface NpcDef {
   workStart: number;
   workEnd: number;
   interactionRadius: number;
+  /** Created by a world event (e.g. a travelling merchant). */
+  eventId?: EntityId;
 }
 
 export interface CreatureTemplate {
@@ -84,6 +87,8 @@ export interface SpawnArea {
   w: number;
   h: number;
   maxCount: number;
+  /** Created by a world event; removed when the event ends (free of charge). */
+  eventId?: EntityId;
 }
 
 export interface WorldEntities {
@@ -94,10 +99,11 @@ export interface WorldEntities {
   spawnAreas: SpawnArea[];
   items: ItemDef[];
   quests: QuestDef[];
+  events: EventDef[];
 }
 
 export type EntityCollection = keyof WorldEntities;
 
 export function emptyEntities(): WorldEntities {
-  return { objects: [], regions: [], npcs: [], creatureTemplates: [], spawnAreas: [], items: [], quests: [] };
+  return { objects: [], regions: [], npcs: [], creatureTemplates: [], spawnAreas: [], items: [], quests: [], events: [] };
 }

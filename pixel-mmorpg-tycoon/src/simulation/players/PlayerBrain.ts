@@ -10,6 +10,7 @@ import type { Actor } from '../actors/Actor';
 import type { EconomyService } from '../economy/EconomyService';
 import type { WorldRuntime } from '../WorldRuntime';
 import type { PlayerManager } from './PlayerManager';
+import type { EventService } from '../events/EventService';
 
 export type Activity =
   | { kind: 'hunt'; areaId: EntityId; templateId?: EntityId }
@@ -33,6 +34,9 @@ export const ACTIVITY_LABEL: Record<Activity['kind'], string> = {
  * personality, then picks the best one (with a little randomness and inertia).
  */
 export class PlayerBrain {
+  /** World events (festival / faction war attraction). */
+  events: EventService | null = null;
+
   constructor(private world: WorldRuntime, private actors: ActorManager, private pm: PlayerManager, private econ: EconomyService) {}
 
   private rand() {
@@ -55,7 +59,8 @@ export class PlayerBrain {
       const hunters = this.pm.huntersIn(area.id);
       const crowd = hunters / Math.max(1, area.maxCount);
       const distance = a ? Math.hypot(area.x + area.w / 2 - a.x, area.y + area.h / 2 - a.y) : 0;
-      const fit = templateId ? 1 : diff >= -4 && diff <= 2 ? 1 - Math.abs(diff + 1) * 0.12 : diff > 2 ? 0.15 / diff : 0.2;
+      // Event monsters (invasions, bosses, dungeons) draw a crowd regardless of level.
+      const fit = templateId ? 1 : area.eventId ? 0.85 : diff >= -4 && diff <= 2 ? 1 - Math.abs(diff + 1) * 0.12 : diff > 2 ? 0.15 / diff : 0.2;
       out.push({ areaId: area.id, diff, score: fit - Math.min(0.6, crowd * 0.25) - distance / 400 });
     }
     return out.sort((x, y) => y.score - x.score);
@@ -190,7 +195,8 @@ export class PlayerBrain {
     if (shop) add('trade', 0.5, () => ({ kind: 'trade', merchantId: shop.merchantId, buyItemId: shop.itemId }));
 
     const areas = this.huntingAreas(p);
-    const fitting = areas.filter((x) => x.diff >= -4 && x.diff <= 2);
+    const eventAreas = new Set(this.world.entities.list('spawnAreas').filter((s) => s.eventId).map((s) => s.id));
+    const fitting = areas.filter((x) => (x.diff >= -4 && x.diff <= 2) || eventAreas.has(x.areaId));
     if (fitting.length) add('hunt', 0.35 + 0.45 * w.fight, () => ({ kind: 'hunt', areaId: fitting[0].areaId }));
     else if (areas.length) {
       if (w.fight > 0.5) this.pm.feel(p, areas.every((x) => x.diff > 2) ? 'tooHard' : 'noContent', 0.5);
@@ -216,7 +222,27 @@ export class PlayerBrain {
       });
     } else if (w.explore > 1) this.pm.feel(p, 'boredom', 0.5);
 
-    add('social', 0.12 + 0.35 * w.social, () => ({ kind: 'social', ...this.safeSpot(a), ticks: 0 }));
+    const festival = this.events?.festivalRegion();
+    if (festival) {
+      add('social', 0.45 + 0.4 * w.social, () => {
+        const spot = this.actors.randomTileInArea({ ...festival, templateId: '', maxCount: 0 });
+        return spot ? { kind: 'social', x: spot.x, y: spot.y, ticks: 0 } : null;
+      });
+    } else add('social', 0.12 + 0.35 * w.social, () => ({ kind: 'social', ...this.safeSpot(a), ticks: 0 }));
+
+    // Faction war: fighters and PvP players join the battle against the other faction.
+    const war = this.events?.warRegion();
+    if (war && (w.pvp > 0 || w.fight > 1)) {
+      const ev = this.events!;
+      const mine = ev.faction(p.id);
+      const enemies = this.actors.spatial.query(war.x + war.w / 2, war.y + war.h / 2, Math.max(war.w, war.h)).filter((o) =>
+        o.kind === 'player' && o.state !== 'dead' && ev.faction(o.defId) !== mine && ev.inRegion(war, Math.floor(o.x), Math.floor(o.y)));
+      if (enemies.length) add('pvp', 0.55 + 0.4 * Math.max(w.pvp, w.fight - 0.5), () => ({ kind: 'pvp', targetId: enemies[Math.floor(this.rand() * enemies.length)].id, ticks: 0 }));
+      else add('explore', 0.4 + 0.3 * w.fight, () => {
+        const spot = this.actors.randomTileInArea({ ...war, templateId: '', maxCount: 0 });
+        return spot ? { kind: 'explore', regionId: war.id, x: spot.x, y: spot.y } : null;
+      });
+    }
 
     const griefer = p.cheat === 'griefer';
     if (w.pvp > 0 || griefer) {

@@ -16,6 +16,7 @@ import { CommunityService } from '@/simulation/community/CommunityService';
 import { createWorldSave } from '@/systems/generation/createWorld';
 import { generateStarterContent } from '@/systems/generation/Populate';
 import { migrate } from '@/persistence/serializer';
+import { WORLD_SCHEMA_VERSION } from '@/models/world';
 
 function build(seed = 777) {
   const save = createWorldSave({ name: 'P5', width: 96, height: 96, worldType: 'continent', difficulty: 'normal', seed: 21, startingGold: 10000, initialNpcCount: 20, initialPlayerCount: 0, gameMode: 'sandbox' });
@@ -156,7 +157,7 @@ describe('save migration v4 → v5', () => {
     delete s.sim.reviews; delete s.sim.rating; delete s.sim.bans; delete s.sim.antiCheat; delete s.sim.ratingHistory;
     s.sim.players = [{ id: 'p', name: 'Old' }];
     const m = migrate(s);
-    expect(m.schemaVersion).toBe(5);
+    expect(m.schemaVersion).toBe(WORLD_SCHEMA_VERSION);
     expect(m.sim.reviews).toEqual([]);
     expect(m.sim.bans.cheaters).toBe(0);
     expect(m.sim.players[0].reports).toBe(0);

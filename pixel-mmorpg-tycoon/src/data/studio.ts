@@ -33,9 +33,13 @@ export function createDefaultStudio(mode: GameMode, difficulty: Difficulty): Stu
 }
 
 export function createDefaultSim(): SimState {
-  return { players: [], popularity: 20, totalJoined: 0, totalLeft: 0, arrivalCarry: 0, ...defaultCommunity() };
+  return { players: [], popularity: 20, totalJoined: 0, totalLeft: 0, arrivalCarry: 0, ...defaultCommunity(), ...defaultManagement() };
 }
 
 export function defaultCommunity(): Pick<SimState, 'reviews' | 'rating' | 'ratingHistory' | 'antiCheat' | 'bans'> {
   return { reviews: [], rating: 0, ratingHistory: [], antiCheat: 0, bans: { cheaters: 0, innocent: 0, auto: 0 } };
+}
+
+export function defaultManagement(): Pick<SimState, 'history' | 'totals' | 'regionVisits' | 'activeEvents' | 'eventHistory' | 'eventLastRun'> {
+  return { history: [], totals: { kills: 0, deaths: 0, quests: 0, pvpKills: 0, levelUps: 0 }, regionVisits: {}, activeEvents: [], eventHistory: [], eventLastRun: {} };
 }

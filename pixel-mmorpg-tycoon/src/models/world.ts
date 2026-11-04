@@ -5,7 +5,7 @@ import type { RpgConfig } from './rpg';
 import type { GameMode, SimState, StudioState } from './sim';
 
 /** Bump when the saved shape changes; migrations live in persistence/migrations.ts. */
-export const WORLD_SCHEMA_VERSION = 5;
+export const WORLD_SCHEMA_VERSION = 6;
 
 export interface WorldConfig {
   /** Sandbox: everything free. Standard: studio budget, costs and server caps. */

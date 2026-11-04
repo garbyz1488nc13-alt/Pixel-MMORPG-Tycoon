@@ -148,9 +148,12 @@ export class PlayerManager {
   }
 
   // --------------------------------------------------------- progress
+  /** Global XP multiplier (e.g. Double XP events). */
+  xpMultiplier: () => number = () => 1;
+
   gainXp(p: PlayerState, amount: number): void {
     const prog = this.world.rpg.progression;
-    p.xp += Math.max(0, Math.round(amount));
+    p.xp += Math.max(0, Math.round(amount * this.xpMultiplier()));
     while (p.level < prog.maxLevel && p.xp >= xpToNext(p.level, prog)) {
       p.xp -= xpToNext(p.level, prog);
       p.level++;

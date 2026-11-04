@@ -13,6 +13,7 @@ export const REVIEW_PHRASES: Partial<Record<FactorKey, string[]>> = {
   trade: ['The economy works, trading is fun.', 'Made a nice profit selling my loot.'],
   social: ['Friendly town, nice place to hang out.', 'Cozy towns full of life.'],
   justice: ['The devs actually ban cheaters. Respect.', 'Glad the cheaters got banned.'],
+  event: ['The live events are awesome!', 'Joined a huge event with half the server, epic!'],
   death: ['I die way too often.', 'Monsters keep killing me.'],
   noContent: ['There is nothing to fight at my level.', 'Ran out of monsters for level {level}.'],
   tooHard: ['Monsters are way too strong.', 'Everything one-shots me.'],

@@ -11,6 +11,7 @@ import { log, useLogStore } from '@/stores/logStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { GameSession } from './GameSession';
 import { generateStarterContent } from '@/systems/generation/Populate';
+import { EventService } from '@/simulation/events/EventService';
 
 function focusFirstRegion(session: GameSession): void {
   const reg = session.runtime.entities.list('regions')[0];
@@ -48,6 +49,7 @@ export async function createAndOpenWorld(opts: NewWorldOptions, preview?: TileGr
     session.studio.free = false;
     log.event(t('Starter content: {summary}', { summary }), 'success', save.clock.totalMinutes);
     focusFirstRegion(session);
+    for (const ev of EventService.starterEvents(session.runtime)) session.runtime.entities.add('events', ev);
   }
   if (opts.initialPlayerCount > 0) {
     const n = session.players.seedInitial(opts.initialPlayerCount);

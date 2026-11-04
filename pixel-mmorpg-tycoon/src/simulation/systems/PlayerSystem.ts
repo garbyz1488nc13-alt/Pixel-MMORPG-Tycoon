@@ -39,7 +39,11 @@ export class PlayerSystem implements SimulationSystem {
   }
 
   // -------------------------------------------------------------- deaths
+  /** XP multiplier for killing an event monster (set by the event system). */
+  eventKill: (spawnAreaId: string | undefined, killer: Actor | null) => number = () => 1;
+
   private onDeath(victim: Actor, killer: Actor | null): void {
+    const eventMult = victim.kind === 'creature' ? this.eventKill(victim.spawnAreaId, killer) : 1;
     // Everyone who helped (hit it in the last ~6 s) gets quest credit and a share of XP.
     if (victim.kind === 'creature' && victim.damagers) {
       const tpl = this.mgr.template(victim);
@@ -48,7 +52,7 @@ export class PlayerSystem implements SimulationSystem {
         const helper = this.mgr.actors.get(id);
         const hp = helper?.kind === 'player' ? this.pm.get(helper.defId) : undefined;
         if (!hp || !tpl) continue;
-        this.pm.gainXp(hp, tpl.xpReward * 0.5);
+        this.pm.gainXp(hp, tpl.xpReward * 0.5 * eventMult);
         this.pm.questEvent(hp, { type: 'kill', templateId: tpl.id, boss: tpl.boss });
         this.pm.feel(hp, 'combat', 0.5);
       }
@@ -62,7 +66,7 @@ export class PlayerSystem implements SimulationSystem {
         if (!tpl) return;
         p.stats.kills++;
         this.pm.feel(p, 'combat');
-        this.pm.gainXp(p, tpl.xpReward);
+        this.pm.gainXp(p, tpl.xpReward * eventMult);
         this.pm.questEvent(p, { type: 'kill', templateId: tpl.id, boss: tpl.boss });
         for (const d of rollLoot(tpl.loot, () => this.mgr.rand())) {
           const got = this.pm.giveItem(p, d.itemId, d.qty);
