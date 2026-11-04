@@ -30,6 +30,9 @@ export type PlayerEvents = {
   launched: { count: number };
 };
 
+/** Gold a new player starts with (enough for a couple of basic armour pieces). */
+export const STARTING_PLAYER_GOLD = 80;
+
 /** Churn multiplier for clan members. */
 export const CLAN_LOYALTY = 0.6;
 
@@ -279,7 +282,7 @@ export class PlayerManager {
     const classKey = pick(CLASS_SHARES, this.rand());
     const now = this.world.clock.totalMinutes;
     const p: PlayerState = {
-      id: createId('pl'), name: playerName(this.rand), classKey, behavior, level: 1, xp: 0, gold: 30, hp: 0, mana: 0,
+      id: createId('pl'), name: playerName(this.rand), classKey, behavior, level: 1, xp: 0, gold: STARTING_PLAYER_GOLD, hp: 0, mana: 0,
       inventory: [], equipment: {}, quests: [], completedQuests: [], satisfaction: 60, factors: {}, visitedRegions: [],
       online: false, returnAt: 0, sessionLeft: 0, playMinutes: 0, joinedAt: now, x: 0, y: 0,
       stats: { kills: 0, deaths: 0, questsDone: 0, goldEarned: 0, pvpKills: 0 },

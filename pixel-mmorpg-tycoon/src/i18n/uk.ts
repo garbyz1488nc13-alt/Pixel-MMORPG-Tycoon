@@ -1789,4 +1789,22 @@ export const uk: Record<string, string> = {
   'wait for me': 'почекайте мене',
   'warming up :)': 'гріюсь :)',
   'what a view': 'який краєвид',
+
+  // ---- New decorations
+  'Wooden Palisade': 'Дерев\'яний частокіл',
+  'Log Wall': 'Стіна з колод',
+  'Straw Hut': 'Солом\'яна хижа',
+  'Tent': 'Намет',
+  'Banner': 'Прапор',
+  'Standing Torch': 'Смолоскип',
+  'Hay Bale': 'Тюк сіна',
+  'Cart': 'Віз',
+  'Market Stall': 'Ринковий прилавок',
+  'Bench': 'Лавка',
+  'Gravestone': 'Надгробок',
+  'Bones': 'Кістки',
+  'Tree Stump': 'Пеньок',
+  'Mushrooms': 'Гриби',
+  'Goblin Totem': 'Гоблінський тотем',
+  'Wooden Spikes': 'Дерев\'яні кілки',
 };

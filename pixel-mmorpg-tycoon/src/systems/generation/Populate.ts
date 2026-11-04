@@ -138,6 +138,8 @@ function forest(p: Planner, r: TileRect): void {
       else if (roll < 0.36) p.place(p.rng.next() < 0.3 ? 'berry_bush' : 'bush', x, y);
       else if (roll < 0.38) p.place('rock', x, y);
       else if (roll < 0.41) p.place('flowers', x, y);
+      else if (roll < 0.425) p.place('mushrooms', x, y);
+      else if (roll < 0.435) p.place('stump', x, y);
     }
   if (r.w * r.h >= 64) p.spawnArea('wolf', shrink(r, 2), Math.min(8, Math.max(2, Math.round((r.w * r.h) / 120))), tr('Wolf den'));
 }
@@ -208,7 +210,7 @@ function settlement(p: Planner, r: TileRect, size: 'village' | 'town' | 'city', 
 
   // Decorations.
   const decoCount = Math.round((inner.w * inner.h) / 30);
-  const decos = size === 'village' ? ['fence', 'barrel', 'crate', 'flowers', 'bush', 'tree_oak'] : ['lamp', 'barrel', 'crate', 'flowers', 'sign', 'bush'];
+  const decos = size === 'village' ? ['fence', 'barrel', 'crate', 'flowers', 'bush', 'tree_oak', 'hay', 'cart', 'bench'] : ['lamp', 'barrel', 'crate', 'flowers', 'sign', 'bush', 'stall', 'bench', 'banner', 'torch', 'cart'];
   for (let i = 0; i < decoCount; i++) p.place(decos[rnd(p, decos.length)], inner.x + rnd(p, inner.w), inner.y + rnd(p, inner.h));
   if (size === 'city') for (const [x, y] of [[r.x + 1, r.y + 1], [r.x + r.w - 3, r.y + 1], [r.x + 1, r.y + r.h - 3], [r.x + r.w - 3, r.y + r.h - 3]]) p.place('tower', x, y);
   p.place('player_spawn', cx + 2, cy) || p.place('player_spawn', cx - 2, cy);
@@ -253,7 +255,7 @@ function dungeonLike(p: Planner, r: TileRect, kind: 'dungeon' | 'cave'): void {
   for (let x = r.x; x < r.x + r.w; x++) for (const y of [r.y, r.y + r.h - 1]) if (Math.abs(x - cx) > 1 || y === r.y) p.place(border, x, y);
   for (let y = r.y; y < r.y + r.h; y++) for (const x of [r.x, r.x + r.w - 1]) p.place(border, x, y);
   p.place(kind === 'dungeon' ? 'dungeon_entrance' : 'cave_entrance', cx - 1, r.y + r.h - 3);
-  const props = kind === 'dungeon' ? ['lamp', 'barrel', 'crate', 'statue'] : ['ore_rock', 'ore_rock', 'boulder', 'rock'];
+  const props = kind === 'dungeon' ? ['torch', 'barrel', 'crate', 'statue', 'gravestone', 'bones', 'bones'] : ['ore_rock', 'ore_rock', 'boulder', 'rock', 'mushrooms', 'bones'];
   for (let i = 0; i < Math.round((r.w * r.h) / 25); i++) p.place(props[rnd(p, props.length)], r.x + 2 + rnd(p, Math.max(1, r.w - 4)), r.y + 2 + rnd(p, Math.max(1, r.h - 6)));
   const inner = shrink(r, 2);
   const count = Math.max(2, Math.min(10, Math.round((r.w * r.h) / 40)));
@@ -376,6 +378,11 @@ export function generateStarterContent(world: WorldRuntime, npcCount: number, se
       world.entities.add('regions', reg);
       p.place('campfire', campRect.x + Math.floor(campRect.w / 2), campRect.y + Math.floor(campRect.h / 2));
       for (let i = 0; i < 6; i++) p.place(p.rng.next() < 0.5 ? 'crate' : 'barrel', campRect.x + rnd(p, campRect.w), campRect.y + rnd(p, campRect.h));
+      // A proper goblin camp: palisade along the top, huts, totems, spikes and bones.
+      for (let x = campRect.x; x < campRect.x + campRect.w; x++) if (x % 5 !== 2) p.place('palisade', x, campRect.y);
+      p.place('hut', campRect.x + 1, campRect.y + 2);
+      p.place('hut', campRect.x + campRect.w - 3, campRect.y + 2);
+      for (const k of ['totem', 'totem', 'spikes', 'spikes', 'bones', 'bones', 'bones', 'torch', 'torch', 'tent']) p.place(k, campRect.x + rnd(p, campRect.w), campRect.y + 1 + rnd(p, Math.max(1, campRect.h - 1)));
       p.spawnArea('goblin', campRect, 5, tr('Goblin camp'));
       p.spawnArea('slime', campRect, 6, tr('Slime pond'));
       applyPlan(world, null, p, tr('Starter camp'));

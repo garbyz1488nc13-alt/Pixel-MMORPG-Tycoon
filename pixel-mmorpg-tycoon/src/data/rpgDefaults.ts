@@ -118,9 +118,9 @@ export function itemKeyIndex(items: ItemDef[]): Map<string, string> {
 /** Default loot by creature type, by item key. */
 export const DEFAULT_LOOT: Record<CreatureType, [string, number, number, number][]> = {
   slime: [['slime_gel', 80, 1, 2], ['health_potion', 10, 1, 1]],
-  goblin: [['goblin_ear', 70, 1, 1], ['copper_ring', 5, 1, 1], ['bread', 25, 1, 2]],
-  wolf: [['wolf_pelt', 75, 1, 1], ['roast_meat', 30, 1, 1]],
-  skeleton: [['bone', 80, 1, 3], ['iron_sword', 6, 1, 1], ['map_fragment', 8, 1, 1]],
+  goblin: [['goblin_ear', 70, 1, 1], ['copper_ring', 5, 1, 1], ['bread', 25, 1, 2], ['leather_cap', 6, 1, 1], ['travel_boots', 5, 1, 1]],
+  wolf: [['wolf_pelt', 75, 1, 1], ['roast_meat', 30, 1, 1], ['leather_tunic', 4, 1, 1]],
+  skeleton: [['bone', 80, 1, 3], ['iron_sword', 6, 1, 1], ['map_fragment', 8, 1, 1], ['iron_helmet', 5, 1, 1]],
   orc: [['iron_ingot', 50, 1, 2], ['iron_helmet', 8, 1, 1], ['roast_meat', 30, 1, 2]],
   spider: [['spider_silk', 70, 1, 2], ['herb', 30, 1, 2]],
   zombie: [['cloth', 60, 1, 2], ['bone', 40, 1, 1]],
@@ -135,8 +135,8 @@ export function defaultLoot(type: CreatureType, items: ItemDef[]): LootEntry[] {
 
 /** Default shop assortment by NPC type (item key, max stock). */
 export const DEFAULT_SHOPS: Partial<Record<NpcType, [string, number][]>> = {
-  merchant: [['bread', 30], ['apple', 30], ['health_potion', 15], ['torch', 20], ['leather_tunic', 4], ['travel_boots', 4]],
-  blacksmith: [['wooden_sword', 6], ['iron_sword', 4], ['rogue_dagger', 3], ['hunting_bow', 3], ['leather_cap', 5], ['iron_helmet', 2], ['iron_ingot', 20]],
+  merchant: [['bread', 30], ['apple', 30], ['health_potion', 15], ['torch', 20], ['leather_tunic', 15], ['travel_boots', 15], ['leather_cap', 10]],
+  blacksmith: [['wooden_sword', 6], ['iron_sword', 6], ['rogue_dagger', 4], ['hunting_bow', 4], ['leather_cap', 12], ['iron_helmet', 6], ['leather_tunic', 8], ['iron_ingot', 20]],
   healer: [['health_potion', 30], ['mana_potion', 25], ['herb', 20], ['elixir', 2]],
 };
 

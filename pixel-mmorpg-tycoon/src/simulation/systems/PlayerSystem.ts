@@ -15,7 +15,7 @@ import type { PlayerManager } from '../players/PlayerManager';
 import { GAME_MINUTES_PER_TICK } from '../time';
 import type { SimContext, SimulationSystem } from '../types';
 
-interface Mind { act: Activity | null; nextPlan: number; stuck: number; skillReady: Map<EntityId, number>; lastPotion: number; lastRegionCheck: number }
+interface Mind { act: Activity | null; nextPlan: number; stuck: number; skillReady: Map<EntityId, number>; lastPotion: number; lastRegionCheck: number; portal?: { from: EntityId; to: EntityId } | null }
 
 /** Max AI re-plans per tick (spreads the cost when hundreds of players are online). */
 const PLANS_PER_TICK = 6;
@@ -343,11 +343,63 @@ export class PlayerSystem implements SimulationSystem {
     }
   }
 
-  /** Walk towards a point; true when within `reach`. */
+  /** Linked portal pairs (both directions). */
+  private portals(): { from: { id: EntityId; x: number; y: number }; to: { id: EntityId; x: number; y: number } }[] {
+    const s = this.world().entities;
+    const out: { from: { id: EntityId; x: number; y: number }; to: { id: EntityId; x: number; y: number } }[] = [];
+    for (const o of s.list('objects')) {
+      if (o.kind !== 'portal' || !o.linkId) continue;
+      const d = s.get('objects', o.linkId);
+      if (d) out.push({ from: { id: o.id, x: o.x, y: o.y }, to: { id: d.id, x: d.x, y: d.y } });
+    }
+    return out;
+  }
+
+  /** A portal shortcut worth taking (or any portal when the goal can't be reached on foot). */
+  private portalRoute(a: Actor, x: number, y: number, anyway: boolean): { from: EntityId; to: EntityId } | null {
+    const direct = Math.hypot(a.x - x, a.y - y);
+    let best: { from: EntityId; to: EntityId } | null = null;
+    let bestCost = anyway ? Infinity : direct * 0.7;
+    for (const p of this.portals()) {
+      const cost = Math.hypot(a.x - p.from.x, a.y - p.from.y) + Math.hypot(p.to.x - x, p.to.y - y) + 2;
+      if (cost < bestCost) { bestCost = cost; best = { from: p.from.id, to: p.to.id }; }
+    }
+    return best;
+  }
+
+  /** Walk to the portal, then step through to the linked one. */
+  private usePortal(a: Actor, m: Mind, speed: number): void {
+    const s = this.world().entities;
+    const src = s.get('objects', m.portal!.from), dst = s.get('objects', m.portal!.to);
+    if (!src || !dst) { m.portal = null; return; }
+    if (Math.hypot(a.x - (src.x + 0.5), a.y - (src.y + 0.5)) <= 0.9) {
+      const out = this.mgr.randomWalkableNear(dst.x + 0.5, dst.y + 1.5, 1.5) ?? { x: dst.x, y: dst.y };
+      this.mgr.events.emit('portal', { actor: a, fromX: src.x, fromY: src.y, toX: dst.x, toY: dst.y });
+      this.mgr.teleport(a, out.x, out.y);
+      a.path = null;
+      m.portal = null;
+      return;
+    }
+    if (!a.path || a.goalX !== src.x || a.goalY !== src.y) {
+      if (!this.mgr.goTo(a, src.x, src.y, 6000)) { m.portal = null; return; }
+    }
+    a.state = 'walk';
+    this.mgr.step(a, speed);
+  }
+
+  /** Walk towards a point (through portals when that is shorter); true when within `reach`. */
   private moveTo(a: Actor, x: number, y: number, speed: number, reach = 1.5): boolean {
     if (Math.hypot(a.x - (x + 0.5), a.y - (y + 0.5)) <= reach) { a.moving = false; a.path = null; return true; }
+    const m = this.mind(a.id);
+    if (m.portal) { this.usePortal(a, m, speed); return false; }
     if (!a.path || a.goalX !== x || a.goalY !== y) {
-      if (!this.mgr.goTo(a, x, y, 6000)) return false;
+      const shortcut = Math.hypot(a.x - x, a.y - y) > 20 ? this.portalRoute(a, x, y, false) : null;
+      if (shortcut) { m.portal = shortcut; return false; }
+      if (!this.mgr.goTo(a, x, y, 6000)) {
+        const any = this.portalRoute(a, x, y, true);
+        if (any) m.portal = any;
+        return false;
+      }
     }
     a.state = 'walk';
     this.mgr.step(a, speed);
@@ -381,11 +433,9 @@ export class PlayerSystem implements SimulationSystem {
         }
         // Nothing to fight right now: walk into the area and wait.
         m.stuck++;
-        if (!a.path && this.mgr.rand() < 0.05) {
-          const spot = this.mgr.randomTileInArea(area);
-          if (spot) this.mgr.goTo(a, spot.x, spot.y, 4000);
-        }
-        if (a.path) { a.state = 'walk'; this.mgr.step(a, speed); } else a.state = 'idle';
+        if (!act.spot || (!a.path && !m.portal && this.mgr.rand() < 0.05)) act.spot = this.mgr.randomTileInArea(area) ?? undefined;
+        if (act.spot && !this.moveTo(a, act.spot.x, act.spot.y, speed, 1.5)) { if (!a.path && !m.portal) a.state = 'idle'; }
+        else a.state = 'idle';
         if (m.stuck > 160) { this.pm.feel(p, 'crowded'); this.done(m, tick); }
         return;
       }

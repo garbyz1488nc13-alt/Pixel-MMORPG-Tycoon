@@ -302,4 +302,102 @@ export const OBJECT_ART: Record<string, Painter> = {
     a.ellipse(8, 8, 4, 4, 'rgba(127,215,255,0.5)', '#7fd7ff');
     a.vline(8, 2, 9, '#f5f5f5'); a.rect(9, 2, 4, 3, '#5aa9e6');
   },
+
+  // ---------------------------------------------------- camp & frontier decorations
+  palisade: (a) => {
+    a.shadow(8, 30, 8, 1);
+    for (const x of [1, 5, 9, 13]) {
+      a.rect(x, 6, 3, 25, WOOD); a.vline(x, 6, 30, WOOD_D); a.px(x + 1, 5, WOOD); a.px(x + 1, 4, WOOD_L);
+      a.px(x + 2, 12, WOOD_D); a.px(x, 20, WOOD_L);
+    }
+    a.hline(0, 15, 12, '#5a3a1a'); a.hline(0, 15, 24, '#5a3a1a');
+  },
+  log_wall: (a) => {
+    for (const y of [3, 7, 11]) { a.rect(0, y, 16, 4, WOOD); a.hline(0, 15, y, WOOD_L); a.hline(0, 15, y + 3, WOOD_D); a.px(1, y + 1, '#c9955a'); a.px(14, y + 2, '#c9955a'); }
+  },
+  hut: (a) => {
+    a.shadow(16, 46, 15, 2);
+    a.rect(4, 24, 24, 22, '#8a6a3a'); for (let x = 4; x < 28; x += 3) a.vline(x, 24, 45, '#6e5230');
+    for (let y = 0; y < 16; y++) a.hline(16 - y - 2, 16 + y + 1, 8 + y, y % 3 ? '#d9b75a' : '#b8963e');
+    a.hline(0, 31, 24, '#8a6e2e');
+    a.rect(13, 34, 7, 12, '#2a1c12'); a.rect(6, 30, 4, 4, '#ffd27a'); a.rect(22, 30, 4, 4, '#ffd27a');
+    a.px(16, 6, '#d9b75a'); a.px(15, 5, WOOD_D);
+  },
+  tent: (a) => {
+    a.shadow(16, 30, 15, 2);
+    for (let y = 0; y < 24; y++) { const half = Math.round(y * 0.62); a.hline(16 - half, 16 + half, 6 + y, y < 23 ? '#c9b78a' : '#9c8a5e'); }
+    for (let y = 0; y < 24; y++) a.px(16, 6 + y, '#9c8a5e');
+    for (let y = 14; y < 30; y++) { const half = Math.round((y - 14) * 0.35); a.hline(16 - half, 16 + half, y, '#2a1c12'); }
+    a.vline(16, 2, 6, WOOD_D); a.rect(17, 2, 4, 3, '#c23b32');
+  },
+  banner: (a) => {
+    a.shadow(8, 30, 3, 1);
+    a.vline(4, 2, 30, WOOD_D); a.px(4, 1, '#f2c14e');
+    a.rect(5, 3, 8, 12, '#c23b32'); a.hline(5, 12, 3, '#e2574c'); a.px(6, 15, '#c23b32'); a.px(9, 16, '#c23b32'); a.px(12, 15, '#c23b32');
+    a.rect(7, 7, 4, 4, '#f2c14e');
+  },
+  torch: (a) => {
+    a.shadow(8, 30, 2, 1);
+    a.vline(8, 10, 30, WOOD); a.vline(7, 12, 30, WOOD_D);
+    a.rect(6, 8, 4, 3, '#4a4a52');
+    a.ellipse(8, 5, 2.5, 3.5, '#ff7a2a'); a.ellipse(8, 6, 1.5, 2, '#ffd04a'); a.px(8, 1, '#ff7a2a');
+  },
+  hay: (a) => {
+    a.shadow(8, 14, 7, 1.5);
+    a.rect(1, 5, 14, 9, '#d9b75a'); a.hline(1, 14, 5, '#f0d27a'); a.hline(1, 14, 13, '#a8862e');
+    for (const x of [3, 7, 11]) a.vline(x, 6, 12, '#b8963e');
+    a.vline(5, 5, 13, '#8a5a34'); a.vline(10, 5, 13, '#8a5a34');
+  },
+  cart: (a) => {
+    a.shadow(16, 14, 14, 1.5);
+    a.rect(4, 4, 22, 6, WOOD); a.hline(4, 25, 4, WOOD_L); a.hline(4, 25, 9, WOOD_D);
+    a.rect(6, 1, 6, 3, '#d9b75a'); a.rect(13, 2, 5, 2, '#5f9f3a'); a.rect(19, 1, 4, 3, '#c23b32');
+    a.line(26, 7, 31, 9, WOOD_D);
+    a.ellipse(9, 12, 3, 3, '#4a3020', '#2a1c12'); a.ellipse(21, 12, 3, 3, '#4a3020', '#2a1c12'); a.px(9, 12, STONE_L); a.px(21, 12, STONE_L);
+  },
+  stall: (a) => {
+    a.shadow(16, 30, 15, 1.5);
+    a.vline(2, 8, 30, WOOD_D); a.vline(29, 8, 30, WOOD_D);
+    for (let x = 0; x < 32; x++) for (let y = 3; y < 9; y++) a.px(x, y, Math.floor(x / 4) % 2 ? '#f5f0e0' : '#c23b32');
+    a.hline(0, 31, 9, '#8a1e1e');
+    a.rect(2, 20, 28, 6, WOOD); a.hline(2, 29, 20, WOOD_L);
+    a.rect(5, 17, 4, 3, '#e2574c'); a.rect(11, 17, 3, 3, '#f2c14e'); a.rect(16, 16, 5, 4, '#6cc551'); a.rect(23, 17, 4, 3, '#b56cff');
+  },
+  bench: (a) => {
+    a.shadow(8, 14, 7, 1);
+    a.rect(1, 7, 14, 2, WOOD_L); a.rect(1, 4, 14, 2, WOOD); a.hline(1, 14, 9, WOOD_D);
+    a.vline(2, 9, 13, WOOD_D); a.vline(13, 9, 13, WOOD_D);
+  },
+  gravestone: (a) => {
+    a.shadow(8, 14, 5, 1);
+    a.rect(4, 4, 8, 10, STONE); a.ellipse(8, 4, 4, 2.5, STONE); a.vline(4, 4, 13, STONE_D); a.hline(4, 11, 13, STONE_D);
+    a.vline(8, 6, 10, STONE_D); a.hline(6, 10, 7, STONE_D); a.px(5, 14, LEAF); a.px(11, 14, LEAF_L);
+  },
+  bones: (a) => {
+    a.line(2, 10, 9, 7, '#e8e4d4'); a.px(1, 10, '#e8e4d4'); a.px(10, 7, '#e8e4d4');
+    a.line(7, 13, 13, 11, '#d8d4c4');
+    a.ellipse(12, 6, 2.5, 2, '#e8e4d4'); a.px(11, 6, OUT); a.px(13, 6, OUT);
+  },
+  stump: (a) => {
+    a.shadow(8, 13, 6, 1.5);
+    a.rect(4, 7, 8, 6, WOOD); a.vline(4, 7, 12, WOOD_D); a.ellipse(8, 7, 4, 2, '#c9955a', WOOD_D); a.px(8, 7, WOOD_D);
+    a.px(3, 12, WOOD_D); a.px(12, 12, WOOD_D);
+  },
+  mushrooms: (a) => {
+    for (const [x, y, c] of [[4, 9, '#c23b32'], [10, 6, '#e2574c'], [12, 12, '#c9955a']] as [number, number, string][]) {
+      a.vline(x, y, y + 3, '#f5f0e0'); a.hline(x - 2, x + 2, y, c); a.hline(x - 1, x + 1, y - 1, c); a.px(x - 1, y, '#ffffff');
+    }
+  },
+  totem: (a) => {
+    a.shadow(8, 30, 4, 1);
+    a.rect(4, 4, 8, 27, '#7a4a28'); a.vline(4, 4, 30, '#4a2a14');
+    a.rect(5, 6, 6, 5, '#3f8f35'); a.px(6, 8, '#ffd04a'); a.px(9, 8, '#ffd04a'); a.hline(6, 9, 10, '#f5f0e0');
+    a.rect(5, 15, 6, 5, '#c23b32'); a.px(6, 17, OUT); a.px(9, 17, OUT);
+    a.rect(2, 22, 12, 2, '#7a4a28'); a.px(1, 21, '#f5f0e0'); a.px(14, 21, '#f5f0e0');
+    a.px(5, 2, '#f5f0e0'); a.px(10, 2, '#f5f0e0'); a.px(4, 1, '#f5f0e0'); a.px(11, 1, '#f5f0e0');
+  },
+  spikes: (a) => {
+    for (const x of [2, 7, 12]) { a.line(x, 14, x + 2, 4, WOOD); a.px(x + 2, 3, WOOD_L); }
+    a.hline(0, 15, 13, WOOD_D); a.hline(0, 15, 14, '#3a2414');
+  },
 };

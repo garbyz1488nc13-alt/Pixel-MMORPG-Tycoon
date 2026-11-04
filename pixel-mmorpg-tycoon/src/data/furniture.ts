@@ -17,7 +17,7 @@ export const FURNITURE: { key: FurnitureKind; name: string; cost: number; hint?:
 export const getFurniture = (k: FurnitureKind) => FURNITURE.find((f) => f.key === k) ?? FURNITURE[0];
 
 /** Buildings you can walk into. */
-export const ENTERABLE = new Set(['house_small', 'house_large', 'shop', 'smithy', 'tavern', 'temple', 'bank']);
+export const ENTERABLE = new Set(['hut', 'house_small', 'house_large', 'shop', 'smithy', 'tavern', 'temple', 'bank']);
 
 /** Interior room size (tiles) for a building. */
 export function interiorSize(kind: string): { w: number; h: number } {

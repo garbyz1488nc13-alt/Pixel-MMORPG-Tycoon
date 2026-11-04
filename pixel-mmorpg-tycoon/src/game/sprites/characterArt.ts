@@ -284,3 +284,22 @@ export function drawPlayerPose(a: ArtCanvas, look: HumanoidLook, pose: PlayerPos
       break;
   }
 }
+
+// ------------------------------------------------------------------ visible gear
+/** Armour tiers that show on the sprite: 0 none, 1 leather, 2 iron, 3 plate. */
+export const ARMOR_TIERS = [0, 1, 2, 3] as const;
+const TIER_COLORS: Record<number, Partial<HumanoidLook>> = {
+  1: { b: '#8a5a34', B: '#5e3b20', l: '#6b4a2c', f: '#3a2414' },
+  2: { b: '#8d97a3', B: '#5f6873', l: '#6b737d', f: '#3a3f46', a: '#d8dde2' },
+  3: { b: '#dfe5ea', B: '#d9a92e', l: '#b8c0c8', f: '#8a7a50', a: '#f2c14e' },
+};
+
+/** A class look wearing armour of a tier, with or without a helmet. */
+export function gearedLook(base: HumanoidLook, tier: number, helm: boolean): HumanoidLook {
+  const look = { ...base, ...(TIER_COLORS[tier] ?? {}) };
+  if (helm) look.accessory = 'helmet';
+  return look;
+}
+
+/** Atlas suffix for a gear combo ('' = class default). */
+export const gearCode = (tier: number, helm: boolean) => (tier || helm ? `:g${tier}${helm ? 'h' : ''}` : '');

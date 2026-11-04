@@ -16,7 +16,7 @@ import type { EventService } from '../events/EventService';
 import type { ClanService } from '../clans/ClanService';
 
 export type Activity =
-  | { kind: 'hunt'; areaId: EntityId; templateId?: EntityId }
+  | { kind: 'hunt'; areaId: EntityId; templateId?: EntityId; spot?: { x: number; y: number } }
   | { kind: 'gather'; itemId: EntityId; kinds: string[]; objectId?: EntityId; timer: number; done: number }
   | { kind: 'npc'; npcId: EntityId; purpose: 'accept' | 'turnin' | 'talk' | 'deliver'; questId?: EntityId }
   | { kind: 'trade'; merchantId: EntityId; buyItemId?: EntityId }
@@ -249,7 +249,10 @@ export class PlayerBrain {
       });
     }
     const shop = p.gold > 15 ? this.shoppingTarget(p) : null;
-    if (shop) add('trade', 0.5, () => ({ kind: 'trade', merchantId: shop.merchantId, buyItemId: shop.itemId }));
+    // Empty gear slots make shopping a priority (nobody wants to run around naked).
+    const shopItem = shop && this.world.entities.get('items', shop.itemId);
+    const emptySlot = !!shopItem && shopItem.slot !== 'none' && !p.equipment[shopItem.slot];
+    if (shop) add('trade', emptySlot ? 0.8 : 0.5, () => ({ kind: 'trade', merchantId: shop.merchantId, buyItemId: shop.itemId }));
 
     const areas = this.huntingAreas(p);
     const eventAreas = new Set(this.world.entities.list('spawnAreas').filter((s) => s.eventId).map((s) => s.id));

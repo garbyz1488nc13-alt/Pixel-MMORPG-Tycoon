@@ -8,6 +8,8 @@ import { TILE_SIZE } from '@/data/terrain';
 import type { GameSession } from '@/session/GameSession';
 import type { Actor } from '@/simulation/actors/Actor';
 import { ATTACK_COOLDOWN_TICKS } from '@/simulation/actors/combat';
+import { gearCode } from '../sprites/characterArt';
+import type { PlayerState } from '@/models/sim';
 import { audio } from '@/audio/AudioEngine';
 
 /** Camera zoom from which chat bubbles are shown. */
@@ -85,6 +87,11 @@ export class EntityRenderer {
         this.spawnFloat(target.x * S, (target.y - 0.6) * S, `-${amount}`, attacker.kind === 'npc' ? '#ffe08a' : '#ff7a6a');
         this.burst(target.x * S, (target.y - 0.4) * S, 3, [0xffffff, 0xffe08a], 0.12, 260, 2);
         if (this.onScreen(target.x, target.y)) audio.play('hit');
+      }),
+      session.actors.events.on('portal', ({ fromX, fromY, toX, toY }) => {
+        this.burst((fromX + 0.5) * S, (fromY + 0.5) * S, 14, [0xb56cff, 0x7fd7ff, 0xffffff], 0.1, 600, 3, -0.02);
+        this.burst((toX + 0.5) * S, (toY + 0.5) * S, 14, [0xb56cff, 0x7fd7ff, 0xffffff], 0.1, 600, 3, -0.02);
+        if (this.onScreen(toX, toY) || this.onScreen(fromX, fromY)) audio.play('place');
       }),
       session.actors.events.on('heal', ({ target, amount }) => {
         this.spawnFloat(target.x * S, (target.y - 0.6) * S, `+${amount}`, '#9cf0c0');
@@ -180,6 +187,22 @@ export class EntityRenderer {
     return Math.abs(h);
   }
 
+  private gearCache = new Map<string, { key: string; code: string }>();
+
+  /** Visible armour: chest tier by defense, helmet if anything is worn on the head. */
+  private gear(p: PlayerState): string {
+    const chest = p.equipment.chest, head = p.equipment.head;
+    const key = `${chest ?? ''}|${head ?? ''}`;
+    const hit = this.gearCache.get(p.id);
+    if (hit && hit.key === key) return hit.code;
+    const it = chest ? this.session.runtime.entities.get('items', chest) : undefined;
+    const def = it?.stats.defense ?? 0;
+    const tier = !it ? 0 : def >= 15 ? 3 : def >= 6 ? 2 : 1;
+    const code = gearCode(tier, !!head);
+    this.gearCache.set(p.id, { key, code });
+    return code;
+  }
+
   private isAfk(a: Actor): boolean {
     const act = this.session.playerSystem.activityOf(a.id);
     return act?.kind === 'leisure' && act.action === 'afk' && act.ticks > 0;
@@ -218,7 +241,7 @@ export class EntityRenderer {
     if (a.kind === 'player') {
       const p = this.session.players.get(a.defId);
       const clan = p?.clanId ? this.session.clans.get(p.clanId) : undefined;
-      return { frame: `pl:${p?.classKey ?? 'warrior'}:${this.playerPose(a, moving)}`, scale: 1, quest: false, live: !!p?.streamer, clanColor: clan ? parseInt(clan.color.slice(1), 16) : undefined, afk: this.isAfk(a) };
+      return { frame: `pl:${p?.classKey ?? 'warrior'}:${this.playerPose(a, moving)}${p ? this.gear(p) : ''}`, scale: 1, quest: false, live: !!p?.streamer, clanColor: clan ? parseInt(clan.color.slice(1), 16) : undefined, afk: this.isAfk(a) };
     }
     if (a.kind === 'npc') {
       const def = this.session.actors.npcDef(a);

@@ -8,6 +8,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { CameraController } from '../input/CameraController';
 import { MapTools } from '../input/MapTools';
 import { EntityRenderer } from '../render/EntityRenderer';
+import { LightRenderer } from '../render/LightRenderer';
 import { DEPTH } from '../render/depth';
 import {
   ANIMATED_TERRAINS,
@@ -39,6 +40,7 @@ export class WorldScene extends Phaser.Scene {
   private animFrame = 0;
   private animTimer = 0;
   private entities!: EntityRenderer;
+  private lightFx!: LightRenderer;
   private tools!: MapTools;
   private lastCamKey = '';
   private fpsTimer = 0;
@@ -80,6 +82,7 @@ export class WorldScene extends Phaser.Scene {
     }
 
     this.entities = new EntityRenderer(this, this.session);
+    this.lightFx = new LightRenderer(this, this.session);
     this.tools = new MapTools(this, this.session, this.entities, this.camCtl);
     this.bindSession();
 
@@ -180,6 +183,7 @@ export class WorldScene extends Phaser.Scene {
     // Day / night tint from the simulation clock.
     const dark = settings.dayNightTint ? darkness(this.session.runtime.clock.totalMinutes) : 0;
     this.night.setFillStyle(0x0a0f2e, dark * 0.5);
+    this.lightFx.update(delta, dark);
 
     // Grid + camera broadcast only when the view actually changed.
     const camKey = `${cam.scrollX.toFixed(1)}|${cam.scrollY.toFixed(1)}|${cam.zoom.toFixed(3)}|${cam.width}|${cam.height}|${settings.showGrid}`;
