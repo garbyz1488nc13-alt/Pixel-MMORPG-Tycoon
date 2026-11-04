@@ -1,7 +1,8 @@
 import type { EntityId } from '@/core/ids';
 import { getBehavior } from '@/data/playerTypes';
+import { TerrainId } from '@/data/terrain';
 import { GATHER_SOURCES } from '@/data/rpgDefaults';
-import { getRegionType } from '@/data/regionTypes';
+import { getRegionType, type PvpRule } from '@/data/regionTypes';
 import { doorTile } from '@/data/furniture';
 import type { PlayerState } from '@/models/sim';
 import { totalUnits } from '@/systems/rpg/inventory';
@@ -24,12 +25,17 @@ export type Activity =
   | { kind: 'social'; x: number; y: number; ticks: number }
   | { kind: 'pvp'; targetId: string; ticks: number }
   | { kind: 'idle'; ticks: number }
-  | { kind: 'raid'; raidId: EntityId };
+  | { kind: 'raid'; raidId: EntityId }
+  | { kind: 'leisure'; action: LeisureAction; x: number; y: number; ticks: number; duration: number }
+  | { kind: 'follow'; leaderId: string; ticks: number };
+
+/** Little things players do between quests. */
+export type LeisureAction = 'fish' | 'campfire' | 'dance' | 'sightsee' | 'afk';
 
 /** Activity labels for the UI (English source strings). */
 export const ACTIVITY_LABEL: Record<Activity['kind'], string> = {
   hunt: 'Hunting', gather: 'Gathering', npc: 'Talking to NPC', trade: 'Trading', explore: 'Exploring',
-  rest: 'Resting', social: 'Socialising', pvp: 'Hunting players', idle: 'Idle', raid: 'Raiding a boss',
+  rest: 'Resting', social: 'Socialising', pvp: 'Hunting players', idle: 'Idle', raid: 'Raiding a boss', leisure: 'Taking a break', follow: 'In a group',
 };
 
 /**
@@ -46,6 +52,30 @@ export class PlayerBrain {
 
   private rand() {
     return this.actors.rand();
+  }
+
+  /**
+   * PvP rule at a tile: safe regions win, then open PvP zones, otherwise
+   * "flagged" (only PvP-minded players attack) — including land outside regions.
+   */
+  pvpRule(x: number, y: number): PvpRule {
+    let rule: PvpRule = 'flagged';
+    for (const r of this.world.entities.list('regions')) {
+      if (x < r.x || y < r.y || x >= r.x + r.w || y >= r.y + r.h) continue;
+      const def = getRegionType(r.type);
+      if (def.pvp === 'none') return 'none';
+      if (def.pvp === 'open') rule = 'open';
+    }
+    const war = this.events?.warRegion();
+    if (war && x >= war.x && y >= war.y && x < war.x + war.w && y < war.y + war.h) return 'open';
+    return rule;
+  }
+
+  /** May player `p` attack another player standing at (x, y)? */
+  mayAttack(p: PlayerState, x: number, y: number): boolean {
+    if (p.cheat === 'griefer') return true;
+    const rule = this.pvpRule(x, y);
+    return rule === 'open' || (rule === 'flagged' && getBehavior(p.behavior).weights.pvp > 0);
   }
 
   isSafe(x: number, y: number): boolean {
@@ -269,23 +299,42 @@ export class PlayerBrain {
 
     // Faction war: fighters and PvP players join the battle against the other faction.
     const war = this.events?.warRegion();
-    if (war && (w.pvp > 0 || w.fight > 1)) {
+    // Faction war: almost everyone who likes a fight joins their side.
+    if (war && (w.pvp > 0 || w.fight > 0.4)) {
       const ev = this.events!;
       const mine = ev.faction(p.id);
       const enemies = this.actors.spatial.query(war.x + war.w / 2, war.y + war.h / 2, Math.max(war.w, war.h)).filter((o) =>
         o.kind === 'player' && o.state !== 'dead' && ev.faction(o.defId) !== mine && ev.inRegion(war, Math.floor(o.x), Math.floor(o.y)));
-      if (enemies.length) add('pvp', 0.55 + 0.4 * Math.max(w.pvp, w.fight - 0.5), () => ({ kind: 'pvp', targetId: enemies[Math.floor(this.rand() * enemies.length)].id, ticks: 0 }));
-      else add('explore', 0.4 + 0.3 * w.fight, () => {
+      if (enemies.length) add('pvp', 0.9 + 0.3 * Math.max(w.pvp, w.fight - 0.5), () => ({ kind: 'pvp', targetId: enemies[Math.floor(this.rand() * enemies.length)].id, ticks: 0 }));
+      else add('explore', 0.75 + 0.3 * w.fight, () => {
         const spot = this.actors.randomTileInArea({ ...war, templateId: '', maxCount: 0 });
         return spot ? { kind: 'explore', regionId: war.id, x: spot.x, y: spot.y } : null;
       });
     }
 
     const griefer = p.cheat === 'griefer';
-    if (w.pvp > 0 || griefer) {
-      const victims = this.actors.spatial.query(a.x, a.y, 14).filter((o) => o.kind === 'player' && o.id !== a.id && o.state !== 'dead' && (griefer || !this.isSafe(Math.floor(o.x), Math.floor(o.y))));
-      if (victims.length) add('pvp', griefer ? 1.2 : 0.25 + 0.5 * w.pvp, () => ({ kind: 'pvp', targetId: victims[Math.floor(this.rand() * victims.length)].id, ticks: 0 }));
+    const myRule = this.pvpRule(Math.floor(a.x), Math.floor(a.y));
+    const casual = p.behavior === 'casual' || p.behavior === 'trader';
+    // Inside an open PvP zone: everyone fights everyone (casual players get out).
+    if (myRule === 'open' && casual && !war) add('rest', 1.1, () => ({ kind: 'rest', ...this.safeSpot(a) }));
+    if (w.pvp > 0 || griefer || (myRule === 'open' && !casual)) {
+      const victims = this.actors.spatial.query(a.x, a.y, 14).filter((o) => o.kind === 'player' && o.id !== a.id && o.state !== 'dead' && this.mayAttack(p, Math.floor(o.x), Math.floor(o.y)));
+      if (victims.length) add('pvp', griefer ? 1.2 : myRule === 'open' ? 0.85 : 0.25 + 0.5 * w.pvp, () => ({ kind: 'pvp', targetId: victims[Math.floor(this.rand() * victims.length)].id, ticks: 0 }));
     }
+    // PvP players and brawlers travel to PvP zones looking for a fight.
+    if (w.pvp > 0 || w.fight > 1) {
+      const zones = this.world.entities.list('regions').filter((r) => getRegionType(r.type).pvp === 'open');
+      if (zones.length && myRule !== 'open') add('explore', 0.2 + 0.6 * w.pvp, () => {
+        const z = zones[Math.floor(this.rand() * zones.length)];
+        const spot = this.actors.randomTileInArea({ ...z, templateId: '', maxCount: 0 });
+        return spot ? { kind: 'explore', regionId: z.id, x: spot.x, y: spot.y } : null;
+      });
+    }
+
+    // Taking a break: fishing, sitting by a campfire, dancing, sightseeing, going AFK.
+    const fun = 0.04 + 0.2 * Math.max(w.social, w.explore) + (p.behavior === 'casual' ? 0.12 : 0) - (active.length ? 0.12 : 0);
+    // Every now and then players simply take a break.
+    add('leisure', fun + (this.rand() < 0.1 ? 0.7 : 0), () => this.leisure(p, a));
 
     options.sort((x, y) => y[0] - x[0]);
     for (const [, make] of options) {
@@ -293,6 +342,42 @@ export class PlayerBrain {
       if (act) return act;
     }
     return { kind: 'idle', ticks: 0 };
+  }
+
+  /** Pick a pastime that fits the surroundings. */
+  leisure(p: PlayerState, a: Actor): Activity | null {
+    const r = this.rand();
+    const dur = 150 + Math.floor(this.rand() * 250);
+    const mk = (action: LeisureAction, x: number, y: number) => ({ kind: 'leisure' as const, action, x, y, ticks: 0, duration: action === 'afk' ? dur * 2 : dur });
+    if (r < 0.08 || (p.behavior === 'casual' && r < 0.15)) return mk('afk', Math.floor(a.x), Math.floor(a.y));
+    const options: (() => Activity | null)[] = [
+      () => { const s = this.waterEdge(a); return s ? mk('fish', s.x, s.y) : null; },
+      () => {
+        let best: { x: number; y: number } | null = null, bd = 45;
+        for (const o of this.world.entities.list('objects')) {
+          if (o.kind !== 'campfire') continue;
+          const d = Math.hypot(o.x - a.x, o.y - a.y);
+          if (d < bd) { const s = this.actors.randomWalkableNear(o.x + 0.5, o.y + 0.5, 1.6); if (s) { bd = d; best = s; } }
+        }
+        return best ? mk('campfire', best.x, best.y) : null;
+      },
+      () => { const d = this.innDoor(a, 'social'); const s = d && this.actors.randomWalkableNear(d.x, d.y + 2, 2); return s ? mk('dance', s.x, s.y) : null; },
+      () => { const s = this.actors.randomWalkableNear(a.x + (this.rand() - 0.5) * 30, a.y + (this.rand() - 0.5) * 30, 4); return s ? mk('sightsee', s.x, s.y) : null; },
+    ];
+    const start = Math.floor(this.rand() * options.length);
+    for (let i = 0; i < options.length; i++) { const act = options[(start + i) % options.length](); if (act) return act; }
+    return null;
+  }
+
+  /** A walkable tile next to water, not too far away. */
+  private waterEdge(a: Actor): { x: number; y: number } | null {
+    const g = this.world.grid;
+    for (let k = 0; k < 40; k++) {
+      const x = Math.floor(a.x + (this.rand() - 0.5) * 50), y = Math.floor(a.y + (this.rand() - 0.5) * 50);
+      if (!g.inBounds(x, y) || g.get(x, y) !== TerrainId.Water) continue;
+      for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) if (this.world.nav.isWalkable(x + dx, y + dy)) return { x: x + dx, y: y + dy };
+    }
+    return null;
   }
 
   private distTo(a: Actor, npcId: EntityId): number {

@@ -92,8 +92,8 @@ describe('player chat', () => {
     for (let i = 0; i < 60; i++) w.engine.step();
     expect(w.chat.bubbles.get(p.id)?.key === 'hi!').toBe(false);
     // Level-ups get a "Ding!".
-    const before = w.chat.log.length;
+    const before = w.chat.said;
     for (let i = 0; i < 6; i++) w.players.gainXp(p, 100000);
-    expect(w.chat.log.length).toBeGreaterThan(before);
+    expect(w.chat.said).toBeGreaterThan(before);
   });
 });

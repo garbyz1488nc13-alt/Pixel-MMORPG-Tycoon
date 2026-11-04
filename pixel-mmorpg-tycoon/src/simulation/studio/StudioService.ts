@@ -153,7 +153,7 @@ export class StudioService {
         total += price;
         if (pm && this.state.shopModel === 'boosts') pm.gainXp(p, p.level * 40);
         if (pm && this.state.shopModel === 'cosmetic') pm.feel(p, 'loot', 0.3);
-      } else if (pm && model.anger && rand() < model.anger) pm.feel(p, 'p2w', model.anger);
+      } else if (pm && model.anger && rand() < model.anger) pm.feel(p, 'p2w', model.anger * 1.5);
     }
     return total;
   }

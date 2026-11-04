@@ -24,5 +24,13 @@ export const CHAT: Record<string, string[]> = {
   quest: ['quest done o/', 'easy quest', 'that took forever'],
   clan: ['hi guild o/', 'raid tonight?', 'love this clan <3'],
   patch: ['new patch!!', 'read the patch notes?', 'they nerfed my class >:('],
+  groupAsk: ['LFG! who wants to hunt?', 'group up, anyone?', 'need 2 more, come!'],
+  groupYes: ['sure, inv me', 'coming!', 'I\'m in o/', 'wait for me'],
+  caught: ['caught a fish!', 'nice catch :D', 'fish for dinner'],
+  afk: ['brb', 'afk 5 min', 'brb food'],
+  campfire: ['cozy fire', 'warming up :)', 'nice spot'],
+  dance: ['\\o/', 'dance party!', '*dances*'],
+  sightsee: ['what a view', 'nice place', 'screenshot time'],
+  help: ['hang on!', 'I got you!', 'heal incoming'],
   bug: ['stuck in a wall lol', 'is this a bug?', 'fell through the map xD'],
 };

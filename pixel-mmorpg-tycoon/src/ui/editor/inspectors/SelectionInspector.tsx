@@ -1,7 +1,7 @@
 import { ENTERABLE } from '@/data/furniture';
 import { getObjectDef } from '@/data/objects';
 import { t } from '@/i18n';
-import { getRegionType, REGION_TYPES } from '@/data/regionTypes';
+import { getRegionType, PVP_LABEL, REGION_TYPES } from '@/data/regionTypes';
 import type { GameSession } from '@/session/GameSession';
 import { BudgetError, populateRegion } from '@/systems/generation/Populate';
 import { confirmDialog } from '@/stores/dialogStore';
@@ -129,6 +129,7 @@ function RegionInspector({ session, id, actions }: { session: GameSession; id: s
     <div className="form">
       <Field label={t('Name')}><TextInput value={r.name} onChange={(name) => up({ name }, t('Rename region'))} /></Field>
       <Field label={t('Type')}><Select value={r.type} options={REGION_TYPES.map((x) => ({ key: x.key, label: t(x.name) }))} onChange={(type) => up({ type })} /></Field>
+      <div className="hint">{t(rt.description)} <span className={rt.pvp === 'none' ? 'good-text' : 'bad-text'}>{t(PVP_LABEL[rt.pvp])}</span></div>
       <div className="two-col">
         <Field label={t('Min level')}><NumberInput value={r.minLevel} min={1} max={100} onChange={(minLevel) => up({ minLevel, maxLevel: Math.max(minLevel, r.maxLevel) })} /></Field>
         <Field label={t('Max level')}><NumberInput value={r.maxLevel} min={1} max={100} onChange={(maxLevel) => up({ maxLevel, minLevel: Math.min(maxLevel, r.minLevel) })} /></Field>

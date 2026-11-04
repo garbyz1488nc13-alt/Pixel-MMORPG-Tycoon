@@ -6,6 +6,9 @@ import type { WorldRuntime } from '../WorldRuntime';
  * Walkability + movement cost per tile, derived from terrain and objects.
  * Rebuilt lazily (one pass over the map) after any change.
  */
+/** Movement cost on roads and bridges: travellers prefer the paths you lay out. */
+export const ROAD_COST = 0.4;
+
 export class NavGrid {
   walkable = new Uint8Array(0);
   cost = new Float32Array(0);
@@ -44,7 +47,7 @@ export class NavGrid {
           if (!g.inBounds(x, y)) continue;
           const i = y * g.width + x;
           if (d.walkableOverride) { this.walkable[i] = 1; this.cost[i] = 1; }
-          if (d.category === 'roads') this.cost[i] = Math.min(this.cost[i], 0.6);
+          if (d.category === 'roads' || d.category === 'bridges') this.cost[i] = Math.min(this.cost[i], ROAD_COST);
           if (d.blocks) this.walkable[i] = 0;
         }
     }

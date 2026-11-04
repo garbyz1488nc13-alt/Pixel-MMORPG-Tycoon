@@ -3,7 +3,7 @@ import { NPC_TYPES } from '@/data/npcTypes';
 import { OBJECTS } from '@/data/objects';
 import { TILE_SIZE } from '@/data/terrain';
 import { ART_SCALE, ArtCanvas } from './ArtCanvas';
-import { drawCreature, drawHumanoid, NPC_LOOKS, PLAYER_LOOKS } from './characterArt';
+import { drawCreature, drawHumanoid, NPC_LOOKS, PLAYER_LOOKS , drawPlayerPose, PLAYER_POSES } from './characterArt';
 import { OBJECT_ART } from './objectArt';
 import { ICON_ART } from './iconArt';
 
@@ -33,6 +33,8 @@ export function getSpriteAtlas(): SpriteAtlasData {
     for (let f = 0; f < 2; f++) jobs.push({ name: `npc:${t.key}:${f}`, w: TILE_SIZE, h: TILE_SIZE, draw: (a) => drawHumanoid(a, NPC_LOOKS[t.key], f) });
   for (const [key, look] of Object.entries(PLAYER_LOOKS))
     for (let f = 0; f < 2; f++) jobs.push({ name: `pl:${key}:${f}`, w: TILE_SIZE, h: TILE_SIZE, draw: (a) => drawHumanoid(a, look, f) });
+  for (const [key, look] of Object.entries(PLAYER_LOOKS))
+    for (const pose of PLAYER_POSES) jobs.push({ name: `pl:${key}:${pose}`, w: TILE_SIZE, h: TILE_SIZE, draw: (a) => drawPlayerPose(a, look, pose) });
   for (const t of CREATURE_TYPES)
     for (let f = 0; f < 2; f++) jobs.push({ name: `cr:${t.key}:${f}`, w: t.size * TILE_SIZE, h: t.size * TILE_SIZE, draw: (a) => drawCreature(a, t.key, f) });
   for (const [key, paint] of Object.entries(ICON_ART)) jobs.push({ name: `icon:${key}`, w: TILE_SIZE, h: TILE_SIZE, draw: paint });

@@ -25,7 +25,19 @@ export class EventService {
   readonly events = new EventBus<WorldEventEvents>();
   private popAtStart = new Map<EntityId, number>();
 
-  constructor(private world: WorldRuntime, private actors: ActorManager, private pm: PlayerManager, private studio: StudioService) {}
+  constructor(private world: WorldRuntime, private actors: ActorManager, private pm: PlayerManager, private studio: StudioService) {
+    // Faction war scoreboard: player kills inside the war region.
+    actors.events.on('died', ({ victim, killer }) => {
+      if (victim.kind !== 'player' || killer?.kind !== 'player') return;
+      const war = this.sim.activeEvents.find((x) => x.type === 'factionWar');
+      const r = war && this.region(war);
+      if (!war || !r || !this.inRegion(r, Math.floor(victim.x), Math.floor(victim.y))) return;
+      if (this.faction(killer.defId) === this.faction(victim.defId)) return;
+      (war.factionKills ??= [0, 0])[this.faction(killer.defId)]++;
+      war.kills++;
+      if (!war.participants.includes(killer.defId)) war.participants.push(killer.defId);
+    });
+  }
 
   private get sim() {
     return this.world.sim;
@@ -157,7 +169,7 @@ export class EventService {
     for (const id of a.npcIds) this.world.entities.remove('npcs', id);
     const record: EventRecord = {
       name: a.name, type: a.type, startedAt: a.startedAt, endedAt: this.world.clock.totalMinutes, kills: a.kills,
-      participants: a.participants.length, popularityDelta: Math.round((this.sim.popularity - (this.popAtStart.get(a.id) ?? this.sim.popularity)) * 10) / 10,
+      participants: a.participants.length, factionKills: a.factionKills, popularityDelta: Math.round((this.sim.popularity - (this.popAtStart.get(a.id) ?? this.sim.popularity)) * 10) / 10,
     };
     this.popAtStart.delete(a.id);
     this.sim.eventHistory.push(record);

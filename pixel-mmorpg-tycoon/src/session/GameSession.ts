@@ -130,6 +130,8 @@ export class GameSession {
     this.players.xpMultiplier = () => this.worldEvents.xpMultiplier() * this.runtime.sim.patches.xpRate;
     this.chat = new ChatService(this.runtime, this.actors, this.players, this.clans, this.auction, this.patches);
     this.engine.addSystem(this.chat);
+    this.playerSystem.groupEvent = (leader, members) => this.chat.onGroup(leader, members);
+    this.playerSystem.leisureEvent = (p, what) => this.chat.onLeisure(p, what);
     this.engine.addSystem(new HourlySystem(this.players, this.studio, (debt) => {
       if (debt > 0) log.event(t('The studio is in debt (day {n}). Building is blocked until funds are positive.', { n: debt }), 'warn', this.runtime.clock.totalMinutes);
     }, this.community, this.analytics, this.worldEvents, this.clans, [this.auction, this.seasons, this.patches]));
@@ -168,6 +170,17 @@ export class GameSession {
         log.event(t('Event started: {name} ({type}) for {h} h{auto}.', { name: active.name, type: t(getEventType(active.type).name), h: Math.round((active.endsAt - active.startedAt) / 60), auto: manual ? '' : ' · ' + t('triggered automatically') }), 'success', this.runtime.clock.totalMinutes)),
       this.worldEvents.events.on('ended', ({ record }) =>
         log.event(t('Event ended: {name}. Participants: {p}, kills: {k}, popularity {d}.', { name: record.name, p: record.participants, k: record.kills, d: (record.popularityDelta >= 0 ? '+' : '') + record.popularityDelta }), 'info', this.runtime.clock.totalMinutes)),
+      this.worldEvents.events.on('ended', ({ record }) => {
+        const fk = record.factionKills;
+        if (!fk) return;
+        const msg = fk[0] === fk[1] ? t('Faction war ended in a draw ({a}:{b}).', { a: fk[0], b: fk[1] })
+          : t('Faction war won by the {side} faction ({a}:{b})!', { side: t(fk[0] > fk[1] ? 'Red' : 'Blue'), a: Math.max(...fk), b: Math.min(...fk) });
+        log.event(msg, 'success', this.runtime.clock.totalMinutes);
+      }),
+      // A new war or festival: everyone re-thinks right away instead of finishing their errand.
+      this.worldEvents.events.on('started', ({ active }) => {
+        if (active.type === 'factionWar' || active.type === 'festival') for (const p of this.players.online()) this.playerSystem.replan(p.id);
+      }),
       this.seasons.events.on('ended', ({ record, next }) => {
         const top = record.topClans[0];
         log.event(top

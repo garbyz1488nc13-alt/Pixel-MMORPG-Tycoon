@@ -52,7 +52,7 @@ export const FACTORS: Record<FactorKey, { delta: number; label: string; positive
   clan: { delta: 0.5, label: 'Clan friends', positive: true },
   raid: { delta: 6, label: 'Epic boss raids', positive: true },
   drama: { delta: -3, label: 'Clan drama', positive: false },
-  p2w: { delta: -2, label: 'Pay-to-win shop', positive: false },
+  p2w: { delta: -3, label: 'Pay-to-win shop', positive: false },
   patch: { delta: 3, label: 'Fresh patches & content', positive: true },
   bugs: { delta: -2, label: 'Bugs everywhere', positive: false },
   nerf: { delta: -5, label: 'My class got nerfed', positive: false },

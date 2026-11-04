@@ -42,6 +42,8 @@ export interface Actor {
   enraged: boolean;
   /** Bosses: tick of the next area slam. */
   slamAt: number;
+  /** Players: casting animation until this tick. */
+  castUntil?: number;
 }
 
 export function newActor(id: string, kind: ActorKind, defId: EntityId, x: number, y: number, maxHp: number): Actor {

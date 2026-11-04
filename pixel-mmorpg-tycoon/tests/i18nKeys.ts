@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { AGGRESSIONS, CREATURE_TYPES } from '@/data/creatureTypes';
 import { NPC_BEHAVIORS, NPC_TYPES } from '@/data/npcTypes';
 import { OBJECT_CATEGORIES, OBJECTS } from '@/data/objects';
-import { REGION_TYPES } from '@/data/regionTypes';
+import { PVP_LABEL, REGION_TYPES } from '@/data/regionTypes';
 import { TERRAINS } from '@/data/terrain';
 import { DIFFICULTIES, MAP_SIZES, WORLD_TYPES } from '@/data/worldPresets';
 import { SAVE_SLOTS } from '@/models/world';
@@ -88,6 +88,9 @@ export function dynamicKeys(): Set<string> {
   CHEAT_KINDS.forEach((c) => { k.add(c.label); k.add(c.hint); });
   ANTI_CHEAT.forEach((a) => { k.add(a.name); k.add(a.description); });
   LEAGUES.forEach((l) => k.add(l.label));
+  REGION_TYPES.forEach((r) => k.add(r.description));
+  Object.values(PVP_LABEL).forEach((x) => k.add(x));
+  ['Red', 'Blue'].forEach((x) => k.add(x));
   FURNITURE.forEach((f) => { k.add(f.name); if (f.hint) k.add(f.hint); });
   Object.values(CHAT).forEach((l) => l.forEach((x) => k.add(x)));
   ['Runner-up', 'Third place', 'Auction', 'Seasons', 'Patches', 'Slower', 'Faster', 'Unchanged'].forEach((s) => k.add(s));

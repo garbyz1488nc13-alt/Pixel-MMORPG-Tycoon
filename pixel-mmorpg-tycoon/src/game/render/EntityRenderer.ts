@@ -86,6 +86,10 @@ export class EntityRenderer {
         this.burst(target.x * S, (target.y - 0.4) * S, 3, [0xffffff, 0xffe08a], 0.12, 260, 2);
         if (this.onScreen(target.x, target.y)) audio.play('hit');
       }),
+      session.actors.events.on('heal', ({ target, amount }) => {
+        this.spawnFloat(target.x * S, (target.y - 0.6) * S, `+${amount}`, '#9cf0c0');
+        this.burst(target.x * S, (target.y - 0.4) * S, 8, [0x9cf0c0, 0xffffff], 0.06, 600, 2, -0.03);
+      }),
       session.actors.events.on('slam', ({ actor, radius }) => {
         this.waves.push({ x: actor.x * S, y: actor.y * S, r: 6, max: radius * S, life: 400, color: actor.enraged ? 0xff3030 : 0xffa040 });
         this.burst(actor.x * S, actor.y * S, 14, [0xb08050, 0x806040, 0xffa040], 0.18, 500, 3);
@@ -169,12 +173,52 @@ export class EntityRenderer {
   }
 
   // ------------------------------------------------------------- actors
-  private actorFrame(a: Actor, moving: boolean): { frame: string; scale: number; quest: boolean; live?: boolean; clanColor?: number; boss?: boolean } {
+  /** Hash per actor so animations are not in lockstep. */
+  private seed(a: Actor): number {
+    let h = 0;
+    for (let i = 0; i < a.id.length; i++) h = (h * 31 + a.id.charCodeAt(i)) | 0;
+    return Math.abs(h);
+  }
+
+  private isAfk(a: Actor): boolean {
+    const act = this.session.playerSystem.activityOf(a.id);
+    return act?.kind === 'leisure' && act.action === 'afk' && act.ticks > 0;
+  }
+
+  /** Pick the animation pose from what the player is doing. */
+  private playerPose(a: Actor, moving: boolean): string {
+    const t = this.time + (this.seed(a) % 1000);
+    const tick = this.session.actors.tick;
+    if (moving) return `walk${Math.floor(t / 110) % 4}`;
+    if ((a.castUntil ?? 0) > tick) return `cast${Math.floor(t / 120) % 2}`;
+    if (a.state === 'attack') return a.attackCd > ATTACK_COOLDOWN_TICKS - 4 ? 'attack1' : a.attackCd > ATTACK_COOLDOWN_TICKS - 8 ? 'attack0' : 'idle0';
+    const act = this.session.playerSystem.activityOf(a.id);
+    switch (act?.kind) {
+      case 'gather': return `work${Math.floor(t / 260) % 2}`;
+      case 'rest': return 'sit';
+      case 'leisure':
+        if (act.action === 'fish') return 'fish';
+        if (act.action === 'campfire') return 'sit';
+        if (act.action === 'dance') return `dance${Math.floor(t / 300) % 2}`;
+        break;
+      case 'social': {
+        const slot = Math.floor(t / 4000) % 4;
+        if (slot === 0) return `dance${Math.floor(t / 300) % 2}`;
+        if (slot === 1) return 'sit';
+        if (slot === 2 && this.session.chat.bubbles.has(a.id)) return 'wave';
+        break;
+      }
+    }
+    if (this.session.chat.bubbles.has(a.id) && Math.floor(t / 700) % 3 === 0) return 'wave';
+    return `idle${Math.floor(t / 600) % 2}`;
+  }
+
+  private actorFrame(a: Actor, moving: boolean): { frame: string; scale: number; quest: boolean; live?: boolean; clanColor?: number; boss?: boolean; afk?: boolean } {
     const anim = moving ? Math.floor(this.time / 180 + (a.id.charCodeAt(a.id.length - 1) % 2)) % 2 : 0;
     if (a.kind === 'player') {
       const p = this.session.players.get(a.defId);
       const clan = p?.clanId ? this.session.clans.get(p.clanId) : undefined;
-      return { frame: `pl:${p?.classKey ?? 'warrior'}:${anim}`, scale: 1, quest: false, live: !!p?.streamer, clanColor: clan ? parseInt(clan.color.slice(1), 16) : undefined };
+      return { frame: `pl:${p?.classKey ?? 'warrior'}:${this.playerPose(a, moving)}`, scale: 1, quest: false, live: !!p?.streamer, clanColor: clan ? parseInt(clan.color.slice(1), 16) : undefined, afk: this.isAfk(a) };
     }
     if (a.kind === 'npc') {
       const def = this.session.actors.npcDef(a);
@@ -206,6 +250,7 @@ export class EntityRenderer {
 
     // Chat bubbles only when zoomed in (like nameplates in a real MMO).
     const showChat = cam.zoom >= BUBBLE_ZOOM;
+    const warRegion = this.session.worldEvents.warRegion();
     let bubbles = 0;
     if (this.time - this.insideAt > 500) { this.inside = this.session.playersInside(); this.insideAt = this.time; }
     for (const a of this.session.actors.actors.values()) {
@@ -235,7 +280,17 @@ export class EntityRenderer {
       // Attack lunge: a quick step towards the target right after striking.
       const lunge = a.state === 'attack' && a.attackCd > ATTACK_COOLDOWN_TICKS - 3 ? a.facing * 3 : 0;
       spr.setVisible(true).setFrame(f.frame).setPosition(px + lunge, py + 6).setScale(f.scale).setDepth(entityDepth(py + 6));
-      spr.setFlipX(a.facing < 0);
+      // Standing players look around now and then.
+      const lookAround = a.kind === 'player' && !moving && a.state !== 'attack' && Math.floor((this.time + (this.seed(a) % 3000)) / 2500) % 3 === 2;
+      spr.setFlipX(lookAround ? a.facing > 0 : a.facing < 0);
+      // Dust puffs from running feet.
+      if (moving && a.kind !== 'npc' && Math.random() < dt / 900) this.burst(px, py + 6, 2, [0xb8a27a, 0x8f7c58], 0.02, 380, 2, -0.00005);
+      if (warRegion && a.kind === 'player' && px >= warRegion.x * S && py >= warRegion.y * S && px < (warRegion.x + warRegion.w) * S && py < (warRegion.y + warRegion.h) * S) {
+        const side = this.session.worldEvents.faction(a.defId);
+        const fc = side ? 0x3a7bd5 : 0xd53a3a;
+        hp.lineStyle(1, 0x1a1020, 1).lineBetween(px + 7, py - 26, px + 7, py - 14);
+        hp.fillStyle(fc, 1).fillRect(px + 8, py - 26, 7, 5);
+      }
       spr.setAlpha(a.state === 'rest' ? 0.75 : 1);
       if (a.hitFlash > 0) spr.setTintFill(0xffffff);
       else if (a.enraged) spr.setTint(Math.floor(this.time / 200) % 2 ? 0xff6060 : 0xff9090);
@@ -256,13 +311,13 @@ export class EntityRenderer {
         ground.lineStyle(2, f.clanColor, 1).strokeEllipse(px, py + 5, 22, 9);
       }
 
-      // Quest marker / sleeping marker
-      if (f.quest || a.state === 'rest' || f.live) {
+      // Quest marker / sleeping marker / AFK
+      if (f.quest || a.state === 'rest' || f.live || f.afk) {
         let m = this.markerPool[markers];
         if (!m) { m = this.scene.add.image(0, 0, ATLAS_KEY, 'fx:quest').setOrigin(0.5, 1); this.markerPool.push(m); }
         markers++;
         const bob = f.live ? 0 : Math.sin(this.time / 250) * 2;
-        const frame = f.live ? 'fx:live' : a.state === 'rest' ? 'fx:zzz' : 'fx:quest';
+        const frame = f.live ? 'fx:live' : a.state === 'rest' || f.afk ? 'fx:zzz' : 'fx:quest';
         m.setVisible(true).setFrame(frame).setPosition(px + (a.state === 'rest' ? 8 : 0), py - (f.live ? 26 : 22) + bob).setDepth(DEPTH.LABELS).setAlpha(f.live && Math.floor(this.time / 600) % 2 ? 0.75 : 1);
       }
 

@@ -49,6 +49,8 @@ export interface ActiveEvent {
   /** Counters for the summary. */
   kills: number;
   participants: EntityId[];
+  /** Faction war: kills by faction 0 (red) and 1 (blue). */
+  factionKills?: [number, number];
 }
 
 export interface EventRecord {
@@ -59,6 +61,7 @@ export interface EventRecord {
   kills: number;
   participants: number;
   popularityDelta: number;
+  factionKills?: [number, number];
 }
 
 /** One hourly analytics sample. */

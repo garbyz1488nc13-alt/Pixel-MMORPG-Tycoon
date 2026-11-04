@@ -3,7 +3,7 @@ import { t as tr } from '@/i18n';
 import { CREATURE_TYPES, type CreatureType } from '@/data/creatureTypes';
 import { NPC_TYPES } from '@/data/npcTypes';
 import { OBJECT_CATEGORIES, OBJECTS, type ObjectCategory } from '@/data/objects';
-import { getRegionType, REGION_TYPES } from '@/data/regionTypes';
+import { getRegionType, REGION_TYPES, PVP_LABEL } from '@/data/regionTypes';
 import { TERRAINS } from '@/data/terrain';
 import type { GameSession } from '@/session/GameSession';
 import { MAX_BRUSH, useEditorStore, type EditorTool, type LeftSection } from '@/stores/editorStore';
@@ -133,10 +133,14 @@ function RegionsSection({ session }: { session: GameSession }) {
       <div className="hint">{tr('Pick a type, then drag on the map to draw the region.')}</div>
       <div className="region-types">
         {REGION_TYPES.map((t) => (
-          <button key={t.key} className={`btn small ${ed.tool === 'region' && ed.regionType === t.key ? 'active' : ''}`} onClick={() => ed.setRegionType(t.key)}>
+          <button key={t.key} title={tr(t.description)} className={`btn small ${ed.tool === 'region' && ed.regionType === t.key ? 'active' : ''}`} onClick={() => ed.setRegionType(t.key)}>
             <span className="swatch" style={{ background: `#${t.color.toString(16).padStart(6, '0')}` }} /> {tr(t.name)}
           </button>
         ))}
+      </div>
+      <div className="hint region-desc">
+        <b>{tr(getRegionType(ed.regionType).name)}:</b> {tr(getRegionType(ed.regionType).description)}
+        {' '}<span className={getRegionType(ed.regionType).pvp === 'none' ? 'good-text' : 'bad-text'}>{tr(PVP_LABEL[getRegionType(ed.regionType).pvp])}</span>
       </div>
       <EntityList
         title={`${tr('Regions')} (${regions.length})`}

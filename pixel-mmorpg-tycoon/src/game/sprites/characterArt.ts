@@ -31,6 +31,13 @@ export function drawHumanoid(a: ArtCanvas, look: HumanoidLook, frame: number, ox
   a.shadow(ox + 8, oy + 15, 5, 1);
   a.pattern(HUMANOID_FRAMES[frame], colors, ox, oy);
   const P = (x: number, y: number, c: string) => a.px(ox + x, oy + y, c);
+  drawAccessory(P, look);
+  drawWeapon(P, look);
+}
+
+type Px = (x: number, y: number, c: string) => void;
+
+function drawAccessory(P: Px, look: HumanoidLook): void {
   switch (look.accessory) {
     case 'helmet':
       for (let x = 5; x <= 10; x++) { P(x, 1, '#b8c0c8'); P(x, 2, x % 2 ? '#8d97a3' : '#b8c0c8'); }
@@ -73,6 +80,9 @@ export function drawHumanoid(a: ArtCanvas, look: HumanoidLook, frame: number, ox
       P(4, 1, '#f5f0e0'); P(3, 0, '#f5f0e0'); P(11, 1, '#f5f0e0'); P(12, 0, '#f5f0e0');
       break;
   }
+}
+
+function drawWeapon(P: Px, look: HumanoidLook): void {
   switch (look.weapon) {
     case 'spear':
       for (let y = 2; y <= 13; y++) P(14, y, '#8a5a34');
@@ -101,8 +111,7 @@ export function drawHumanoid(a: ArtCanvas, look: HumanoidLook, frame: number, ox
       for (let y = 3; y <= 12; y++) P(y < 5 || y > 10 ? 13 : 14, y, '#8a5a34');
       for (let y = 3; y <= 12; y++) P(12, y, '#e8e4d4');
       break;
-  }
-}
+  }}
 
 export function npcLook(t: NpcTypeDef): HumanoidLook {
   const weapon: HumanoidLook['weapon'] = t.key === 'guard' ? 'spear' : t.key === 'blacksmith' ? 'hammer' : t.key === 'healer' || t.key === 'questgiver' ? 'staff' : undefined;
@@ -188,5 +197,90 @@ export function drawCreature(a: ArtCanvas, type: CreatureType, frame: number) {
       drawHumanoid(proxy, HUMANOID_CREATURES.boss!, frame);
       break;
     }
+  }
+}
+
+// ------------------------------------------------------------------ player poses
+/** Player animation poses (atlas frames pl:<class>:<pose>). */
+export const PLAYER_POSES = ['walk0', 'walk1', 'walk2', 'walk3', 'idle0', 'idle1', 'attack0', 'attack1', 'cast0', 'cast1', 'sit', 'work0', 'work1', 'dance0', 'dance1', 'wave', 'fish'] as const;
+export type PlayerPose = (typeof PLAYER_POSES)[number];
+
+const LEGS_MID = ['....ollllllo....', '....olloollo....', '....olo..olo....', '....ofo..ofo....', '................'];
+const LEGS_SIT = ['...olllllllllo..', '...offo...offo..', '................', '................', '................'];
+const EMPTY = '................';
+
+/** A player in a pose: walk cycle with bob, breathing, strikes, casting, sitting, working, dancing… */
+export function drawPlayerPose(a: ArtCanvas, look: HumanoidLook, pose: PlayerPose, ox = 0, oy = 0) {
+  const colors: Record<string, string> = { o: '#1a1020', h: look.h, s: look.s, e: look.e ?? '#1a1020', b: look.b, B: look.B, a: look.a, l: look.l, f: look.f };
+  const legsBy: Partial<Record<PlayerPose, string[]>> = { walk0: LEGS_A, walk1: LEGS_MID, walk2: LEGS_B, walk3: LEGS_MID, sit: LEGS_SIT, dance0: LEGS_B, dance1: LEGS_A, attack1: LEGS_B };
+  const bodyDy = pose === 'sit' ? 3 : pose === 'walk1' || pose === 'walk3' || pose === 'idle1' || pose === 'work1' ? 1 : pose === 'dance1' ? -1 : 0;
+  a.shadow(ox + 8, oy + 15, pose === 'sit' ? 6 : 5, 1);
+  const legs = legsBy[pose] ?? LEGS_MID;
+  a.pattern([EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, ...legs], colors, ox, oy + (pose === 'sit' ? 2 : 0));
+  a.pattern(HEAD_BODY, colors, ox, oy + bodyDy);
+  const P: Px = (x, y, c) => a.px(ox + x, oy + y + bodyDy, c);
+  drawAccessory(P, look);
+  const W = (x: number, y: number, c: string) => P(x, y, c);
+  const steel = '#e0e8f0', wood = '#6e4a2c';
+  switch (pose) {
+    case 'attack0': // wind-up: weapon raised behind
+    case 'attack1': { // strike: weapon thrust forward
+      const fwd = pose === 'attack1';
+      P(13, 7, look.s); P(14, 7, look.s);
+      if (look.weapon === 'bow') {
+        for (let y = 3; y <= 12; y++) P(y < 5 || y > 10 ? 14 : 15, y, '#8a5a34');
+        for (let y = 4; y <= 11; y++) P(fwd ? 14 : 11, y, '#e8e4d4');
+        if (!fwd) for (let x = 11; x <= 15; x++) P(x, 7, x === 15 ? steel : '#8a5a34');
+      } else if (look.weapon === 'staff') {
+        for (let x = 10; x <= 15; x++) P(x, fwd ? 6 : 3 + (x - 10), wood);
+        P(15, fwd ? 5 : 8, look.a); P(15, fwd ? 6 : 7, '#ffffff');
+      } else if (fwd) {
+        for (let x = 12; x <= 15; x++) P(x, 7, look.weapon === 'hammer' || look.weapon === 'axe' ? (x === 15 ? '#4a4a52' : wood) : steel);
+        if (look.weapon === 'hammer' || look.weapon === 'axe') { P(15, 6, '#4a4a52'); P(15, 8, '#4a4a52'); }
+      } else {
+        for (let y = 0; y <= 5; y++) P(12 + (y > 3 ? 1 : 0), y, look.weapon === 'hammer' || look.weapon === 'axe' ? (y < 2 ? '#4a4a52' : wood) : steel);
+      }
+      break;
+    }
+    case 'cast0':
+    case 'cast1': {
+      const up = pose === 'cast1';
+      P(2, up ? 4 : 6, look.s); P(13, up ? 4 : 6, look.s); P(1, up ? 3 : 5, look.s); P(14, up ? 3 : 5, look.s);
+      const glow = look.a;
+      for (const [x, y] of [[1, up ? 1 : 3], [14, up ? 1 : 3], [7, 0], [8, 0]]) P(x, y, glow);
+      if (up) { P(0, 0, '#ffffff'); P(15, 0, '#ffffff'); }
+      break;
+    }
+    case 'work0':
+    case 'work1': { // pickaxe / woodaxe swing
+      const down = pose === 'work1';
+      for (let i = 0; i < 5; i++) P(11 + i, down ? 6 + i : 2 + i, wood);
+      if (down) { P(15, 9, '#9aa3ad'); P(14, 11, '#9aa3ad'); P(15, 11, '#9aa3ad'); }
+      else { P(15, 5, '#9aa3ad'); P(14, 1, '#9aa3ad'); P(15, 2, '#9aa3ad'); }
+      break;
+    }
+    case 'dance0':
+    case 'dance1': {
+      const left = pose === 'dance0';
+      P(left ? 2 : 13, 4, look.s); P(left ? 1 : 14, 3, look.s); P(left ? 13 : 2, 8, look.s);
+      break;
+    }
+    case 'wave':
+      P(13, 5, look.s); P(14, 4, look.s); P(14, 3, look.s); P(15, 2, look.s);
+      break;
+    case 'fish':
+      for (let i = 0; i < 6; i++) P(10 + i, 9 - i, '#8a5a34');
+      for (let y = 4; y <= 12; y++) W(15, y, 'rgba(232,228,212,0.8)');
+      P(15, 13, '#e2574c');
+      break;
+    case 'sit':
+    case 'idle0':
+    case 'idle1':
+    case 'walk0':
+    case 'walk1':
+    case 'walk2':
+    case 'walk3':
+      drawWeapon(P, look);
+      break;
   }
 }

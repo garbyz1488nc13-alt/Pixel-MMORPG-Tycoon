@@ -26,6 +26,8 @@ export class ChatService implements SimulationSystem {
   readonly bubbles = new Map<string, ChatLine & { until: number }>();
   /** Recent server chat (newest last). */
   readonly log: ChatLine[] = [];
+  /** Lines said since the session started. */
+  said = 0;
   private pending: { at: number; actorId: string; key: string; params?: Record<string, string | number> }[] = [];
   private near: Actor[] = [];
   private unsubs: (() => void)[] = [];
@@ -67,6 +69,18 @@ export class ChatService implements SimulationSystem {
     }));
   }
 
+  /** A group forms: the leader calls, friends answer. */
+  onGroup(leader: PlayerState, members: PlayerState[]): void {
+    this.say(leader.id, this.pick('groupAsk'));
+    members.forEach((m, i) => this.later(m.id, 'groupYes', 10 + i * 6));
+  }
+
+  /** Pastimes: fishing, AFK, campfire, dancing, sightseeing. */
+  onLeisure(p: PlayerState, what: string): void {
+    const chance: Record<string, number> = { caught: 0.7, afk: 0.9, campfire: 0.4, dance: 0.5, sightsee: 0.3 };
+    if (CHAT[what] && this.actors.rand() < (chance[what] ?? 0)) this.say(p.id, this.pick(what));
+  }
+
   private pick(cat: string): string {
     const list = CHAT[cat] ?? EMOTES;
     return list[Math.floor(this.actors.rand() * list.length)];
@@ -90,6 +104,7 @@ export class ChatService implements SimulationSystem {
     const line: ChatLine = { actorId: a.id, name: p.name, key, params, at: this.actors.gameMinutes };
     this.bubbles.set(a.id, { ...line, until: this.actors.tick + BUBBLE_TICKS });
     this.log.push(line);
+    this.said++;
     if (this.log.length > 80) this.log.shift();
   }
 

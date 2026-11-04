@@ -14,6 +14,8 @@ export type ActorEvents = {
   /** Boss area attack (for screen shake and effects). */
   slam: { actor: Actor; radius: number; victims: number };
   enrage: { actor: Actor };
+  /** A player healed someone. */
+  heal: { target: Actor; healer: Actor; amount: number };
   /** Boss lost all its attackers and went home (raid wipe or players fled). */
   bossReset: { actor: Actor };
 };

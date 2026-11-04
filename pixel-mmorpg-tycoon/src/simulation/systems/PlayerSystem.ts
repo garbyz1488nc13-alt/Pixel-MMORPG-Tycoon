@@ -36,6 +36,8 @@ export class PlayerSystem implements SimulationSystem {
     return m;
   }
 
+  /** Chat hook for pastimes ("caught a fish!", AFK…). */
+  leisureEvent: ((p: PlayerState, what: string) => void) | null = null;
   /** Auction house (drop-only loot is listed there instead of sold to merchants). */
   auction: { isDropOnly(itemId: string): boolean } | null = null;
   /** Clans & raids (set by the session). */
@@ -132,6 +134,11 @@ export class PlayerSystem implements SimulationSystem {
       } else if (victim.kind === 'player') {
         p.stats.pvpKills++;
         this.pm.feel(p, 'combat', 3);
+        // Battleground kills are worth XP.
+        if (this.brain.pvpRule(Math.floor(victim.x), Math.floor(victim.y)) === 'open') {
+          const vp = this.pm.get(victim.defId);
+          this.pm.gainXp(p, 15 * (vp?.level ?? 1));
+        }
       }
     }
     if (victim.kind === 'player') {
@@ -217,7 +224,7 @@ export class PlayerSystem implements SimulationSystem {
       a.targetId = null;
       if (attacker && !isAlive(attacker)) a.lastAttackerId = null;
 
-      if (ctx.tick - m.lastRegionCheck > 20) { m.lastRegionCheck = ctx.tick; this.checkRegions(p, a); }
+      if (ctx.tick - m.lastRegionCheck > 20) { m.lastRegionCheck = ctx.tick; this.checkRegions(p, a); this.helpAllies(p, a, m, ctx.tick); }
 
       if ((!m.act || ctx.tick >= m.nextPlan) && plans > 0) {
         plans--;
@@ -225,10 +232,68 @@ export class PlayerSystem implements SimulationSystem {
         m.nextPlan = ctx.tick + 120 + Math.floor(mgr.rand() * 80);
         m.stuck = 0;
         a.path = null;
-        if (m.act.kind === 'hunt') this.pm.hunting.set(p.id, m.act.areaId);
+        if (m.act.kind === 'hunt') { this.pm.hunting.set(p.id, m.act.areaId); this.formGroup(p, a, ctx.tick); }
         else this.pm.hunting.delete(p.id);
       }
       if (m.act) this.execute(p, a, m, ctx.tick, stats.maxMana);
+    }
+  }
+
+  /** Group chat hook (leader asks, friends answer). */
+  groupEvent: ((leader: PlayerState, members: PlayerState[]) => void) | null = null;
+
+  /** Who follows whom (runtime only). */
+  private followers(leaderId: string): string[] {
+    const out: string[] = [];
+    for (const [id, m] of this.minds) if (m.act?.kind === 'follow' && m.act.leaderId === leaderId) out.push(id);
+    return out;
+  }
+
+  /** A player heading out to hunt invites nearby players of a similar level. */
+  private formGroup(p: PlayerState, a: Actor, tick: number): void {
+    if (this.mgr.rand() > 0.15 || this.clans?.raidOf(p.id)) return;
+    const members: PlayerState[] = [];
+    for (const o of this.mgr.spatial.query(a.x, a.y, 9)) {
+      if (members.length >= 2 || o.kind !== 'player' || o.id === a.id || !isAlive(o) || o.targetId) continue;
+      const q = this.pm.get(o.defId);
+      const om = this.minds.get(o.id);
+      const busy = om?.act && !['hunt', 'idle', 'social', 'leisure'].includes(om.act.kind);
+      if (!q || busy || Math.abs(q.level - p.level) > 3 || this.clans?.raidOf(q.id) || this.followers(o.id).length || this.pm.availableQuests(q).length) continue;
+      const friendly = q.clanId && q.clanId === p.clanId ? 0.8 : 0.35;
+      if (this.mgr.rand() > friendly) continue;
+      const mind = this.mind(o.id);
+      mind.act = { kind: 'follow', leaderId: a.id, ticks: 0 };
+      mind.nextPlan = tick + 400;
+      o.path = null;
+      members.push(q);
+    }
+    if (members.length) this.groupEvent?.(p, members);
+  }
+
+  /** Heal hurt group mates (healers) and rescue allies that are about to die. */
+  private helpAllies(p: PlayerState, a: Actor, m: Mind, tick: number): void {
+    const groupIds = new Set<string>();
+    if (m.act?.kind === 'follow') { groupIds.add(m.act.leaderId); for (const f of this.followers(m.act.leaderId)) groupIds.add(f); }
+    for (const f of this.followers(a.id)) groupIds.add(f);
+    const cls = this.pm.classDef(p);
+    const healSkill = unlockedSkills(cls, p.level).find((s) => s.kind === 'heal' && s.manaCost <= p.mana && (m.skillReady.get(s.id) ?? 0) <= tick);
+    for (const o of this.mgr.spatial.query(a.x, a.y, 7)) {
+      if (o.kind !== 'player' || o.id === a.id || !isAlive(o) || o.hp > o.maxHp * 0.45) continue;
+      const q = this.pm.get(o.defId);
+      const ally = groupIds.has(o.id) || (q?.clanId && q.clanId === p.clanId);
+      if (!ally) continue;
+      if (healSkill) {
+        p.mana -= healSkill.manaCost;
+        const amount = Math.min(o.maxHp - o.hp, Math.round((o.maxHp * healSkill.power) / 100));
+        o.hp += amount;
+        m.skillReady.set(healSkill.id, tick + healSkill.cooldown * 10);
+        a.castUntil = tick + 10;
+        this.mgr.events.emit('heal', { target: o, healer: a, amount });
+        return;
+      }
+      // Rescue: jump on whatever is hitting them.
+      const enemy = o.lastAttackerId ? this.mgr.actors.get(o.lastAttackerId) : undefined;
+      if (enemy && isAlive(enemy) && enemy.kind === 'creature' && !a.targetId && a.hp > a.maxHp * 0.4) { a.targetId = enemy.id; return; }
     }
   }
 
@@ -259,6 +324,8 @@ export class PlayerSystem implements SimulationSystem {
       .filter((s) => s.kind === 'attack' && s.manaCost <= p.mana && (m.skillReady.get(s.id) ?? 0) <= tick)
       .sort((a, b) => b.power - a.power)[0];
     if (!skill) return 1;
+    const actor = this.mgr.actors.get(p.id);
+    if (actor) actor.castUntil = tick + 8;
     p.mana -= skill.manaCost;
     m.skillReady.set(skill.id, tick + skill.cooldown * 10);
     return skill.power;
@@ -410,7 +477,7 @@ export class PlayerSystem implements SimulationSystem {
       }
       case 'pvp': {
         const t = this.mgr.actors.get(act.targetId);
-        if (!t || !isAlive(t) || ++act.ticks > 250 || (p.cheat !== 'griefer' && this.brain.isSafe(Math.floor(t.x), Math.floor(t.y)))) return this.done(m, tick);
+        if (!t || !isAlive(t) || ++act.ticks > 250 || !this.brain.mayAttack(p, Math.floor(t.x), Math.floor(t.y))) return this.done(m, tick);
         a.targetId = t.id;
         return;
       }
@@ -434,6 +501,30 @@ export class PlayerSystem implements SimulationSystem {
         }
         if (out && !this.moveTo(a, raid.rallyX, raid.rallyY, speed, 2.5)) return;
         a.state = 'idle';
+        return;
+      }
+      case 'leisure': {
+        if (!this.moveTo(a, act.x, act.y, act.action === 'sightsee' ? speed * 0.7 : speed, act.action === 'fish' ? 0.9 : 1.4)) { if (!a.path && ++m.stuck > 40) this.done(m, tick); return; }
+        a.state = 'idle';
+        act.ticks++;
+        if (act.action === 'fish' && act.ticks % 80 === 0 && this.mgr.rand() < 0.45) {
+          const fish = world.entities.list('items').find((i) => i.key === 'fish');
+          if (fish && this.pm.giveItem(p, fish.id, 1)) { this.pm.feel(p, 'loot', 0.4); this.leisureEvent?.(p, 'caught'); }
+        }
+        if (act.ticks % 90 === 0) this.pm.feel(p, act.action === 'sightsee' ? 'explore' : 'social', 0.3);
+        if (act.ticks === 1) this.leisureEvent?.(p, act.action);
+        if (act.ticks > act.duration) this.done(m, tick);
+        return;
+      }
+      case 'follow': {
+        const leader = this.mgr.actors.get(act.leaderId);
+        if (!leader || !isAlive(leader) || ++act.ticks > 400) return this.done(m, tick);
+        // Help the leader fight.
+        if (leader.targetId && this.mgr.actors.get(leader.targetId)?.kind === 'creature') { a.targetId = leader.targetId; return; }
+        if (dist(a, leader) > 2.5) {
+          if (!a.path || Math.hypot(a.goalX - leader.x, a.goalY - leader.y) > 3) this.mgr.goTo(a, Math.floor(leader.x), Math.floor(leader.y), 2000);
+          if (a.path) { a.state = 'walk'; this.mgr.step(a, speed * 1.05); } else this.mgr.stepToward(a, leader.x, leader.y, speed, 1.5);
+        } else { a.state = 'idle'; a.moving = false; a.path = null; }
         return;
       }
       case 'idle': {

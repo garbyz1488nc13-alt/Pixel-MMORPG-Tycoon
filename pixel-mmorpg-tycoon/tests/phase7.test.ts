@@ -91,7 +91,7 @@ describe('boss lairs', () => {
     boss.hp = Math.floor(boss.maxHp * BOSS_ENRAGE_AT) - 1;
     for (let i = 0; i < 200 && slams === 0; i++) {
       // Stand in melee range (their AI would otherwise wander off).
-      for (const v of victims) if (v.state !== 'dead') { actors.teleport(v, Math.floor(boss.x), Math.floor(boss.y) + 1); v.targetId = boss.id; }
+      for (const v of victims) if (v.state !== 'dead') { actors.teleport(v, Math.floor(boss.x), Math.floor(boss.y) + 1); v.targetId = boss.id; v.hp = v.maxHp; }
       engine.step();
     }
     expect(slams).toBeGreaterThan(0);
@@ -100,7 +100,9 @@ describe('boss lairs', () => {
     // Everyone runs far away: the boss resets to full health.
     const far = actors.randomWalkableNear(boss.x + 30, boss.y + 30, 6) ?? { x: 2, y: 2 };
     for (const v of victims) { actors.teleport(v, far.x, far.y); v.targetId = null; }
-    for (let i = 0; i < 80 && resets === 0; i++) { for (const v of victims) actors.teleport(v, far.x, far.y); engine.step(); }
+    // Everyone (guards and other players included) leaves the lair.
+    const everyone = () => [...actors.actors.values()].filter((o) => o.kind !== 'creature');
+    for (let i = 0; i < 80 && resets === 0; i++) { for (const v of everyone()) { actors.teleport(v, far.x, far.y); v.targetId = null; } engine.step(); }
     expect(resets).toBeGreaterThan(0);
     expect(boss.hp).toBe(boss.maxHp);
     expect(boss.enraged).toBe(false);
