@@ -4,6 +4,7 @@ import { TileGrid } from '@/models/TileGrid';
 import type { CameraState, WorldClockState, WorldConfig, WorldSave } from '@/models/world';
 import { WORLD_SCHEMA_VERSION } from '@/models/world';
 import type { RpgConfig } from '@/models/rpg';
+import type { SimState, StudioState } from '@/models/sim';
 import { EntityStore } from './EntityStore';
 import { ObjectIndex } from '@/systems/world/ObjectIndex';
 import { NavGrid } from './nav/NavGrid';
@@ -17,6 +18,8 @@ export type RuntimeEvents = {
   'dirty:changed': { dirty: boolean };
   /** Economy or progression rules changed. */
   'rpg:changed': undefined;
+  /** Studio funds/tier/settings changed. */
+  'studio:changed': undefined;
 };
 
 /**
@@ -36,6 +39,10 @@ export class WorldRuntime {
   readonly entities: EntityStore;
   /** Economy & progression rules. Mutated in place by the editor and the economy simulation. */
   rpg: RpgConfig;
+  /** Simulated players & popularity; mutated by the player simulation. */
+  sim: SimState;
+  /** Studio money & servers; mutated by the studio system. */
+  studio: StudioState;
   readonly objectIndex: ObjectIndex;
   readonly nav: NavGrid;
   private _dirty = false;
@@ -50,6 +57,8 @@ export class WorldRuntime {
     this.camera = save.camera ? { ...save.camera } : undefined;
     this.entities = new EntityStore(save.entities);
     this.rpg = structuredClone(save.rpg);
+    this.sim = structuredClone(save.sim);
+    this.studio = structuredClone(save.studio);
     this.objectIndex = new ObjectIndex(this);
     this.nav = new NavGrid(this);
     this.entities.events.on('changed', ({ col }) => {
@@ -118,6 +127,8 @@ export class WorldRuntime {
       camera: this.camera ? { ...this.camera } : undefined,
       entities: this.entities.toJSON(),
       rpg: structuredClone(this.rpg),
+      sim: structuredClone(this.sim),
+      studio: structuredClone(this.studio),
     };
   }
 

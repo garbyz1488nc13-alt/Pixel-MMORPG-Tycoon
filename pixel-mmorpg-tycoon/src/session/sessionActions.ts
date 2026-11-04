@@ -43,11 +43,17 @@ export async function createAndOpenWorld(opts: NewWorldOptions, preview?: TileGr
   const session = openWorld(save, 'slot1');
   log.event(t('World "{name}" was created ({type}, seed {seed}).', { name: save.name, type: t(WORLD_TYPES.find((w) => w.key === opts.worldType)?.label ?? opts.worldType), seed: opts.seed }), 'success', save.clock.totalMinutes);
   if (opts.initialNpcCount > 0) {
+    session.studio.free = true;
     const summary = generateStarterContent(session.runtime, Math.min(200, opts.initialNpcCount), opts.seed);
+    session.studio.free = false;
     log.event(t('Starter content: {summary}', { summary }), 'success', save.clock.totalMinutes);
     focusFirstRegion(session);
-    await session.save('slot1', true);
   }
+  if (opts.initialPlayerCount > 0) {
+    const n = session.players.seedInitial(opts.initialPlayerCount);
+    log.event(t('{n} players are waiting for the servers to start.', { n }), 'info', save.clock.totalMinutes);
+  }
+  await session.save('slot1', true);
 }
 
 export async function loadAndOpenWorld(worldId: string, slot?: SaveSlotKey): Promise<boolean> {

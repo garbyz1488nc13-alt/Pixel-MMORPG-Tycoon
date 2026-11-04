@@ -117,7 +117,7 @@ export type QuestEvent =
 
 export interface QuestProgress { questId: EntityId; counts: number[]; status: 'active' | 'complete' | 'turnedIn' }
 
-function matches(o: QuestObjective, e: QuestEvent): number {
+export function objectiveDelta(o: QuestObjective, e: QuestEvent): number {
   switch (e.type) {
     case 'kill':
       return (o.type === 'kill' || o.type === 'boss') && o.targetId === e.templateId ? 1 : 0;
@@ -166,7 +166,7 @@ export class QuestTracker {
       const q = this.quests(p.questId);
       if (!q) continue;
       q.objectives.forEach((o, i) => {
-        p.counts[i] = Math.min(o.count, p.counts[i] + matches(o, e));
+        p.counts[i] = Math.min(o.count, p.counts[i] + objectiveDelta(o, e));
       });
       if (q.objectives.every((o, i) => p.counts[i] >= o.count)) {
         p.status = 'complete';

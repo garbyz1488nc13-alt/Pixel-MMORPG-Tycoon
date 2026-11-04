@@ -2,11 +2,14 @@ import type { EntityId } from '@/core/ids';
 import type { Difficulty, WorldType } from '@/data/worldPresets';
 import type { WorldEntities } from './entities';
 import type { RpgConfig } from './rpg';
+import type { GameMode, SimState, StudioState } from './sim';
 
 /** Bump when the saved shape changes; migrations live in persistence/migrations.ts. */
-export const WORLD_SCHEMA_VERSION = 3;
+export const WORLD_SCHEMA_VERSION = 4;
 
 export interface WorldConfig {
+  /** Sandbox: everything free. Standard: studio budget, costs and server caps. */
+  gameMode: GameMode;
   worldType: WorldType;
   difficulty: Difficulty;
   seed: number;
@@ -46,6 +49,10 @@ export interface WorldSave {
   entities: WorldEntities;
   /** Economy & progression rules (schema v3+). */
   rpg: RpgConfig;
+  /** Simulated players & popularity (schema v4+). */
+  sim: SimState;
+  /** Studio finances and servers (schema v4+). */
+  studio: StudioState;
 }
 
 /** Lightweight listing record (no map data) for menus. */

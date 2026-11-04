@@ -89,13 +89,17 @@ export class History {
 
 /** Any set of entity creations/updates/deletions. Consecutive edits with the same mergeKey collapse into one step. */
 export class EntityCommand implements EditorCommand {
+  /** Budget hook so undo refunds / redo charges in standard mode. */
+  static budget: { apply(changes: EntityChange[], mode: 'forward' | 'backward' | 'undo'): void } | null = null;
   at = Date.now();
   constructor(readonly label: string, public changes: EntityChange[], readonly mergeKey?: string) {}
   undo(world: WorldRuntime): void {
     world.entities.applyChanges(this.changes, 'backward');
+    EntityCommand.budget?.apply(this.changes, 'undo');
   }
   redo(world: WorldRuntime): void {
     world.entities.applyChanges(this.changes, 'forward');
+    EntityCommand.budget?.apply(this.changes, 'forward');
   }
   /** Fold a newer edit of the same thing into this command (keeps the oldest `before`). */
   absorb(next: EntityCommand): boolean {

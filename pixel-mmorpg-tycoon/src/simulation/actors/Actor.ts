@@ -1,6 +1,6 @@
 import type { EntityId } from '@/core/ids';
 
-export type ActorKind = 'npc' | 'creature';
+export type ActorKind = 'npc' | 'creature' | 'player';
 export type ActorState = 'idle' | 'walk' | 'chase' | 'attack' | 'flee' | 'return' | 'rest' | 'dead';
 
 /** Live, simulated state of an NPC or creature. Never saved; rebuilt from definitions on load. */
@@ -36,6 +36,8 @@ export interface Actor {
   hitFlash: number;
   /** Trade errand: walk to a merchant to sell loot/produce or buy food. */
   errand: { kind: 'sell' | 'buy'; merchantId: EntityId; itemId?: EntityId } | null;
+  /** Who damaged this actor recently (attacker id → tick), for shared kill credit. */
+  damagers: Map<string, number> | null;
 }
 
 export function newActor(id: string, kind: ActorKind, defId: EntityId, x: number, y: number, maxHp: number): Actor {
@@ -43,7 +45,7 @@ export function newActor(id: string, kind: ActorKind, defId: EntityId, x: number
     id, kind, defId, x: x + 0.5, y: y + 0.5, homeX: x, homeY: y, hp: maxHp, maxHp,
     state: 'idle', path: null, pathIdx: 0, pathRev: -1, goalX: x, goalY: y,
     targetId: null, lastAttackerId: null, attackCd: 0, idleUntil: 0, nextThink: 0, respawnAt: 0,
-    waypointIdx: 0, facing: 1, moving: false, hitFlash: 0, errand: null,
+    waypointIdx: 0, facing: 1, moving: false, hitFlash: 0, errand: null, damagers: null,
   };
 }
 

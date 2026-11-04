@@ -4,11 +4,14 @@ import type { TileGrid } from '@/models/TileGrid';
 import { WORLD_SCHEMA_VERSION, type WorldSave } from '@/models/world';
 import { emptyEntities } from '@/models/entities';
 import { createDefaultItems, createDefaultRpg } from '@/data/rpgDefaults';
+import { createDefaultSim, createDefaultStudio } from '@/data/studio';
+import type { GameMode } from '@/models/sim';
 import { START_MINUTES } from '@/simulation/time';
 import { generateTerrain } from './WorldGenerator';
 
 export interface NewWorldOptions {
   name: string;
+  gameMode?: GameMode;
   width: number;
   height: number;
   worldType: WorldType;
@@ -33,6 +36,7 @@ export function createWorldSave(opts: NewWorldOptions, pregenerated?: TileGrid):
     createdAt: now,
     updatedAt: now,
     config: {
+      gameMode: opts.gameMode ?? 'sandbox',
       worldType: opts.worldType,
       difficulty: opts.difficulty,
       seed: opts.seed,
@@ -44,5 +48,7 @@ export function createWorldSave(opts: NewWorldOptions, pregenerated?: TileGrid):
     clock: { totalMinutes: START_MINUTES },
     entities: { ...emptyEntities(), items: createDefaultItems() },
     rpg: createDefaultRpg(opts.startingGold),
+    sim: createDefaultSim(),
+    studio: createDefaultStudio(opts.gameMode ?? 'sandbox', opts.difficulty),
   };
 }

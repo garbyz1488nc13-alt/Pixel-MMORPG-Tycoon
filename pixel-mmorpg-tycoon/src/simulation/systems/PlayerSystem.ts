@@ -1,0 +1,364 @@
+import type { EntityId } from '@/core/ids';
+import { getObjectDef } from '@/data/objects';
+import type { PlayerState } from '@/models/sim';
+import { removeItem } from '@/systems/rpg/inventory';
+import { rollLoot } from '@/systems/rpg/loot';
+import { unlockedSkills } from '@/systems/rpg/progression';
+import { dist, isAlive, type Actor } from '../actors/Actor';
+import type { ActorManager } from '../actors/ActorManager';
+import { combatStats, engage, respawn } from '../actors/combat';
+import type { EconomyService } from '../economy/EconomyService';
+import type { Activity, PlayerBrain } from '../players/PlayerBrain';
+import type { PlayerManager } from '../players/PlayerManager';
+import { GAME_MINUTES_PER_TICK } from '../time';
+import type { SimContext, SimulationSystem } from '../types';
+
+interface Mind { act: Activity | null; nextPlan: number; stuck: number; skillReady: Map<EntityId, number>; lastPotion: number; lastRegionCheck: number }
+
+/** Max AI re-plans per tick (spreads the cost when hundreds of players are online). */
+const PLANS_PER_TICK = 6;
+
+/** Runs every online player: plans with the brain, then executes the chosen activity. */
+export class PlayerSystem implements SimulationSystem {
+  readonly id = 'players';
+  private minds = new Map<string, Mind>();
+  private unsub: () => void;
+
+  constructor(private mgr: ActorManager, private pm: PlayerManager, private brain: PlayerBrain, private econ: EconomyService, private world: () => import('../WorldRuntime').WorldRuntime) {
+    this.unsub = mgr.events.on('died', ({ victim, killer }) => this.onDeath(victim, killer));
+  }
+
+  mind(id: string): Mind {
+    let m = this.minds.get(id);
+    if (!m) { m = { act: null, nextPlan: 0, stuck: 0, skillReady: new Map(), lastPotion: 0, lastRegionCheck: 0 }; this.minds.set(id, m); }
+    return m;
+  }
+
+  activityOf(id: string): Activity | null {
+    return this.minds.get(id)?.act ?? null;
+  }
+
+  // -------------------------------------------------------------- deaths
+  private onDeath(victim: Actor, killer: Actor | null): void {
+    // Everyone who helped (hit it in the last ~6 s) gets quest credit and a share of XP.
+    if (victim.kind === 'creature' && victim.damagers) {
+      const tpl = this.mgr.template(victim);
+      for (const [id, tick] of victim.damagers) {
+        if (id === killer?.id || this.mgr.tick - tick > 60) continue;
+        const helper = this.mgr.actors.get(id);
+        const hp = helper?.kind === 'player' ? this.pm.get(helper.defId) : undefined;
+        if (!hp || !tpl) continue;
+        this.pm.gainXp(hp, tpl.xpReward * 0.5);
+        this.pm.questEvent(hp, { type: 'kill', templateId: tpl.id, boss: tpl.boss });
+        this.pm.feel(hp, 'combat', 0.5);
+      }
+      victim.damagers = null;
+    }
+    if (killer?.kind === 'player') {
+      const p = this.pm.get(killer.defId);
+      if (!p) return;
+      if (victim.kind === 'creature') {
+        const tpl = this.mgr.template(victim);
+        if (!tpl) return;
+        p.stats.kills++;
+        this.pm.feel(p, 'combat');
+        this.pm.gainXp(p, tpl.xpReward);
+        this.pm.questEvent(p, { type: 'kill', templateId: tpl.id, boss: tpl.boss });
+        for (const d of rollLoot(tpl.loot, () => this.mgr.rand())) {
+          const got = this.pm.giveItem(p, d.itemId, d.qty);
+          if (got) {
+            this.pm.questEvent(p, { type: 'collect', itemId: d.itemId, qty: got });
+            const it = this.world().entities.get('items', d.itemId);
+            if (it && it.rarity !== 'common') this.pm.feel(p, 'loot');
+          }
+        }
+        this.pm.autoEquip(p);
+      } else if (victim.kind === 'player') {
+        p.stats.pvpKills++;
+        this.pm.feel(p, 'combat', 3);
+      }
+    }
+    if (victim.kind === 'player') {
+      const p = this.pm.get(victim.defId);
+      if (!p) return;
+      p.stats.deaths++;
+      p.gold = Math.floor(p.gold * 0.9);
+      this.pm.feel(p, 'death');
+      if (killer?.kind === 'player') this.pm.feel(p, 'pvpKilled');
+      else if (killer?.kind === 'creature' && (this.mgr.template(killer)?.level ?? 0) > p.level + 2) this.pm.feel(p, 'tooHard');
+      this.pm.hunting.delete(p.id);
+      const m = this.minds.get(victim.id);
+      if (m) m.act = null;
+    }
+  }
+
+  // -------------------------------------------------------------- tick
+  update(ctx: SimContext): void {
+    const mgr = this.mgr;
+    mgr.tick = ctx.tick;
+    let plans = PLANS_PER_TICK;
+    for (const a of [...mgr.actors.values()]) {
+      if (a.kind !== 'player') continue;
+      const p = this.pm.get(a.defId);
+      if (!p) { mgr.removeActor(a); continue; }
+      const m = this.mind(a.id);
+
+      if (a.state === 'dead') {
+        if (mgr.gameMinutes >= a.respawnAt) {
+          const sp = this.pm.spawnPoint();
+          respawn(mgr, a, sp.x, sp.y);
+          a.hp = Math.ceil(a.maxHp / 2);
+          m.act = null;
+        }
+        continue;
+      }
+      if (a.attackCd > 0) a.attackCd--;
+      if (a.hitFlash > 0) a.hitFlash--;
+      p.playMinutes += GAME_MINUTES_PER_TICK;
+      p.sessionLeft -= GAME_MINUTES_PER_TICK;
+
+      const attacker = a.lastAttackerId ? mgr.actors.get(a.lastAttackerId) : undefined;
+      const inCombat = !!(attacker && isAlive(attacker) && dist(a, attacker) < 8) || !!a.targetId;
+      const stats = this.pm.stats(p);
+      a.maxHp = stats.maxHp;
+      if (a.hp > a.maxHp) a.hp = a.maxHp;
+
+      // Regeneration (faster while resting).
+      if (!inCombat && ctx.tick % 10 === 0) {
+        const fast = m.act?.kind === 'rest' && !a.moving ? 4 : 1;
+        a.hp = Math.min(a.maxHp, a.hp + Math.ceil(a.maxHp * 0.02 * fast));
+        p.mana = Math.min(stats.maxMana, p.mana + Math.ceil(stats.maxMana * 0.04 * fast));
+      }
+      // Drink a potion / eat when low.
+      if (a.hp < a.maxHp * 0.3 && ctx.tick - m.lastPotion > 30) this.heal(p, a, m, ctx.tick);
+
+      // Session over: log out once out of combat.
+      if (p.sessionLeft <= 0 && !inCombat) {
+        this.pm.hunting.delete(p.id);
+        this.pm.logout(p);
+        this.minds.delete(a.id);
+        continue;
+      }
+
+      // Fight back when attacked.
+      if (attacker && isAlive(attacker) && dist(a, attacker) < 8 && a.hp > a.maxHp * 0.15) {
+        a.targetId = attacker.id;
+      }
+      const target = a.targetId ? mgr.actors.get(a.targetId) : undefined;
+      if (target && isAlive(target)) {
+        const cs = combatStats(mgr, a);
+        if (cs) engage(mgr, a, target, cs, () => this.useSkill(p, m, ctx.tick));
+        if (dist(a, target) > 14) a.targetId = null;
+        continue;
+      }
+      a.targetId = null;
+      if (attacker && !isAlive(attacker)) a.lastAttackerId = null;
+
+      if (ctx.tick - m.lastRegionCheck > 20) { m.lastRegionCheck = ctx.tick; this.checkRegions(p, a); }
+
+      if ((!m.act || ctx.tick >= m.nextPlan) && plans > 0) {
+        plans--;
+        m.act = this.brain.plan(p, a, m.act);
+        m.nextPlan = ctx.tick + 120 + Math.floor(mgr.rand() * 80);
+        m.stuck = 0;
+        a.path = null;
+        if (m.act.kind === 'hunt') this.pm.hunting.set(p.id, m.act.areaId);
+        else this.pm.hunting.delete(p.id);
+      }
+      if (m.act) this.execute(p, a, m, ctx.tick, stats.maxMana);
+    }
+  }
+
+  private heal(p: PlayerState, a: Actor, m: Mind, tick: number): void {
+    const items = this.world().entities;
+    const healers = p.inventory.map((s) => items.get('items', s.itemId)).filter((it) => it && (it.stats.heal ?? 0) > 0 && (it.category === 'potion' || it.category === 'food'));
+    const best = healers.sort((x, y) => (y!.stats.heal ?? 0) - (x!.stats.heal ?? 0))[0];
+    if (best) {
+      p.inventory = removeItem(p.inventory, best.id, 1).inv;
+      a.hp = Math.min(a.maxHp, a.hp + (best.stats.heal ?? 0));
+      m.lastPotion = tick;
+      return;
+    }
+    const cls = this.pm.classDef(p);
+    const skill = unlockedSkills(cls, p.level).find((s) => s.kind === 'heal' && s.manaCost <= p.mana && (m.skillReady.get(s.id) ?? 0) <= tick);
+    if (skill) {
+      p.mana -= skill.manaCost;
+      a.hp = Math.min(a.maxHp, a.hp + Math.round((a.maxHp * skill.power) / 100));
+      m.skillReady.set(skill.id, tick + skill.cooldown * 10);
+      m.lastPotion = tick;
+    }
+  }
+
+  /** Called on each attack: spend mana on the strongest ready attack skill. Returns damage multiplier. */
+  private useSkill(p: PlayerState, m: Mind, tick: number): number {
+    const cls = this.pm.classDef(p);
+    const skill = unlockedSkills(cls, p.level)
+      .filter((s) => s.kind === 'attack' && s.manaCost <= p.mana && (m.skillReady.get(s.id) ?? 0) <= tick)
+      .sort((a, b) => b.power - a.power)[0];
+    if (!skill) return 1;
+    p.mana -= skill.manaCost;
+    m.skillReady.set(skill.id, tick + skill.cooldown * 10);
+    return skill.power;
+  }
+
+  private checkRegions(p: PlayerState, a: Actor): void {
+    const x = Math.floor(a.x), y = Math.floor(a.y);
+    for (const r of this.world().entities.list('regions')) {
+      if (x < r.x || y < r.y || x >= r.x + r.w || y >= r.y + r.h) continue;
+      if (!p.visitedRegions.includes(r.id)) {
+        p.visitedRegions.push(r.id);
+        this.pm.feel(p, 'explore');
+      }
+      this.pm.questEvent(p, { type: 'explore', regionId: r.id });
+    }
+  }
+
+  /** Walk towards a point; true when within `reach`. */
+  private moveTo(a: Actor, x: number, y: number, speed: number, reach = 1.5): boolean {
+    if (Math.hypot(a.x - (x + 0.5), a.y - (y + 0.5)) <= reach) { a.moving = false; a.path = null; return true; }
+    if (!a.path || a.goalX !== x || a.goalY !== y) {
+      if (!this.mgr.goTo(a, x, y, 6000)) return false;
+    }
+    a.state = 'walk';
+    this.mgr.step(a, speed);
+    return false;
+  }
+
+  private done(m: Mind, tick: number): void {
+    m.nextPlan = tick;
+  }
+
+  private execute(p: PlayerState, a: Actor, m: Mind, tick: number, maxMana: number): void {
+    const act = m.act!;
+    const speed = combatStats(this.mgr, a)?.speed ?? 1.6;
+    const world = this.world();
+    void maxMana;
+    switch (act.kind) {
+      case 'hunt': {
+        const area = world.entities.get('spawnAreas', act.areaId);
+        if (!area) return this.done(m, tick);
+        if (tick % 5 === 0) {
+          const cx = area.x + area.w / 2, cy = area.y + area.h / 2;
+          const r = Math.max(area.w, area.h) / 2 + 4;
+          let best: Actor | undefined;
+          let bd = Infinity;
+          for (const o of this.mgr.spatial.query(cx, cy, r)) {
+            if (o.kind !== 'creature' || !isAlive(o) || (act.templateId && o.defId !== act.templateId)) continue;
+            const d = dist(a, o);
+            if (d < bd) { bd = d; best = o; }
+          }
+          if (best) { a.targetId = best.id; m.stuck = 0; return; }
+        }
+        // Nothing to fight right now: walk into the area and wait.
+        m.stuck++;
+        if (!a.path && this.mgr.rand() < 0.05) {
+          const spot = this.mgr.randomTileInArea(area);
+          if (spot) this.mgr.goTo(a, spot.x, spot.y, 4000);
+        }
+        if (a.path) { a.state = 'walk'; this.mgr.step(a, speed); } else a.state = 'idle';
+        if (m.stuck > 160) { this.pm.feel(p, 'crowded'); this.done(m, tick); }
+        return;
+      }
+      case 'gather': {
+        if (!act.objectId || !world.entities.get('objects', act.objectId)) {
+          let best: { id: string; d: number } | null = null;
+          for (const o of world.entities.list('objects')) {
+            if (!act.kinds.includes(o.kind)) continue;
+            const d = Math.hypot(o.x - a.x, o.y - a.y) + this.mgr.rand() * 6;
+            if (!best || d < best.d) best = { id: o.id, d };
+          }
+          if (!best) { this.pm.feel(p, 'boredom'); return this.done(m, tick); }
+          act.objectId = best.id;
+        }
+        const obj = world.entities.get('objects', act.objectId)!;
+        const def = getObjectDef(obj.kind);
+        const tx = obj.x + Math.floor((def?.w ?? 1) / 2), ty = obj.y + (def?.h ?? 1);
+        if (!this.moveTo(a, tx, ty, speed, 1.6)) {
+          if (!a.path && ++m.stuck > 40) { act.objectId = undefined; m.stuck = 0; }
+          return;
+        }
+        a.state = 'idle';
+        if (++act.timer >= 30) {
+          act.timer = 0;
+          if (this.pm.giveItem(p, act.itemId, 1) === 0) return this.done(m, tick);
+          this.pm.questEvent(p, { type: 'gather', itemId: act.itemId, qty: 1 });
+          this.pm.feel(p, 'trade', 0.3);
+          if (++act.done >= 5) { act.objectId = undefined; if (this.mgr.rand() < 0.5) this.done(m, tick); }
+        }
+        return;
+      }
+      case 'npc': {
+        const npc = this.mgr.actors.get(act.npcId);
+        if (!npc || !isAlive(npc)) return this.done(m, tick);
+        if (!this.moveTo(a, Math.floor(npc.x), Math.floor(npc.y), speed, 1.6)) { if (!a.path && ++m.stuck > 30) this.done(m, tick); return; }
+        a.state = 'idle';
+        if (act.purpose === 'accept') {
+          for (const q of this.pm.availableQuests(p).filter((q) => q.giverId === act.npcId).slice(0, 3)) this.pm.acceptQuest(p, q);
+        } else if (act.purpose === 'turnin' && act.questId) this.pm.turnIn(p, act.questId);
+        else if (act.purpose === 'talk') this.pm.questEvent(p, { type: 'talk', npcId: act.npcId });
+        else if (act.purpose === 'deliver' && act.questId) {
+          const q = world.entities.get('quests', act.questId);
+          for (const o of q?.objectives ?? []) if (o.type === 'deliver' && o.targetId && o.receiverId === act.npcId)
+            this.pm.questEvent(p, { type: 'deliver', npcId: act.npcId, itemId: o.targetId, qty: this.pm.countItem(p, o.targetId) });
+        }
+        this.pm.feel(p, 'social');
+        return this.done(m, tick);
+      }
+      case 'trade': {
+        const merchant = this.mgr.actors.get(act.merchantId);
+        if (!merchant || !isAlive(merchant)) return this.done(m, tick);
+        if (!this.moveTo(a, Math.floor(merchant.x), Math.floor(merchant.y), speed, 1.6)) { if (!a.path && ++m.stuck > 30) this.done(m, tick); return; }
+        a.state = 'idle';
+        const trader = this.pm.trader(p);
+        let traded = false;
+        for (const s of this.econ.sellable({ inventory: p.inventory })) {
+          const it = world.entities.get('items', s.itemId);
+          if (it && ((it.stats.heal ?? 0) > 0)) continue; // keep healing items
+          if (it && it.slot !== 'none' && it.levelReq > p.level) continue; // keep future gear
+          if (this.econ.sellToMerchant(trader, act.merchantId, s.itemId, s.qty) > 0) traded = true;
+        }
+        if (act.buyItemId) {
+          const it = world.entities.get('items', act.buyItemId);
+          const want = it && it.category === 'potion' ? 3 : 1;
+          if (this.econ.buyFromMerchant(trader, act.merchantId, act.buyItemId, want) > 0) { traded = true; this.pm.questEvent(p, { type: 'collect', itemId: act.buyItemId, qty: want }); }
+          else this.pm.feel(p, p.gold < 20 ? 'poor' : 'expensive');
+          this.pm.autoEquip(p);
+        }
+        if (traded) this.pm.feel(p, 'trade');
+        return this.done(m, tick);
+      }
+      case 'explore': {
+        if (this.moveTo(a, act.x, act.y, speed, 2) || (!a.path && ++m.stuck > 40)) this.done(m, tick);
+        return;
+      }
+      case 'rest': {
+        if (!this.moveTo(a, act.x, act.y, speed, 2)) { if (!a.path && ++m.stuck > 40) this.done(m, tick); return; }
+        a.state = 'idle';
+        if (a.hp >= a.maxHp * 0.9) this.done(m, tick);
+        return;
+      }
+      case 'social': {
+        if (!this.moveTo(a, act.x, act.y, speed * 0.8, 3)) { if (!a.path && ++m.stuck > 40) this.done(m, tick); return; }
+        a.state = 'idle';
+        if (++act.ticks % 60 === 0) this.pm.feel(p, 'social');
+        if (act.ticks > 180) this.done(m, tick);
+        return;
+      }
+      case 'pvp': {
+        const t = this.mgr.actors.get(act.targetId);
+        if (!t || !isAlive(t) || ++act.ticks > 250 || this.brain.isSafe(Math.floor(t.x), Math.floor(t.y))) return this.done(m, tick);
+        a.targetId = t.id;
+        return;
+      }
+      case 'idle': {
+        a.state = 'idle';
+        if (++act.ticks > 60) { this.pm.feel(p, 'boredom', 0.3); this.done(m, tick); }
+        return;
+      }
+    }
+  }
+
+  dispose(): void {
+    this.unsub();
+  }
+}

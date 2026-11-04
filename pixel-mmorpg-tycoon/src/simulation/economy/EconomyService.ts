@@ -1,6 +1,6 @@
 import type { EntityId } from '@/core/ids';
 import { getNpcType } from '@/data/npcTypes';
-import type { ItemDef, ShopEntry } from '@/models/rpg';
+import type { ItemDef, ItemStack, ShopEntry } from '@/models/rpg';
 import type { NpcDef } from '@/models/entities';
 import { addItem, countItem, removeItem, totalUnits } from '@/systems/rpg/inventory';
 import { buyPrice, sellPrice, taxOn } from '@/systems/rpg/pricing';
@@ -26,6 +26,15 @@ export interface Trade {
 }
 
 export type EconomyEvents = { trade: Trade };
+
+/** Anything with a purse and a bag that can trade with merchants (NPCs, players). */
+export interface Trader {
+  id: EntityId;
+  name: string;
+  getInventory(): ItemStack[];
+  getGold(): number;
+  set(inventory: ItemStack[], gold: number): void;
+}
 
 const MAX_TRADES = 300;
 const HISTORY_POINTS = 72;
@@ -84,55 +93,69 @@ export class EconomyService {
   }
 
   // --------------------------------------------------------- trades
-  /** Seller gives items to a merchant for coins. Returns coins received. */
-  sellToMerchant(sellerId: EntityId, merchantId: EntityId, itemId: EntityId, qty: number): number {
+  /** Wrap an NPC definition as a trader. */
+  npcTrader(id: EntityId): Trader | null {
     const store = this.world.entities;
-    const seller = store.get('npcs', sellerId);
+    const n = store.get('npcs', id);
+    if (!n) return null;
+    return {
+      id, name: n.name,
+      getInventory: () => store.get('npcs', id)?.inventory ?? [],
+      getGold: () => store.get('npcs', id)?.gold ?? 0,
+      set: (inventory, gold) => { store.update('npcs', id, { inventory, gold }); },
+    };
+  }
+
+  private resolve(t: EntityId | Trader): Trader | null {
+    return typeof t === 'string' ? this.npcTrader(t) : t;
+  }
+
+  /** Seller gives items to a merchant for coins. Returns coins received. */
+  sellToMerchant(sellerRef: EntityId | Trader, merchantId: EntityId, itemId: EntityId, qty: number): number {
+    const store = this.world.entities;
+    const seller = this.resolve(sellerRef);
     const merchant = store.get('npcs', merchantId);
     const item = this.item(itemId);
     if (!seller || !merchant || !item || item.value <= 0) return 0;
     const entry = merchant.shop.items.find((s) => s.itemId === itemId) ?? null;
     const unit = buyPrice(item, entry, this.eco);
     const affordable = unit > 0 ? Math.min(qty, Math.floor(merchant.gold / unit)) : qty;
-    const n = Math.min(affordable, countItem(seller.inventory, itemId));
+    const n = Math.min(affordable, countItem(seller.getInventory(), itemId));
     if (n <= 0) return 0;
     const total = unit * n;
     const tax = taxOn(total, this.eco);
-    const sellerInv = removeItem(seller.inventory, itemId, n).inv;
+    const sellerInv = removeItem(seller.getInventory(), itemId, n).inv;
     let shop = merchant.shop;
     let mInv = merchant.inventory;
     if (entry) shop = { ...shop, items: shop.items.map((s) => (s.itemId === itemId ? { ...s, stock: s.stock + n } : s)) };
     else mInv = addItem(mInv, itemId, n, this.lookup, 40).inv;
-    store.update('npcs', sellerId, { inventory: sellerInv, gold: seller.gold + total - tax });
+    seller.set(sellerInv, seller.getGold() + total - tax);
     store.update('npcs', merchantId, { gold: merchant.gold - total, shop, inventory: mInv });
     this.payTax(tax);
-    this.record({ at: this.world.clock.totalMinutes, kind: 'sale', actorId: sellerId, merchantId, itemId, qty: n, total, tax });
+    this.record({ at: this.world.clock.totalMinutes, kind: 'sale', actorId: seller.id, merchantId, itemId, qty: n, total, tax });
     return total - tax;
   }
 
   /** Buyer purchases from a merchant's shop. Returns units bought. */
-  buyFromMerchant(buyerId: EntityId, merchantId: EntityId, itemId: EntityId, qty: number): number {
+  buyFromMerchant(buyerRef: EntityId | Trader, merchantId: EntityId, itemId: EntityId, qty: number): number {
     const store = this.world.entities;
-    const buyer = store.get('npcs', buyerId);
+    const buyer = this.resolve(buyerRef);
     const merchant = store.get('npcs', merchantId);
     const item = this.item(itemId);
     const entry = merchant?.shop.items.find((s) => s.itemId === itemId);
     if (!buyer || !merchant || !item || !entry || entry.stock <= 0) return 0;
     const unit = sellPrice(item, entry, this.eco);
-    const n = Math.min(qty, entry.stock, unit > 0 ? Math.floor(buyer.gold / unit) : qty);
+    const n = Math.min(qty, entry.stock, unit > 0 ? Math.floor(buyer.getGold() / unit) : qty);
     if (n <= 0) return 0;
-    const total = unit * n;
-    const tax = taxOn(total, this.eco);
-    const added = addItem(buyer.inventory, itemId, n, this.lookup);
+    const added = addItem(buyer.getInventory(), itemId, n, this.lookup);
     const bought = n - added.leftover;
     if (bought <= 0) return 0;
     const paid = unit * bought;
     const paidTax = taxOn(paid, this.eco);
-    store.update('npcs', buyerId, { inventory: added.inv, gold: buyer.gold - paid });
+    buyer.set(added.inv, buyer.getGold() - paid);
     store.update('npcs', merchantId, { gold: merchant.gold + paid - paidTax, shop: { ...merchant.shop, items: merchant.shop.items.map((s) => (s.itemId === itemId ? { ...s, stock: s.stock - bought } : s)) } });
     this.payTax(paidTax);
-    this.record({ at: this.world.clock.totalMinutes, kind: 'purchase', actorId: buyerId, merchantId, itemId, qty: bought, total: paid, tax: paidTax });
-    void tax;
+    this.record({ at: this.world.clock.totalMinutes, kind: 'purchase', actorId: buyer.id, merchantId, itemId, qty: bought, total: paid, tax: paidTax });
     return bought;
   }
 
@@ -190,7 +213,7 @@ export class EconomyService {
 
   // ---------------------------------------------------- NPC errands
   /** Items an NPC will try to sell (not quest items, not equipment it might use). */
-  sellable(n: NpcDef): { itemId: EntityId; qty: number }[] {
+  sellable(n: Pick<NpcDef, 'inventory'>): { itemId: EntityId; qty: number }[] {
     return n.inventory.filter((s) => {
       const it = this.item(s.itemId);
       return it && it.value > 0 && it.category !== 'quest';
@@ -280,9 +303,18 @@ export class EconomyService {
     this.volumeThisHour = 0;
   }
 
-  /** Total coins in the world (NPC purses + treasury). */
+  /** Total coins in the world (NPC + player purses + treasury). */
   moneySupply(): number {
-    return Math.round(this.world.entities.list('npcs').reduce((n, x) => n + x.gold, 0) + this.eco.treasury);
+    const players = this.world.sim.players.reduce((n, p) => n + p.gold, 0);
+    return Math.round(this.world.entities.list('npcs').reduce((n, x) => n + x.gold, 0) + players + this.eco.treasury);
+  }
+
+  /** Pay a quest's coin reward from the treasury. Returns what was actually paid. */
+  payFromTreasury(amount: number): number {
+    const paid = Math.max(0, Math.min(amount, Math.floor(this.eco.treasury)));
+    this.eco.treasury -= paid;
+    if (paid) this.world.events.emit('rpg:changed', undefined);
+    return paid;
   }
 
   dispose(): void {

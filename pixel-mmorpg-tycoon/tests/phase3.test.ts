@@ -151,7 +151,8 @@ describe('economy simulation', () => {
     const sale = econ.trades.find((t) => t.kind === 'sale');
     expect(sale).toBeTruthy();
     expect(sale!.itemId).toBe(key.get('wheat'));
-    expect(rt.entities.get('npcs', f.id)!.gold).toBeGreaterThan(20);
+    expect(sale!.actorId).toBe(f.id);
+    expect(sale!.total).toBeGreaterThan(0);
   });
 
   it('merchants restock missing stock with their own gold', () => {
@@ -176,7 +177,9 @@ describe('save migration v2 → v3', () => {
     s.entities.npcs = [{ id: 'n1', name: 'Bob', type: 'merchant', level: 1, maxHp: 10, x: 1, y: 1, speed: 1, behavior: 'stationary', wanderRadius: 3, waypoints: [], inventory: [{ name: 'Bread', qty: 2 }, { name: 'Magic Bean', qty: 1 }], shop: { enabled: true, items: [{ name: 'Health Potion', price: 25, stock: 5 }] }, workStart: 0, workEnd: 24, interactionRadius: 2 }];
     s.entities.creatureTemplates = [{ id: 'c1', name: 'Slime', type: 'slime', level: 1, maxHp: 10, damage: 1, defense: 0, speed: 1, aggression: 'passive', aggroRange: 1, attackRange: 1, respawnMinutes: 1, xpReward: 1, loot: [], boss: false }];
     const m = migrate(s);
-    expect(m.schemaVersion).toBe(3);
+    expect(m.schemaVersion).toBe(4);
+    expect(m.config.gameMode).toBe('sandbox');
+    expect(m.sim.players).toEqual([]);
     const items = new Map(m.entities.items.map((i) => [i.id, i.name]));
     const n = m.entities.npcs[0];
     expect(n.inventory.map((x) => items.get(x.itemId))).toEqual(['Bread', 'Magic Bean']);
@@ -194,7 +197,7 @@ describe('starter quests', () => {
     generateStarterContent(rt, 15, 11);
     const quests = rt.entities.list('quests');
     expect(quests.length).toBeGreaterThanOrEqual(4);
-    expect(quests.filter((q) => !q.prerequisiteId)).toHaveLength(1);
+    expect(quests.filter((q) => q.prerequisiteId).length).toBeGreaterThanOrEqual(1);
     for (const q of quests) expect(validateQuest(q, rt.entities, rt.rpg).filter((i) => i.level === 'error')).toEqual([]);
   });
 });

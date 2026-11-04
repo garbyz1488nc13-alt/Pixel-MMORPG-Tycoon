@@ -98,7 +98,7 @@ export class CreatureSystem implements SimulationSystem {
     let best: Actor | undefined;
     let bestD = Infinity;
     for (const o of this.near) {
-      if (o.kind !== 'npc' || !isAlive(o)) continue;
+      if (o.kind === 'creature' || !isAlive(o)) continue;
       const d = dist(a, o);
       if (d < bestD) { bestD = d; best = o; }
     }

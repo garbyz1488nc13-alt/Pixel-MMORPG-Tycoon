@@ -27,14 +27,18 @@ export class ActorManager {
   readonly spatial = new SpatialHash<Actor>(8);
   readonly events = new EventBus<ActorEvents>();
   readonly pathfinder: Pathfinder;
-  readonly rng = new SeededRandom(Date.now() & 0x7fffffff);
+  readonly rng: SeededRandom;
   readonly stats: ActorStats = { creatureKills: 0, npcDeaths: 0, hits: 0 };
   tick = 0;
+  /** Combat stats and names for player actors (provided by the player simulation). */
+  playerStats: ((a: Actor) => { damage: number; defense: number; attackRange: number; speed: number } | null) | null = null;
+  playerName: ((a: Actor) => string) | null = null;
   /** Called when an NPC reaches the merchant of its trade errand (set by the economy). */
   errandHandler: ((a: Actor) => void) | null = null;
   private unsub: () => void;
 
-  constructor(private world: WorldRuntime) {
+  constructor(private world: WorldRuntime, seed = Date.now() & 0x7fffffff) {
+    this.rng = new SeededRandom(seed);
     this.pathfinder = new Pathfinder(world.nav);
     this.syncAll();
     this.unsub = world.entities.events.on('changed', ({ col, ids }) => {
@@ -160,6 +164,12 @@ export class ActorManager {
   }
 
   // ---------------------------------------------------------- common
+  /** Register an externally managed actor (players). */
+  addActor(a: Actor): void {
+    this.actors.set(a.id, a);
+    this.spatial.upsert(a);
+  }
+
   removeActor(a: Actor): void {
     this.actors.delete(a.id);
     this.spatial.remove(a);

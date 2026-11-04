@@ -8,6 +8,7 @@ import type { CreatureTemplate, EntityCollection, MapObject, NpcDef, Region, Spa
 import type { EntityChange } from '@/simulation/EntityStore';
 import type { WorldRuntime } from '@/simulation/WorldRuntime';
 import type { ItemDef, QuestDef } from '@/models/rpg';
+import type { StudioService } from '@/simulation/studio/StudioService';
 import { DEFAULT_NPC_GOLD, defaultLoot, defaultShop } from '@/data/rpgDefaults';
 import { EntityCommand, type History } from './History';
 import type { TileRect } from './shapes';
@@ -23,6 +24,11 @@ export interface Selection { col: SelectionKind; ids: EntityId[] }
  * Validation (footprints, bounds) happens here so UI and Phaser can't bypass it.
  */
 export class EntityEditor {
+  /** Standard mode budget (null in sandbox / tests). */
+  budget: StudioService | null = null;
+  /** Why the last operation was refused (budget / server caps). */
+  lastError: string | null = null;
+
   constructor(private world: () => WorldRuntime, private history: History) {}
 
   private get rt() {
@@ -31,7 +37,15 @@ export class EntityEditor {
 
   private commit(label: string, changes: (EntityChange | null)[], mergeKey?: string): EntityChange[] {
     const real = changes.filter((c): c is EntityChange => !!c);
-    if (real.length) this.history.push(new EntityCommand(label, real, mergeKey));
+    if (!real.length) return real;
+    this.lastError = this.budget?.check(real) ?? null;
+    if (this.lastError) {
+      // Refused: roll back without charging.
+      this.rt.entities.applyChanges(real, 'backward');
+      return [];
+    }
+    this.budget?.apply(real);
+    this.history.push(new EntityCommand(label, real, mergeKey));
     return real;
   }
 
@@ -41,8 +55,8 @@ export class EntityEditor {
     const def = getObjectDef(kind);
     if (!def || !this.rt.objectIndex.canPlace(def, x, y)) return null;
     const obj: MapObject = { id: createId('obj'), kind, x, y };
-    this.commit(tr('Place {name}', { name: tr(def.name) }), [this.rt.entities.add('objects', obj)], mergeKey);
-    return obj;
+    const ok = this.commit(tr('Place {name}', { name: tr(def.name) }), [this.rt.entities.add('objects', obj)], mergeKey);
+    return ok.length ? obj : null;
   }
 
   removeObjectAt(x: number, y: number, mergeKey?: string): boolean {
@@ -64,8 +78,7 @@ export class EntityEditor {
       this.rt.entities.bulk([{ col: 'objects', id: obj.id, value: obj }]);
     }
     if (!placed.length) return 0;
-    this.history.push(new EntityCommand(label, placed.map((p) => ({ col: p.col, id: p.id, before: null, after: structuredClone(p.value) }))));
-    return placed.length;
+    return this.commit(label, placed.map((p) => ({ col: p.col, id: p.id, before: null, after: structuredClone(p.value) }))).length;
   }
 
   /** Move objects by (dx,dy). All-or-nothing: fails if any lands on an invalid spot. */
@@ -94,8 +107,7 @@ export class EntityEditor {
       if (!def || !this.rt.objectIndex.canPlace(def, o.x + dx, o.y + dy)) continue;
       created.push(this.rt.entities.add('objects', { ...o, id: createId('obj'), x: o.x + dx, y: o.y + dy, linkId: undefined }));
     }
-    this.commit(created.length > 1 ? tr('Copy objects: {n}', { n: created.length }) : tr('Copy object'), created);
-    return created.map((c) => c.id);
+    return this.commit(created.length > 1 ? tr('Copy objects: {n}', { n: created.length }) : tr('Copy object'), created).map((c) => c.id);
   }
 
   // ----------------------------------------------------------- generic
@@ -160,8 +172,8 @@ export class EntityEditor {
     const tpl = this.rt.entities.get('creatureTemplates', templateId);
     if (!tpl) return null;
     const area: SpawnArea = { id: createId('spawn'), name: tr('{name} area', { name: tpl.name }), templateId, ...r, maxCount: Math.max(1, Math.min(12, Math.round((r.w * r.h) / 24))) };
-    this.commit(tr('Add spawn area'), [this.rt.entities.add('spawnAreas', area)]);
-    return area;
+    const ok = this.commit(tr('Add spawn area'), [this.rt.entities.add('spawnAreas', area)]);
+    return ok.length ? area : null;
   }
 
   // ----------------------------------------------------------- NPCs & creatures
@@ -179,8 +191,8 @@ export class EntityEditor {
     const npc = EntityEditor.makeNpc(type, x, y, undefined, this.rt.entities.list('items'));
     const taken = new Set(this.rt.entities.list('npcs').map((n) => n.name));
     for (let t = 0; t < 30 && taken.has(npc.name); t++) npc.name = EntityEditor.makeNpc(type, x, y).name;
-    this.commit(tr('Add {name}', { name: tr(getNpcType(type).name) }), [this.rt.entities.add('npcs', npc)]);
-    return npc;
+    const ok = this.commit(tr('Add {name}', { name: tr(getNpcType(type).name) }), [this.rt.entities.add('npcs', npc)]);
+    return ok.length ? npc : null;
   }
 
   duplicateNpc(id: EntityId): NpcDef | null {
@@ -188,8 +200,8 @@ export class EntityEditor {
     if (!src) return null;
     const spot = [[1, 0], [0, 1], [-1, 0], [0, -1], [1, 1]].find(([dx, dy]) => this.rt.nav.isWalkable(src.x + dx, src.y + dy)) ?? [0, 0];
     const copy: NpcDef = { ...structuredClone(src), id: createId('npc'), name: tr('{name} (copy)', { name: src.name }), x: src.x + spot[0], y: src.y + spot[1] };
-    this.commit(tr('Duplicate NPC'), [this.rt.entities.add('npcs', copy)]);
-    return copy;
+    const ok = this.commit(tr('Duplicate NPC'), [this.rt.entities.add('npcs', copy)]);
+    return ok.length ? copy : null;
   }
 
   static makeTemplate(type: CreatureType, items: ItemDef[] = []): CreatureTemplate {

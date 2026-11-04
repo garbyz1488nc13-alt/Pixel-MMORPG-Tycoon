@@ -2,7 +2,7 @@ import { getObjectDef } from '@/data/objects';
 import { t } from '@/i18n';
 import { getRegionType, REGION_TYPES } from '@/data/regionTypes';
 import type { GameSession } from '@/session/GameSession';
-import { populateRegion } from '@/systems/generation/Populate';
+import { BudgetError, populateRegion } from '@/systems/generation/Populate';
 import { confirmDialog } from '@/stores/dialogStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { log } from '@/stores/logStore';
@@ -105,7 +105,13 @@ function RegionInspector({ session, id, actions }: { session: GameSession; id: s
   const populate = async () => {
     const ok = await confirmDialog({ title: t('Populate {name}', { name: r.name }), message: t('Generate "{type}" content inside this region?\nExisting objects stay; new ones fill free space. Undo with Ctrl+Z.', { type: t(rt.name) }), confirmLabel: t('Populate') });
     if (!ok) return;
-    const summary = populateRegion(session.runtime, session.history, r);
+    let summary: string;
+    try {
+      summary = populateRegion(session.runtime, session.history, r, Date.now(), undefined, session.studio);
+    } catch (e) {
+      if (e instanceof BudgetError) { toast(e.message, 'error'); return; }
+      throw e;
+    }
     log.event(t('{name} populated: {summary}.', { name: r.name, summary }), 'success', session.runtime.clock.totalMinutes);
     toast(t('Populated: {summary}', { summary }), 'success');
   };
