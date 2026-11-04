@@ -55,6 +55,7 @@ export function TopBar() {
         {s.dirty && <span className="dirty-dot" title={t('Unsaved changes')}>●</span>}
       </button>
 
+      <div className="topbar-stats">
       <div className="topbar-stat" title={t(phase)}>
         <PixelIcon name={phase === 'night' ? 'moon' : 'sun'} accent={phase === 'night' ? '#7fd7ff' : '#f2c14e'} color={phase === 'night' ? '#c9d6ff' : '#ffd97a'} />
         <span>{formatGameTime(s.gameMinutes)}</span>
@@ -82,7 +83,12 @@ export function TopBar() {
         <PixelIcon name="gold" color="#6e4d14" /> <span>{Math.round(eco.treasury).toLocaleString()} {eco.currencyName}</span>
       </div>
 
-      <div className="grow" />
+      {session.runtime.sim.activeEvents.length > 0 && (
+        <div className="topbar-stat clickable event-chip" title={session.runtime.sim.activeEvents.map((a) => a.name).join(', ')} onClick={() => useEditorStore.getState().setTab('events')}>
+          <PixelIcon name="star" color="#f2c14e" /> <span>{session.runtime.sim.activeEvents.length === 1 ? session.runtime.sim.activeEvents[0].name : t('Events: {n}', { n: session.runtime.sim.activeEvents.length })}</span>
+        </div>
+      )}
+      </div>
 
       <div className="sim-controls">
         <button className={`btn icon ${s.running ? 'active' : ''}`} title={t('Play / Pause (P)')} onClick={() => session.engine.toggle()}>
