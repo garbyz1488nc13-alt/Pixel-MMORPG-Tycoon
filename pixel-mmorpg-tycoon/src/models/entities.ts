@@ -76,6 +76,8 @@ export interface CreatureTemplate {
   xpReward: number;
   loot: LootEntry[];
   boss: boolean;
+  /** Gold each participant receives on a kill (raid bosses). */
+  goldReward?: number;
 }
 
 export interface SpawnArea {
@@ -89,6 +91,15 @@ export interface SpawnArea {
   maxCount: number;
   /** Created by a world event; removed when the event ends (free of charge). */
   eventId?: EntityId;
+  /** Boss lair: one boss that stays home, respawns slowly and needs a raid. */
+  lair?: LairConfig;
+}
+
+export interface LairConfig {
+  /** Game hours before the boss comes back after a kill. */
+  respawnHours: number;
+  /** Recommended raid size (players gather at least this many before pulling). */
+  minRaid: number;
 }
 
 export interface WorldEntities {

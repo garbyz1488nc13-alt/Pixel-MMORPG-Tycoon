@@ -6,13 +6,13 @@ import { TerrainId } from '@/data/terrain';
 import type { Selection } from '@/systems/editor/EntityEditor';
 import type { BrushShape } from '@/systems/editor/shapes';
 
-export type EditorTab = 'map' | 'npc' | 'creatures' | 'economy' | 'items' | 'quests' | 'progression' | 'players' | 'studio' | 'community' | 'events' | 'analytics' | 'settings';
+export type EditorTab = 'map' | 'npc' | 'creatures' | 'economy' | 'items' | 'quests' | 'progression' | 'players' | 'studio' | 'community' | 'clans' | 'events' | 'analytics' | 'settings';
 
 /** Terrain tools + entity tools. */
 export type EditorTool =
   | 'brush' | 'fill' | 'rect' | 'picker'
   | 'select' | 'place-object' | 'erase-object'
-  | 'region' | 'npc' | 'spawn-area' | 'waypoint';
+  | 'region' | 'npc' | 'spawn-area' | 'waypoint' | 'lair';
 
 export type LeftSection = 'terrain' | 'objects' | 'regions' | 'npc' | 'creatures' | 'spawns';
 
@@ -30,6 +30,8 @@ interface EditorState {
   regionType: RegionType;
   npcType: NpcType;
   templateId: EntityId | null;
+  /** Boss preset placed by the lair tool. */
+  bossPreset: string;
   selection: Selection | null;
   /** Simulated player shown in the inspector (and followed by the camera). */
   focusPlayer: string | null;
@@ -49,6 +51,7 @@ interface EditorState {
   setRegionType: (t: RegionType) => void;
   setNpcType: (t: NpcType) => void;
   setTemplateId: (id: EntityId | null) => void;
+  setBossPreset: (key: string) => void;
   select: (s: Selection | null) => void;
   setFocusPlayer: (id: string | null) => void;
   setFollowPlayer: (v: boolean) => void;
@@ -73,6 +76,7 @@ const initial = {
   regionType: 'village' as RegionType,
   npcType: 'villager' as NpcType,
   templateId: null,
+  bossPreset: 'goblin_king',
   selection: null,
   focusPlayer: null,
   followPlayer: false,
@@ -95,6 +99,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   setRegionType: (regionType) => set({ regionType, tool: 'region' }),
   setNpcType: (npcType) => set({ npcType, tool: 'npc' }),
   setTemplateId: (templateId) => set({ templateId }),
+  setBossPreset: (bossPreset) => set({ bossPreset, tool: 'lair' }),
   select: (selection) => set(selection && selection.ids.length ? { selection, focusPlayer: null, followPlayer: false } : { selection: null }),
   setFocusPlayer: (focusPlayer) => set(focusPlayer ? { focusPlayer, selection: null } : { focusPlayer: null, followPlayer: false }),
   setFollowPlayer: (followPlayer) => set({ followPlayer }),

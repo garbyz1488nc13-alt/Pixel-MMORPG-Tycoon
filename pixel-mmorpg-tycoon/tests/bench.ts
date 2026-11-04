@@ -1,0 +1,57 @@
+import { WorldRuntime } from '@/simulation/WorldRuntime';
+import { SimulationEngine } from '@/simulation/SimulationEngine';
+import { ClockSystem } from '@/simulation/systems/ClockSystem';
+import { NpcSystem } from '@/simulation/systems/NpcSystem';
+import { CreatureSystem } from '@/simulation/systems/CreatureSystem';
+import { EconomySystem } from '@/simulation/systems/EconomySystem';
+import { PlayerSystem } from '@/simulation/systems/PlayerSystem';
+import { HourlySystem } from '@/simulation/systems/HourlySystem';
+import { ActorManager } from '@/simulation/actors/ActorManager';
+import { EconomyService } from '@/simulation/economy/EconomyService';
+import { PlayerManager } from '@/simulation/players/PlayerManager';
+import { PlayerBrain } from '@/simulation/players/PlayerBrain';
+import { StudioService } from '@/simulation/studio/StudioService';
+import { CommunityService } from '@/simulation/community/CommunityService';
+import { AnalyticsService } from '@/simulation/analytics/AnalyticsService';
+import { EventService } from '@/simulation/events/EventService';
+import { ClanService } from '@/simulation/clans/ClanService';
+import { createWorldSave } from '@/systems/generation/createWorld';
+import { generateStarterContent } from '@/systems/generation/Populate';
+
+/** Full simulation stack on a big world, for tests and benchmarks. */
+export function buildWorld(opts: { size?: number; npcs?: number; seed?: number; mode?: 'sandbox' | 'standard' } = {}) {
+  const size = opts.size ?? 160;
+  const save = createWorldSave({ name: 'Bench', width: size, height: size, worldType: 'continent', difficulty: 'normal', seed: 21, startingGold: 10000, initialNpcCount: opts.npcs ?? 60, initialPlayerCount: 0, gameMode: opts.mode ?? 'sandbox' });
+  const rt = new WorldRuntime(save);
+  generateStarterContent(rt, opts.npcs ?? 60, 21);
+  for (const ev of EventService.starterEvents(rt)) rt.entities.add('events', ev);
+  rt.studio.sandboxMaxOnline = 1000;
+  const actors = new ActorManager(rt, opts.seed ?? 4242);
+  const econ = new EconomyService(rt, actors);
+  actors.errandHandler = (a) => econ.completeErrand(a);
+  const studio = new StudioService(rt);
+  const players = new PlayerManager(rt, actors, econ);
+  const community = new CommunityService(rt, actors, players);
+  const analytics = new AnalyticsService(rt, actors, players, econ);
+  const events = new EventService(rt, actors, players, studio);
+  const brain = new PlayerBrain(rt, actors, players, econ);
+  brain.events = events;
+  players.xpMultiplier = () => events.xpMultiplier();
+  const ps = new PlayerSystem(actors, players, brain, econ, () => rt);
+  ps.eventKill = (areaId, killer) => events.onEventKill(areaId, killer);
+  const clans = new ClanService(rt, actors, players);
+  brain.clans = clans;
+  ps.clans = clans;
+  clans.replan = (id) => ps.replan(id);
+  ps.bossKilled = (boss, raiders, drops) => clans.onBossKilled(boss, raiders, drops);
+  const engine = new SimulationEngine(rt);
+  engine.addSystem(new ClockSystem(engine.events));
+  engine.addSystem(new NpcSystem(actors));
+  engine.addSystem(new CreatureSystem(actors));
+  engine.addSystem(new EconomySystem(econ, actors));
+  engine.addSystem(ps);
+  engine.addSystem(clans);
+  const hourly = new HourlySystem(players, studio, () => undefined, community, analytics, events, clans);
+  engine.addSystem(hourly);
+  return { rt, actors, econ, studio, players, community, analytics, events, brain, ps, engine, hourly, clans };
+}

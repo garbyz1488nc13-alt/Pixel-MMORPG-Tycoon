@@ -10,7 +10,8 @@ export type PlayerBehavior = 'explorer' | 'fighter' | 'grinder' | 'trader' | 'qu
 export type FactorKey =
   | 'combat' | 'levelup' | 'quest' | 'loot' | 'explore' | 'trade' | 'social'
   | 'death' | 'noContent' | 'tooHard' | 'noQuests' | 'crowded' | 'expensive' | 'poor' | 'pvpKilled' | 'boredom' | 'queue' | 'unpaid'
-  | 'cheaters' | 'justice' | 'antiCheatPain' | 'event';
+  | 'cheaters' | 'justice' | 'antiCheatPain' | 'event'
+  | 'clan' | 'raid' | 'drama';
 
 export type CheatKind = 'speed' | 'damage' | 'gold' | 'griefer';
 
@@ -71,6 +72,74 @@ export interface PlayerState {
   cheat?: CheatKind;
   /** How many times other players reported this player. */
   reports: number;
+  /** Clan membership. */
+  clanId?: EntityId;
+}
+
+export type ClanStyle = 'hardcore' | 'casual' | 'pvp' | 'traders';
+
+/** A player guild: a community that hangs out together and raids bosses. */
+export interface Clan {
+  id: EntityId;
+  name: string;
+  tag: string;
+  /** CSS hex colour (marker under members). */
+  color: string;
+  style: ClanStyle;
+  leaderId: EntityId;
+  members: EntityId[];
+  foundedAt: number;
+  /** Prestige from boss kills; attracts recruits. */
+  fame: number;
+  /** 0..100: internal tension (wipes, loot drama). Too much and the clan splits. */
+  drama: number;
+  raidWins: number;
+  raidWipes: number;
+  /** Boss template id → kills. */
+  bossKills: Record<EntityId, number>;
+}
+
+export type RaidPhase = 'gathering' | 'fighting';
+
+/** A raid in progress: a group gathers at a boss lair, then pulls the boss. */
+export interface RaidState {
+  id: EntityId;
+  /** null = pick-up group of clanless players. */
+  clanId: EntityId | null;
+  lairId: EntityId;
+  members: EntityId[];
+  phase: RaidPhase;
+  startedAt: number;
+  /** Game minute the gathering gives up. */
+  gatherUntil: number;
+  fightStartedAt: number | null;
+  attempt: number;
+  /** Rally point next to the lair. */
+  rallyX: number;
+  rallyY: number;
+  /** Members who died during the current pull (they wait at the rally point). */
+  fallen: EntityId[];
+}
+
+export interface RaidRecord {
+  id: EntityId;
+  clanId: EntityId | null;
+  /** Clan name (or empty for a pick-up group) at the time of the raid. */
+  clanName: string;
+  bossName: string;
+  lairId: EntityId;
+  result: 'win' | 'wipe' | 'abandoned';
+  at: number;
+  members: number;
+  minutes: number;
+  worldFirst: boolean;
+}
+
+export interface LairStats {
+  kills: number;
+  wipes: number;
+  lastKillAt: number | null;
+  firstKill: { clanName: string; at: number } | null;
 }
 
 export interface SimState {
@@ -100,6 +169,11 @@ export interface SimState {
   eventHistory: EventRecord[];
   /** Game minute each event definition last started (cooldowns). */
   eventLastRun: Record<EntityId, number>;
+  clans: Clan[];
+  raids: RaidState[];
+  raidHistory: RaidRecord[];
+  /** Per boss lair (spawn area id). */
+  lairStats: Record<EntityId, LairStats>;
 }
 
 export interface StudioState {

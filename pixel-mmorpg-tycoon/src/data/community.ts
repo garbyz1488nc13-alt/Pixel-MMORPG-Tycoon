@@ -14,6 +14,8 @@ export const REVIEW_PHRASES: Partial<Record<FactorKey, string[]>> = {
   social: ['Friendly town, nice place to hang out.', 'Cozy towns full of life.'],
   justice: ['The devs actually ban cheaters. Respect.', 'Glad the cheaters got banned.'],
   event: ['The live events are awesome!', 'Joined a huge event with half the server, epic!'],
+  clan: ['My clan is like a second family.', 'Found an amazing guild, we play every evening.'],
+  raid: ['Boss raids are the best part, we finally downed it!', 'Spent 3 hours wiping on a boss and loved every minute.'],
   death: ['I die way too often.', 'Monsters keep killing me.'],
   noContent: ['There is nothing to fight at my level.', 'Ran out of monsters for level {level}.'],
   tooHard: ['Monsters are way too strong.', 'Everything one-shots me.'],
@@ -26,6 +28,7 @@ export const REVIEW_PHRASES: Partial<Record<FactorKey, string[]>> = {
   queue: ['Server is always full, I cannot log in.', 'Queues, queues, queues.'],
   unpaid: ['Quest rewards did not even pay out.', 'The treasury is broke, no quest gold.'],
   cheaters: ['Full of cheaters and nobody bans them.', 'A speedhacker ruined my session.'],
+  drama: ['Guild drama ruined everything, the officers are clowns.', 'Our clan fell apart over one epic drop. Never again.'],
   antiCheatPain: ['The anti-cheat is so intrusive it slows my PC.', 'Kernel anti-cheat? No thanks.'],
 };
 

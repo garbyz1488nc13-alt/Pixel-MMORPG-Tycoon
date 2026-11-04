@@ -11,6 +11,8 @@ import { BEHAVIORS, FACTORS } from '@/data/playerTypes';
 import { SERVER_TIERS } from '@/data/studio';
 import { ACTIVITY_LABEL } from '@/simulation/players/PlayerBrain';
 import { FACTOR_HINT } from '@/ui/sim/feedback';
+import { BOSS_PRESETS } from '@/data/bossTypes';
+import { CLAN_STYLES } from '@/data/clanData';
 import { EVENT_METRICS, EVENT_TYPES, TRIGGER_KINDS } from '@/data/eventTypes';
 import { ANTI_CHEAT, BANNED_INNOCENT_REVIEW, CHEAT_KINDS, REVIEW_OPENERS, REVIEW_PHRASES, STREAMER_REVIEW_BAD, STREAMER_REVIEW_GOOD } from '@/data/community';
 import { CLASS_SOURCE, DEFAULT_ECONOMY, DEFAULT_ITEMS, EQUIP_SLOTS, ITEM_CATEGORIES, OBJECTIVE_TYPES, RARITIES, STAT_KEYS } from '@/data/rpgDefaults';
@@ -81,6 +83,9 @@ export function dynamicKeys(): Set<string> {
   ['Events', 'Analytics'].forEach((s) => k.add(s));
   CHEAT_KINDS.forEach((c) => { k.add(c.label); k.add(c.hint); });
   ANTI_CHEAT.forEach((a) => { k.add(a.name); k.add(a.description); });
+  BOSS_PRESETS.forEach((b) => { k.add(b.name); k.add(b.description); });
+  Object.values(CLAN_STYLES).forEach((c) => { k.add(c.label); k.add(c.hint); });
+  ['Clans', 'Victory', 'Wipe', 'Gave up', 'gathering', 'fighting'].forEach((s) => k.add(s));
   // Quest validation messages (validateQuest returns English keys; the UI translates them).
   const questSrc = readFileSync(join(__dirname, '../src/systems/rpg/quests.ts'), 'utf8');
   for (const m of questSrc.matchAll(/(?:err|warn)\(\s*'((?:\\.|[^'])*)'/g)) k.add(m[1].replace(/\\'/g, "'"));

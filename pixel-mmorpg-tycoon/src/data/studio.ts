@@ -33,7 +33,7 @@ export function createDefaultStudio(mode: GameMode, difficulty: Difficulty): Stu
 }
 
 export function createDefaultSim(): SimState {
-  return { players: [], popularity: 20, totalJoined: 0, totalLeft: 0, arrivalCarry: 0, ...defaultCommunity(), ...defaultManagement() };
+  return { players: [], popularity: 20, totalJoined: 0, totalLeft: 0, arrivalCarry: 0, ...defaultCommunity(), ...defaultManagement(), ...defaultClans() };
 }
 
 export function defaultCommunity(): Pick<SimState, 'reviews' | 'rating' | 'ratingHistory' | 'antiCheat' | 'bans'> {
@@ -43,3 +43,11 @@ export function defaultCommunity(): Pick<SimState, 'reviews' | 'rating' | 'ratin
 export function defaultManagement(): Pick<SimState, 'history' | 'totals' | 'regionVisits' | 'activeEvents' | 'eventHistory' | 'eventLastRun'> {
   return { history: [], totals: { kills: 0, deaths: 0, quests: 0, pvpKills: 0, levelUps: 0 }, regionVisits: {}, activeEvents: [], eventHistory: [], eventLastRun: {} };
 }
+
+export function defaultClans(): Pick<SimState, 'clans' | 'raids' | 'raidHistory' | 'lairStats'> {
+  return { clans: [], raids: [], raidHistory: [], lairStats: {} };
+}
+
+/** Building a boss lair (standard mode): base + per recommended raid member. */
+export const LAIR_BASE_COST = 500;
+export const LAIR_COST_PER_RAIDER = 100;

@@ -3,6 +3,7 @@ import type { StudioService } from '../studio/StudioService';
 import type { CommunityService } from '../community/CommunityService';
 import type { AnalyticsService } from '../analytics/AnalyticsService';
 import type { EventService } from '../events/EventService';
+import type { ClanService } from '../clans/ClanService';
 import { MINUTES_PER_DAY } from '../time';
 import type { SimContext, SimulationSystem } from '../types';
 
@@ -14,6 +15,7 @@ export class HourlySystem implements SimulationSystem {
   constructor(
     private players: PlayerManager, private studio: StudioService, private onDay: (debtDays: number) => void,
     private community?: CommunityService, private analytics?: AnalyticsService, private worldEvents?: EventService,
+    private clans?: ClanService,
   ) {}
 
   update(ctx: SimContext, dt: number): void {
@@ -24,6 +26,7 @@ export class HourlySystem implements SimulationSystem {
       this.players.hourly();
       this.community?.hourly();
       this.worldEvents?.hourly();
+      this.clans?.hourly();
       this.studio.hourly(this.players.online().length);
       this.analytics?.hourly();
     }

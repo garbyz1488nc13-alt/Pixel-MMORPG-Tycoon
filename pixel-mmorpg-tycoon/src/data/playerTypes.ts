@@ -49,6 +49,9 @@ export const FACTORS: Record<FactorKey, { delta: number; label: string; positive
   justice: { delta: 4, label: 'Cheaters get banned', positive: true },
   antiCheatPain: { delta: -1, label: 'Intrusive anti-cheat', positive: false },
   event: { delta: 2, label: 'World events', positive: true },
+  clan: { delta: 0.5, label: 'Clan friends', positive: true },
+  raid: { delta: 6, label: 'Epic boss raids', positive: true },
+  drama: { delta: -3, label: 'Clan drama', positive: false },
 };
 
 const PREFIX = ['Dark', 'Shadow', 'Pixel', 'Iron', 'Silent', 'Crimson', 'Lucky', 'Frost', 'Storm', 'Mighty', 'Sneaky', 'Epic', 'Lazy', 'Golden', 'Wild', 'Cosmic'];

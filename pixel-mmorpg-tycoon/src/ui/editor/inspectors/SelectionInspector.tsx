@@ -140,6 +140,7 @@ function SpawnAreaInspector({ session, id, actions }: { session: GameSession; id
   const up = (patch: Partial<typeof a>, label = t('Edit spawn area')) => session.entities.update('spawnAreas', a.id, patch, label);
   const members = [...session.actors.actors.values()].filter((m) => m.spawnAreaId === a.id);
   const alive = members.filter((m) => m.state !== 'dead').length;
+  if (a.lair) return <LairInspector session={session} id={id} actions={actions} />;
   return (
     <div className="form">
       <Field label={t('Name')}><TextInput value={a.name} onChange={(name) => up({ name }, t('Rename spawn area'))} /></Field>
@@ -154,6 +155,51 @@ function SpawnAreaInspector({ session, id, actions }: { session: GameSession; id
       </div>
       <div className="kv"><span>{t('Alive now')}</span><span>{alive} / {members.length}</span></div>
       <div className="kv"><span>{t('Waiting to respawn')}</span><span>{members.length - alive}</span></div>
+      {actions}
+    </div>
+  );
+}
+
+function LairInspector({ session, id, actions }: { session: GameSession; id: string; actions: JSX.Element }) {
+  const a = useEntity(session, 'spawnAreas', id);
+  const templates = useEntityList(session, 'creatureTemplates');
+  const setTab = useEditorStore((s) => s.setTab);
+  useLiveCounts(session);
+  if (!a?.lair) return null;
+  const lair = a.lair;
+  const tpl = templates.find((x) => x.id === a.templateId);
+  const up = (patch: Partial<typeof a>, label = t('Edit boss lair')) => session.entities.update('spawnAreas', a.id, patch, label);
+  const boss = session.clans.bossOf(a.id);
+  const stats = session.clans.lairStats(a.id);
+  const raid = session.runtime.sim.raids.find((r) => r.lairId === a.id);
+  const clan = raid && session.clans.get(raid.clanId);
+  const now = session.runtime.clock.totalMinutes;
+  let status: string;
+  if (!boss) status = t('No boss');
+  else if (boss.state === 'dead') status = t('Dead — respawns in {h} h {m} min', { h: Math.floor(Math.max(0, boss.respawnAt - now) / 60), m: Math.floor(Math.max(0, boss.respawnAt - now) % 60) });
+  else status = `${boss.hp} / ${boss.maxHp} ${t('HP')}${boss.enraged ? ' · ' + t('ENRAGED') : ''}${boss.targetId ? ' · ' + t('in combat') : ''}`;
+  return (
+    <div className="form">
+      <div className="row">
+        {tpl && <SpritePreview frame={`cr:${tpl.type}:0`} box={44} />}
+        <div className="grow">
+          <div className="inspect-title">{a.name}</div>
+          <div className="hint">{tpl ? `${tpl.name} · ${t('Lv')} ${tpl.level} · ${tpl.maxHp} ${t('HP')} · ${t('Damage')} ${tpl.damage}` : ''}</div>
+        </div>
+      </div>
+      <Field label={t('Name')}><TextInput value={a.name} onChange={(name) => up({ name }, t('Rename boss lair'))} /></Field>
+      <Field label={t('Boss')}>
+        <Select value={a.templateId} options={templates.filter((x) => x.boss).map((x) => ({ key: x.id, label: `${x.name} (${t('Lv')} ${x.level})` }))} onChange={(templateId) => up({ templateId }, t('Change boss'))} />
+      </Field>
+      <div className="two-col">
+        <Field label={t('Respawn (game hours)')}><NumberInput value={lair.respawnHours} min={1} max={168} onChange={(respawnHours) => up({ lair: { ...lair, respawnHours } })} /></Field>
+        <Field label={t('Recommended raid size')} hint={session.studio.standard ? t('Bigger raids cost more to build.') : undefined}><NumberInput value={lair.minRaid} min={2} max={20} onChange={(minRaid) => up({ lair: { ...lair, minRaid } })} /></Field>
+      </div>
+      <div className="kv"><span>{t('Boss')}</span><span>{status}</span></div>
+      <div className="kv"><span>{t('Raid now')}</span><span>{raid ? `${clan ? `[${clan.tag}] ${clan.name}` : t('Pick-up group')} · ${t(raid.phase === 'gathering' ? 'gathering' : 'fighting')} · ${raid.members.length} ${t('players')} · ${t('attempt {n}', { n: raid.attempt })}` : '—'}</span></div>
+      <div className="kv"><span>{t('Kills / wipes')}</span><span>{stats.kills} / {stats.wipes}</span></div>
+      <div className="kv"><span>{t('World first')}</span><span>{stats.firstKill ? (stats.firstKill.clanName || t('A pick-up group')) : t('not yet')}</span></div>
+      <button className="btn small" onClick={() => { if (tpl) { useEditorStore.getState().setTemplateId(tpl.id); setTab('creatures'); } }}>{t('Edit boss stats & loot')}</button>
       {actions}
     </div>
   );

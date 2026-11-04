@@ -1,5 +1,5 @@
 import { getObjectDef } from '@/data/objects';
-import { getTier, MONSTER_SLOT_COST, NPC_HIRE_COST, NPC_UPKEEP_PER_DAY, OBJECT_COST, REFUND_RATE, SERVER_TIERS } from '@/data/studio';
+import { getTier, LAIR_BASE_COST, LAIR_COST_PER_RAIDER, MONSTER_SLOT_COST, NPC_HIRE_COST, NPC_UPKEEP_PER_DAY, OBJECT_COST, REFUND_RATE, SERVER_TIERS } from '@/data/studio';
 import { t } from '@/i18n';
 import { ANTI_CHEAT } from '@/data/community';
 import type { EntityChange } from '../EntityStore';
@@ -15,8 +15,10 @@ export function entityCost(change: EntityChange['before'], col: EntityChange['co
     }
     case 'npcs':
       return NPC_HIRE_COST;
-    case 'spawnAreas':
-      return (change as { maxCount: number }).maxCount * MONSTER_SLOT_COST;
+    case 'spawnAreas': {
+      const a = change as { maxCount: number; lair?: { minRaid: number } };
+      return a.lair ? LAIR_BASE_COST + a.lair.minRaid * LAIR_COST_PER_RAIDER : a.maxCount * MONSTER_SLOT_COST;
+    }
     default:
       return 0;
   }

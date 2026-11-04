@@ -17,7 +17,7 @@ export function CreatureForm({ session, tpl }: { session: GameSession; tpl: Crea
         <SpritePreview frame={`cr:${tpl.type}:0`} box={48} />
         <div className="grow">
           <TextInput value={tpl.name} onChange={(name) => up({ name }, t('Rename creature'))} />
-          <label className="check"><input type="checkbox" checked={tpl.boss} onChange={(e) => up({ boss: e.target.checked })} /> {t('Boss (bigger, highlighted)')}</label>
+          <label className="check"><input type="checkbox" checked={tpl.boss} onChange={(e) => up({ boss: e.target.checked })} /> {t('Raid boss (bigger, AoE slam, shared loot)')}</label>
         </div>
       </div>
       <div className="two-col">
@@ -31,7 +31,9 @@ export function CreatureForm({ session, tpl }: { session: GameSession; tpl: Crea
         {num('attackRange', 'Attack range', 0.8, 10, 0.1)}
         {num('respawnMinutes', 'Respawn (game min)', 1, 10_000)}
         {num('xpReward', 'XP reward', 0, 1_000_000)}
+        {tpl.boss && <Field label={t('Gold per raider')}><NumberInput value={tpl.goldReward ?? 0} min={0} max={1_000_000} onChange={(goldReward) => up({ goldReward })} /></Field>}
       </div>
+      {tpl.boss && <div className="hint">{t('Bosses slam everyone nearby, enrage below 30% HP and reset if the raid dies. Everyone who fought gets XP, gold and their own loot roll.')}</div>}
       <Field label={t('Aggression')} hint={t(AGGRESSIONS.find((a) => a.key === tpl.aggression)?.hint ?? '')}>
         <div className="chip-row">
           {AGGRESSIONS.map((a) => <button key={a.key} className={`btn small ${tpl.aggression === a.key ? 'active' : ''}`} onClick={() => up({ aggression: a.key })}>{t(a.label)}</button>)}

@@ -27,6 +27,8 @@ export class EntityStore {
   private maps: { [C in EntityCollection]: Map<EntityId, Item<C>> };
   /** Bumped on every change; cheap "did anything change" check for renderers. */
   version = 0;
+  /** Per-collection change counters (e.g. invalidate caches that depend on items only). */
+  readonly colVersion: Record<EntityCollection, number> = { objects: 0, regions: 0, npcs: 0, creatureTemplates: 0, spawnAreas: 0, items: 0, quests: 0, events: 0 };
 
   constructor(data: WorldEntities = emptyEntities()) {
     this.maps = {
@@ -75,6 +77,7 @@ export class EntityStore {
     if (value === null) map.delete(id);
     else map.set(id, clone(value));
     this.version++;
+    this.colVersion[col]++;
     if (emit) this.events.emit('changed', { col, ids: [id] });
     return { col, id, before, after: clone(value) };
   }

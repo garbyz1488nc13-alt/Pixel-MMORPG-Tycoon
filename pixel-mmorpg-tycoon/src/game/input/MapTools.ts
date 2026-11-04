@@ -3,6 +3,8 @@ import { t as tr } from '@/i18n';
 import type { EntityId } from '@/core/ids';
 import { getNpcType } from '@/data/npcTypes';
 import { getObjectDef } from '@/data/objects';
+import { getBossPreset, LAIR_SIZE } from '@/data/bossTypes';
+import { getRegionType } from '@/data/regionTypes';
 import { TILE_SIZE } from '@/data/terrain';
 import type { GameSession } from '@/session/GameSession';
 import { displayName } from '@/simulation/actors/combat';
@@ -10,6 +12,7 @@ import type { Selection } from '@/systems/editor/EntityEditor';
 import { brushFootprint, normalizeRect, type TileRect } from '@/systems/editor/shapes';
 import { useEditorStore } from '@/stores/editorStore';
 import { log } from '@/stores/logStore';
+import { audio } from '@/audio/AudioEngine';
 import { toast } from '@/stores/toastStore';
 import { DEPTH } from '../render/depth';
 import type { EntityRenderer } from '../render/EntityRenderer';
@@ -122,6 +125,22 @@ export class MapTools {
       case 'spawn-area':
         this.dragRect = { x: t.x, y: t.y };
         break;
+      case 'lair': {
+        if (!inMap) break;
+        const ents = this.session.entities;
+        ents.lastError = null;
+        const area = ents.addLair(ed.bossPreset, t.x, t.y);
+        if (area) {
+          ed.select({ col: 'spawnAreas', ids: [area.id] });
+          ed.setTool('select');
+          log.event(tr('Boss lair placed: {name}.', { name: this.rt.entities.get('creatureTemplates', area.templateId)?.name ?? area.name }), 'success', this.rt.clock.totalMinutes);
+          const cx = area.x + area.w / 2, cy = area.y + area.h / 2;
+          const town = this.rt.entities.list('regions').find((r) => getRegionType(r.type).safe && cx + 9 > r.x && cy + 9 > r.y && cx - 9 < r.x + r.w && cy - 9 < r.y + r.h);
+          if (town) toast(tr('Careful: this boss is next to "{name}" and will attack townsfolk and passers-by.', { name: town.name }), 'error');
+          audio.play('place');
+        } else if (ents.lastError) toast(ents.lastError, 'error');
+        break;
+      }
       case 'select': {
         const pl = this.pickPlayer(t.wx, t.wy);
         if (pl) { ed.setFocusPlayer(pl); break; }
@@ -160,6 +179,7 @@ export class MapTools {
         if (!npc && this.session.entities.lastError) { toast(this.session.entities.lastError, 'error'); break; }
         if (npc) {
           ed.select({ col: 'npcs', ids: [npc.id] });
+          audio.play('place');
           log.event(tr('{name} joined the world.', { name: npc.name }), 'info', this.rt.clock.totalMinutes);
         } else toast(tr('NPCs need a walkable tile'), 'error');
         break;
@@ -183,7 +203,9 @@ export class MapTools {
     this.lastStrokeTile = key;
     const a = this.anchorFor(ed.objectKind, tx, ty);
     this.session.entities.lastError = null;
-    if (!this.session.entities.placeObject(ed.objectKind, a.x, a.y, this.strokeKey ?? undefined) && this.session.entities.lastError) {
+    const placed = this.session.entities.placeObject(ed.objectKind, a.x, a.y, this.strokeKey ?? undefined);
+    if (placed) audio.play('click');
+    if (!placed && this.session.entities.lastError) {
       if (this.lastBudgetToast !== this.session.entities.lastError) toast(this.session.entities.lastError, 'error');
       this.lastBudgetToast = this.session.entities.lastError;
     }
@@ -390,6 +412,16 @@ export class MapTools {
         this.ghost.setFrame(`npc:${getNpcType(ed.npcType).key}:0`).setPosition(tx * S, (ty + 1) * S).setVisible(true);
         if (ok) this.ghost.clearTint(); else this.ghost.setTint(0xff5040);
         g.lineStyle(2, ok ? 0x9cf0c0 : 0xe2574c, 1).strokeRect(tx * S, ty * S, S, S);
+        break;
+      }
+      case 'lair': {
+        const half = Math.floor(LAIR_SIZE / 2);
+        const x0 = Math.max(0, Math.min(grid.width - LAIR_SIZE, tx - half)), y0 = Math.max(0, Math.min(grid.height - LAIR_SIZE, ty - half));
+        const b = getBossPreset(ed.bossPreset);
+        this.ghost.setFrame(`cr:${b.type}:0`).setPosition((x0 + half) * S, (y0 + half + 1) * S).setVisible(true).clearTint();
+        g.fillStyle(0xb02020, 0.18).fillRect(x0 * S, y0 * S, LAIR_SIZE * S, LAIR_SIZE * S);
+        g.lineStyle(2, 0xe2574c, 1).strokeRect(x0 * S, y0 * S, LAIR_SIZE * S, LAIR_SIZE * S);
+        g.lineStyle(1, 0xe2574c, 0.35).strokeCircle((x0 + LAIR_SIZE / 2) * S, (y0 + LAIR_SIZE / 2) * S, (LAIR_SIZE / 2 + 7) * S);
         break;
       }
       case 'erase-object': {

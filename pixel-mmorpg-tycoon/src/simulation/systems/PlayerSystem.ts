@@ -1,6 +1,7 @@
 import type { EntityId } from '@/core/ids';
 import { getObjectDef } from '@/data/objects';
 import type { PlayerState } from '@/models/sim';
+import type { ItemStack } from '@/models/rpg';
 import { removeItem } from '@/systems/rpg/inventory';
 import { rollLoot } from '@/systems/rpg/loot';
 import { unlockedSkills } from '@/systems/rpg/progression';
@@ -8,6 +9,7 @@ import { dist, isAlive, type Actor } from '../actors/Actor';
 import type { ActorManager } from '../actors/ActorManager';
 import { combatStats, engage, respawn } from '../actors/combat';
 import type { EconomyService } from '../economy/EconomyService';
+import type { ClanService } from '../clans/ClanService';
 import type { Activity, PlayerBrain } from '../players/PlayerBrain';
 import type { PlayerManager } from '../players/PlayerManager';
 import { GAME_MINUTES_PER_TICK } from '../time';
@@ -34,6 +36,15 @@ export class PlayerSystem implements SimulationSystem {
     return m;
   }
 
+  /** Clans & raids (set by the session). */
+  clans: ClanService | null = null;
+
+  /** Make a player re-think right away (e.g. a raid formed or ended). */
+  replan(playerId: string): void {
+    const m = this.minds.get(playerId);
+    if (m) { m.nextPlan = 0; m.act = null; }
+  }
+
   activityOf(id: string): Activity | null {
     return this.minds.get(id)?.act ?? null;
   }
@@ -42,8 +53,47 @@ export class PlayerSystem implements SimulationSystem {
   /** XP multiplier for killing an event monster (set by the event system). */
   eventKill: (spawnAreaId: string | undefined, killer: Actor | null) => number = () => 1;
 
+  /** Raid bosses: called with everyone who took part and what each of them looted. */
+  bossKilled: (boss: Actor, raiders: PlayerState[], drops: Map<string, ItemStack[]>) => void = () => undefined;
+
+  /** Everyone who fought a boss shares the kill: XP, gold, personal loot rolls and quest credit. */
+  private rewardBoss(victim: Actor, killer: Actor | null, eventMult: number): void {
+    const tpl = this.mgr.template(victim);
+    if (!tpl) return;
+    const ids = new Set<string>();
+    for (const [id, tick] of victim.damagers ?? []) if (this.mgr.tick - tick <= 900) ids.add(id);
+    if (killer) ids.add(killer.id);
+    victim.damagers = null;
+    const raiders: PlayerState[] = [];
+    const drops = new Map<string, ItemStack[]>();
+    for (const id of ids) {
+      const actor = this.mgr.actors.get(id);
+      const p = actor?.kind === 'player' ? this.pm.get(actor.defId) : undefined;
+      if (!p) continue;
+      raiders.push(p);
+      if (actor === killer) p.stats.kills++;
+      this.pm.gainXp(p, tpl.xpReward * (actor === killer ? 1 : 0.8) * eventMult);
+      this.pm.questEvent(p, { type: 'kill', templateId: tpl.id, boss: true });
+      this.pm.feel(p, 'combat', 2);
+      if (tpl.goldReward) { p.gold += tpl.goldReward; p.stats.goldEarned += tpl.goldReward; }
+      const got: ItemStack[] = [];
+      for (const d of rollLoot(tpl.loot, () => this.mgr.rand())) {
+        const n = this.pm.giveItem(p, d.itemId, d.qty);
+        if (!n) continue;
+        got.push({ itemId: d.itemId, qty: n });
+        this.pm.questEvent(p, { type: 'collect', itemId: d.itemId, qty: n });
+        const it = this.world().entities.get('items', d.itemId);
+        if (it && it.rarity !== 'common') this.pm.feel(p, 'loot');
+      }
+      drops.set(p.id, got);
+      this.pm.autoEquip(p);
+    }
+    this.bossKilled(victim, raiders, drops);
+  }
+
   private onDeath(victim: Actor, killer: Actor | null): void {
     const eventMult = victim.kind === 'creature' ? this.eventKill(victim.spawnAreaId, killer) : 1;
+    if (victim.kind === 'creature' && this.mgr.template(victim)?.boss) return this.rewardBoss(victim, killer, eventMult);
     // Everyone who helped (hit it in the last ~6 s) gets quest credit and a share of XP.
     if (victim.kind === 'creature' && victim.damagers) {
       const tpl = this.mgr.template(victim);
@@ -143,7 +193,8 @@ export class PlayerSystem implements SimulationSystem {
       if (a.hp < a.maxHp * 0.3 && ctx.tick - m.lastPotion > 30) this.heal(p, a, m, ctx.tick);
 
       // Session over: log out once out of combat.
-      if (p.sessionLeft <= 0 && !inCombat) {
+      // ("Just one more pull!" — raiders stay until the raid is over, within reason.)
+      if (p.sessionLeft <= 0 && !inCombat && (p.sessionLeft < -180 || !this.clans?.raidOf(p.id))) {
         this.pm.hunting.delete(p.id);
         this.pm.logout(p);
         this.minds.delete(a.id);
@@ -358,6 +409,28 @@ export class PlayerSystem implements SimulationSystem {
         const t = this.mgr.actors.get(act.targetId);
         if (!t || !isAlive(t) || ++act.ticks > 250 || (p.cheat !== 'griefer' && this.brain.isSafe(Math.floor(t.x), Math.floor(t.y)))) return this.done(m, tick);
         a.targetId = t.id;
+        return;
+      }
+      case 'raid': {
+        const raid = this.clans?.raid(act.raidId);
+        if (!raid || !raid.members.includes(p.id)) return this.done(m, tick);
+        if (raid.phase === 'gathering') {
+          if (this.moveTo(a, raid.rallyX, raid.rallyY, speed, 2.5)) { a.state = 'idle'; m.stuck = 0; }
+          else if (!a.path && ++m.stuck > 60) { m.stuck = 0; a.path = null; }
+          return;
+        }
+        const boss = this.clans!.bossOf(raid.lairId);
+        // The fallen wait at the rally point until the next attempt ("the doors are closed").
+        const out = raid.fallen.includes(p.id);
+        if (boss && isAlive(boss) && !out) {
+          // Path to the rally point first if far away, then charge in.
+          const farFromRally = Math.hypot(a.x - raid.rallyX, a.y - raid.rallyY) > 4;
+          if (farFromRally && dist(a, boss) > 10) { if (!this.moveTo(a, raid.rallyX, raid.rallyY, speed, 2.5) && !a.path && ++m.stuck > 60) m.stuck = 0; return; }
+          a.targetId = boss.id;
+          return;
+        }
+        if (out && !this.moveTo(a, raid.rallyX, raid.rallyY, speed, 2.5)) return;
+        a.state = 'idle';
         return;
       }
       case 'idle': {

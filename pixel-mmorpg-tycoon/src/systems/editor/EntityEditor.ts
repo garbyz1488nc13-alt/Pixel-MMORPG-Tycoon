@@ -10,7 +10,8 @@ import type { WorldRuntime } from '@/simulation/WorldRuntime';
 import type { ItemDef, QuestDef } from '@/models/rpg';
 import type { EventDef } from '@/models/events';
 import type { StudioService } from '@/simulation/studio/StudioService';
-import { DEFAULT_NPC_GOLD, defaultLoot, defaultShop } from '@/data/rpgDefaults';
+import { DEFAULT_NPC_GOLD, defaultLoot, defaultShop, itemKeyIndex } from '@/data/rpgDefaults';
+import { getBossPreset, LAIR_SIZE } from '@/data/bossTypes';
 import { EntityCommand, type History } from './History';
 import type { TileRect } from './shapes';
 
@@ -174,6 +175,39 @@ export class EntityEditor {
     if (!tpl) return null;
     const area: SpawnArea = { id: createId('spawn'), name: tr('{name} area', { name: tpl.name }), templateId, ...r, maxCount: Math.max(1, Math.min(12, Math.round((r.w * r.h) / 24))) };
     const ok = this.commit(tr('Add spawn area'), [this.rt.entities.add('spawnAreas', area)]);
+    return ok.length ? area : null;
+  }
+
+  /** Raid boss template from a preset (loot resolved against this world's items). */
+  static makeBossTemplate(presetKey: string, items: ItemDef[]): CreatureTemplate {
+    const b = getBossPreset(presetKey);
+    const idx = itemKeyIndex(items);
+    return {
+      id: createId('ctpl'), name: tr(b.name), type: b.type, level: b.level, maxHp: b.maxHp, damage: b.damage, defense: b.defense,
+      speed: 1.1, aggression: 'aggressive', aggroRange: 4, attackRange: b.attackRange, respawnMinutes: b.respawnHours * 60,
+      xpReward: b.xpReward, boss: true, goldReward: b.gold,
+      loot: b.loot.filter(([k]) => idx.has(k)).map(([k, chance, min, max]) => ({ itemId: idx.get(k)!, chance, min, max })),
+    };
+  }
+
+  /** Place a boss lair centred on a tile: a new boss template + a 1-boss spawn area, one undo step. */
+  addLair(presetKey: string, cx: number, cy: number, templateId?: EntityId): SpawnArea | null {
+    const g = this.rt.grid;
+    const half = Math.floor(LAIR_SIZE / 2);
+    const r = { x: Math.max(0, Math.min(g.width - LAIR_SIZE, cx - half)), y: Math.max(0, Math.min(g.height - LAIR_SIZE, cy - half)), w: LAIR_SIZE, h: LAIR_SIZE };
+    let walkable = 0;
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (this.rt.nav.isWalkable(x, y)) walkable++;
+    if (walkable < 9) { this.lastError = tr('A lair needs open, walkable ground.'); return null; }
+    const preset = getBossPreset(presetKey);
+    const existing = templateId ? this.rt.entities.get('creatureTemplates', templateId) : undefined;
+    const tpl = existing ?? EntityEditor.makeBossTemplate(presetKey, this.rt.entities.list('items'));
+    const area: SpawnArea = {
+      id: createId('spawn'), name: tr('Lair: {name}', { name: tpl.name }), templateId: tpl.id, ...r, maxCount: 1,
+      lair: { respawnHours: preset.respawnHours, minRaid: preset.minRaid },
+    };
+    const changes = existing ? [] : [this.rt.entities.add('creatureTemplates', tpl)];
+    changes.push(this.rt.entities.add('spawnAreas', area) as never);
+    const ok = this.commit(tr('Place boss lair'), changes);
     return ok.length ? area : null;
   }
 

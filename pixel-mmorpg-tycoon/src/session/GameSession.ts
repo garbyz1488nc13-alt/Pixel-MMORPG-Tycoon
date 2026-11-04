@@ -18,6 +18,9 @@ import { PlayerSystem } from '@/simulation/systems/PlayerSystem';
 import { HourlySystem } from '@/simulation/systems/HourlySystem';
 import { StudioService } from '@/simulation/studio/StudioService';
 import { CommunityService } from '@/simulation/community/CommunityService';
+import { ClanService } from '@/simulation/clans/ClanService';
+import { audio } from '@/audio/AudioEngine';
+import { getItemName } from '@/simulation/clans/clanText';
 import { AnalyticsService } from '@/simulation/analytics/AnalyticsService';
 import { EventService } from '@/simulation/events/EventService';
 import { getEventType } from '@/data/eventTypes';
@@ -66,6 +69,7 @@ export class GameSession {
   readonly community: CommunityService;
   readonly analytics: AnalyticsService;
   readonly worldEvents: EventService;
+  readonly clans: ClanService;
   readonly bridge = new EventBus<BridgeEvents>();
   slot: SaveSlotKey;
   /** Copied objects for Ctrl+C / Ctrl+V. */
@@ -102,9 +106,15 @@ export class GameSession {
     brain.events = this.worldEvents;
     this.players.xpMultiplier = () => this.worldEvents.xpMultiplier();
     this.playerSystem.eventKill = (areaId, killer) => this.worldEvents.onEventKill(areaId, killer);
+    this.clans = new ClanService(this.runtime, this.actors, this.players);
+    brain.clans = this.clans;
+    this.playerSystem.clans = this.clans;
+    this.clans.replan = (id) => this.playerSystem.replan(id);
+    this.playerSystem.bossKilled = (boss, raiders, drops) => this.clans.onBossKilled(boss, raiders, drops);
+    this.engine.addSystem(this.clans);
     this.engine.addSystem(new HourlySystem(this.players, this.studio, (debt) => {
       if (debt > 0) log.event(t('The studio is in debt (day {n}). Building is blocked until funds are positive.', { n: debt }), 'warn', this.runtime.clock.totalMinutes);
-    }, this.community, this.analytics, this.worldEvents));
+    }, this.community, this.analytics, this.worldEvents, this.clans));
 
     const store = useSessionStore.getState();
     store.patch({
@@ -140,6 +150,28 @@ export class GameSession {
         log.event(t('Event started: {name} ({type}) for {h} h{auto}.', { name: active.name, type: t(getEventType(active.type).name), h: Math.round((active.endsAt - active.startedAt) / 60), auto: manual ? '' : ' · ' + t('triggered automatically') }), 'success', this.runtime.clock.totalMinutes)),
       this.worldEvents.events.on('ended', ({ record }) =>
         log.event(t('Event ended: {name}. Participants: {p}, kills: {k}, popularity {d}.', { name: record.name, p: record.participants, k: record.kills, d: (record.popularityDelta >= 0 ? '+' : '') + record.popularityDelta }), 'info', this.runtime.clock.totalMinutes)),
+      this.clans.events.on('founded', ({ clan, founder }) =>
+        log.event(t('{name} founded the clan "{clan}" [{tag}].', { name: founder.name, clan: clan.name, tag: clan.tag }), 'success', this.runtime.clock.totalMinutes)),
+      this.clans.events.on('disbanded', ({ clan, reason }) =>
+        log.event(reason === 'drama' ? t('Clan "{clan}" fell apart in a storm of drama.', { clan: clan.name }) : t('Clan "{clan}" disbanded: no members left.', { clan: clan.name }), 'warn', this.runtime.clock.totalMinutes)),
+      this.clans.events.on('split', ({ clan, rebels }) =>
+        log.event(t('Drama in "{clan}"! {n} members left and founded "{rebels}".', { clan: clan.name, n: rebels.members.length, rebels: rebels.name }), 'warn', this.runtime.clock.totalMinutes)),
+      this.clans.events.on('raidFormed', ({ raid, clan, boss }) =>
+        log.event(clan ? t('[{tag}] {clan} is gathering {n} raiders for {boss}.', { tag: clan.tag, clan: clan.name, n: raid.members.length, boss: boss.name }) : t('A pick-up group of {n} players is gathering for {boss} ("LFG, need heals!").', { n: raid.members.length, boss: boss.name }), 'info', this.runtime.clock.totalMinutes)),
+      this.clans.events.on('raidPulled', ({ clan, boss, present, early }) =>
+        log.event(early
+          ? t('{who}: someone pulled {boss} before everyone was ready! Charge!', { who: clan ? `[${clan.tag}]` : t('Pick-up group'), boss: boss.name })
+          : t('{who} pulled {boss} with {n} players!', { who: clan ? `[${clan.tag}]` : t('Pick-up group'), boss: boss.name, n: present }), early ? 'warn' : 'info', this.runtime.clock.totalMinutes)),
+      this.clans.events.on('raidEnded', ({ record }) => {
+        const who = record.clanName || t('A pick-up group');
+        const now = this.runtime.clock.totalMinutes;
+        if (record.result !== 'abandoned') audio.play(record.result === 'win' ? 'fanfare' : 'wipe');
+        if (record.result === 'win') log.event(record.worldFirst ? t('WORLD FIRST! {who} defeated {boss}! The whole server is talking about it.', { who, boss: record.bossName }) : t('{who} defeated {boss} ({n} raiders).', { who, boss: record.bossName, n: record.members }), 'success', now);
+        else if (record.result === 'wipe') log.event(t('{who} wiped on {boss}. Someone blames the healer.', { who, boss: record.bossName }), 'warn', now);
+        else log.event(t('{who} gave up on {boss}: not enough people showed up.', { who, boss: record.bossName }), 'warn', now);
+      }),
+      this.clans.events.on('ninja', ({ player, itemId }) =>
+        log.event(t('Loot drama! {name} took {item} and the clan chat exploded.', { name: player.name, item: getItemName(this.runtime, itemId) }), 'warn', this.runtime.clock.totalMinutes)),
       this.community.events.on('streamStart', ({ player }) =>
         log.event(t('{name} started streaming your game to {viewers} viewers!', { name: player.name, viewers: player.streamer!.viewers.toLocaleString() }), 'success', this.runtime.clock.totalMinutes)),
       this.community.events.on('streamEnd', ({ player, happy }) =>
@@ -262,6 +294,7 @@ export class GameSession {
     this.community.dispose();
     this.analytics.dispose();
     this.worldEvents.dispose();
+    this.clans.dispose();
     this.players.dispose();
     if (EntityCommand.budget === this.studio) EntityCommand.budget = null;
     this.bridge.clear();

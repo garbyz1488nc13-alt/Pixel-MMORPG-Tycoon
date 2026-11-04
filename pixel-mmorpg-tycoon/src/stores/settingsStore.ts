@@ -15,6 +15,10 @@ export interface Settings {
   dayNightTint: boolean;
   showRegions: boolean;
   language: Lang;
+  /** 0..1 */
+  sfxVolume: number;
+  /** 0..1 */
+  musicVolume: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -27,6 +31,8 @@ export const DEFAULT_SETTINGS: Settings = {
   dayNightTint: true,
   showRegions: true,
   language: detectLang(),
+  sfxVolume: 0.5,
+  musicVolume: 0.3,
 };
 
 interface SettingsState extends Settings {
@@ -43,7 +49,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'pmt-settings',
-      version: 3,
+      version: 4,
       migrate: (s) => ({ ...DEFAULT_SETTINGS, ...(s as object) }),
       onRehydrateStorage: () => (state) => state && setLang(state.language),
     },

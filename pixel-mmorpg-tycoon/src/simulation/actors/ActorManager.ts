@@ -11,6 +11,11 @@ export type ActorEvents = {
   hit: { target: Actor; attacker: Actor; amount: number };
   died: { victim: Actor; killer: Actor | null };
   respawned: { actor: Actor };
+  /** Boss area attack (for screen shake and effects). */
+  slam: { actor: Actor; radius: number; victims: number };
+  enrage: { actor: Actor };
+  /** Boss lost all its attackers and went home (raid wipe or players fled). */
+  bossReset: { actor: Actor };
 };
 
 export interface ActorStats { creatureKills: number; npcDeaths: number; hits: number }

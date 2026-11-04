@@ -7,6 +7,8 @@ import { getRegionType } from '@/data/regionTypes';
 import { TILE_SIZE } from '@/data/terrain';
 import type { GameSession } from '@/session/GameSession';
 import type { Actor } from '@/simulation/actors/Actor';
+import { ATTACK_COOLDOWN_TICKS } from '@/simulation/actors/combat';
+import { audio } from '@/audio/AudioEngine';
 import { useEditorStore } from '@/stores/editorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { ATLAS_KEY, getSpriteAtlas } from '../sprites/SpriteAtlas';
@@ -21,6 +23,8 @@ export function registerAtlas(scene: Phaser.Scene): void {
   for (const [name, f] of Object.entries(frames)) tex.add(name, 0, f.x, f.y, f.w, f.h);
 }
 
+interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: number; size: number; g: number }
+
 interface FloatText { text: Phaser.GameObjects.Text; life: number; vy: number }
 
 /**
@@ -34,6 +38,12 @@ export class EntityRenderer {
   private markerPool: Phaser.GameObjects.Image[] = [];
   private renderPos = new Map<string, { x: number; y: number }>();
   private hpGfx: Phaser.GameObjects.Graphics;
+  /** Under actors: clan rings, raid rally flags (redrawn every frame). */
+  private groundGfx: Phaser.GameObjects.Graphics;
+  /** Particles and shockwaves. */
+  private fxGfx: Phaser.GameObjects.Graphics;
+  private particles: Particle[] = [];
+  private waves: { x: number; y: number; r: number; max: number; life: number; color: number }[] = [];
   private overlayGfx: Phaser.GameObjects.Graphics;
   private regionGfx: Phaser.GameObjects.Graphics;
   private labelPool: Phaser.GameObjects.Text[] = [];
@@ -51,6 +61,8 @@ export class EntityRenderer {
     this.regionGfx = scene.add.graphics().setDepth(DEPTH.REGIONS);
     this.overlayGfx = scene.add.graphics().setDepth(DEPTH.OVERLAY);
     this.hpGfx = scene.add.graphics().setDepth(DEPTH.LABELS);
+    this.groundGfx = scene.add.graphics().setDepth(DEPTH.ENTITY_BASE - 1);
+    this.fxGfx = scene.add.graphics().setDepth(DEPTH.OVERLAY + 1);
     this.hoverLabel = this.makeText('', 12).setDepth(DEPTH.LABELS + 1).setVisible(false);
     this.refreshQuestGivers();
 
@@ -65,8 +77,23 @@ export class EntityRenderer {
       onLangChange(() => this.applyFont()),
       session.actors.events.on('hit', ({ target, amount, attacker }) => {
         this.spawnFloat(target.x * S, (target.y - 0.6) * S, `-${amount}`, attacker.kind === 'npc' ? '#ffe08a' : '#ff7a6a');
+        this.burst(target.x * S, (target.y - 0.4) * S, 3, [0xffffff, 0xffe08a], 0.12, 260, 2);
+        if (this.onScreen(target.x, target.y)) audio.play('hit');
+      }),
+      session.actors.events.on('slam', ({ actor, radius }) => {
+        this.waves.push({ x: actor.x * S, y: actor.y * S, r: 6, max: radius * S, life: 400, color: actor.enraged ? 0xff3030 : 0xffa040 });
+        this.burst(actor.x * S, actor.y * S, 14, [0xb08050, 0x806040, 0xffa040], 0.18, 500, 3);
+        const view = this.scene.cameras.main.worldView;
+        if (view.contains(actor.x * S, actor.y * S)) { this.scene.cameras.main.shake(180, 0.004); audio.play('slam'); }
+      }),
+      session.actors.events.on('enrage', ({ actor }) => {
+        this.spawnFloat(actor.x * S, (actor.y - 2) * S, t('ENRAGED!'), '#ff4040');
+        this.burst(actor.x * S, (actor.y - 0.8) * S, 24, [0xff3030, 0xff8040], 0.2, 700, 3);
+        if (this.onScreen(actor.x, actor.y)) audio.play('enrage');
       }),
       session.actors.events.on('died', ({ victim }) => {
+        if (this.onScreen(victim.x, victim.y)) audio.play('death');
+        this.burst(victim.x * S, (victim.y - 0.3) * S, victim.kind === 'creature' && session.actors.template(victim)?.boss ? 40 : 10, [0xdddddd, 0xaaaaaa, 0x777777], 0.08, 600, 4, -0.02);
         if (victim.kind === 'creature') {
           const xp = session.actors.template(victim)?.xpReward ?? 0;
           this.spawnFloat(victim.x * S, (victim.y - 1) * S, `+${xp} XP`, '#9cf0c0');
@@ -74,11 +101,16 @@ export class EntityRenderer {
       }),
       session.players.events.on('levelUp', ({ player, level }) => {
         const a = session.actors.actors.get(player.id);
-        if (a) this.spawnFloat(a.x * S, (a.y - 1.1) * S, t('LEVEL {n}!', { n: level }), '#f2c14e');
+        if (a) {
+          this.spawnFloat(a.x * S, (a.y - 1.1) * S, t('LEVEL {n}!', { n: level }), '#f2c14e');
+          this.burst(a.x * S, (a.y - 0.5) * S, 16, [0xf2c14e, 0xffffff, 0xffe08a], 0.1, 900, 2, -0.06);
+          if (this.onScreen(a.x, a.y)) audio.play('levelup');
+        }
       }),
       session.players.events.on('questDone', ({ player }) => {
         const a = session.actors.actors.get(player.id);
         if (a) this.spawnFloat(a.x * S, (a.y - 1.4) * S, t('Quest complete!'), '#7fd7ff');
+        if (a && this.onScreen(a.x, a.y)) audio.play('quest');
       }),
       useEditorStore.subscribe((s, p) => {
         if (s.selection !== p.selection || s.tab !== p.tab) this.overlaysDirty = true;
@@ -131,11 +163,12 @@ export class EntityRenderer {
   }
 
   // ------------------------------------------------------------- actors
-  private actorFrame(a: Actor, moving: boolean): { frame: string; scale: number; quest: boolean; live?: boolean } {
+  private actorFrame(a: Actor, moving: boolean): { frame: string; scale: number; quest: boolean; live?: boolean; clanColor?: number; boss?: boolean } {
     const anim = moving ? Math.floor(this.time / 180 + (a.id.charCodeAt(a.id.length - 1) % 2)) % 2 : 0;
     if (a.kind === 'player') {
       const p = this.session.players.get(a.defId);
-      return { frame: `pl:${p?.classKey ?? 'warrior'}:${anim}`, scale: 1, quest: false, live: !!p?.streamer };
+      const clan = p?.clanId ? this.session.clans.get(p.clanId) : undefined;
+      return { frame: `pl:${p?.classKey ?? 'warrior'}:${anim}`, scale: 1, quest: false, live: !!p?.streamer, clanColor: clan ? parseInt(clan.color.slice(1), 16) : undefined };
     }
     if (a.kind === 'npc') {
       const def = this.session.actors.npcDef(a);
@@ -145,7 +178,7 @@ export class EntityRenderer {
     const tpl = this.session.actors.template(a);
     const type = tpl ? getCreatureType(tpl.type).key : 'slime';
     const bossScale = tpl?.boss && getCreatureType(type).size === 1 ? 1.5 : 1;
-    return { frame: `cr:${type}:${anim}`, scale: bossScale, quest: false };
+    return { frame: `cr:${type}:${anim}`, scale: bossScale, quest: false, boss: !!tpl?.boss };
   }
 
   private drawActors(dt: number): void {
@@ -156,6 +189,9 @@ export class EntityRenderer {
     let markers = 0;
     const hp = this.hpGfx;
     hp.clear();
+    const ground = this.groundGfx;
+    ground.clear();
+    this.drawRaids(ground);
     const sel = useEditorStore.getState().selection;
     const selectedNpc = sel?.col === 'npcs' ? new Set(sel.ids) : null;
     const focus = useEditorStore.getState().focusPlayer;
@@ -185,11 +221,18 @@ export class EntityRenderer {
       used++;
       const moving = a.moving && this.session.engine.isRunning;
       const f = this.actorFrame(a, moving);
-      spr.setVisible(true).setFrame(f.frame).setPosition(px, py + 6).setScale(f.scale).setDepth(entityDepth(py + 6));
+      // Attack lunge: a quick step towards the target right after striking.
+      const lunge = a.state === 'attack' && a.attackCd > ATTACK_COOLDOWN_TICKS - 3 ? a.facing * 3 : 0;
+      spr.setVisible(true).setFrame(f.frame).setPosition(px + lunge, py + 6).setScale(f.scale).setDepth(entityDepth(py + 6));
       spr.setFlipX(a.facing < 0);
       spr.setAlpha(a.state === 'rest' ? 0.75 : 1);
       if (a.hitFlash > 0) spr.setTintFill(0xffffff);
+      else if (a.enraged) spr.setTint(Math.floor(this.time / 200) % 2 ? 0xff6060 : 0xff9090);
       else spr.clearTint();
+      if (f.clanColor !== undefined) {
+        ground.fillStyle(f.clanColor, 0.25).fillEllipse(px, py + 5, 22, 9);
+        ground.lineStyle(2, f.clanColor, 1).strokeEllipse(px, py + 5, 22, 9);
+      }
 
       // Quest marker / sleeping marker
       if (f.quest || a.state === 'rest' || f.live) {
@@ -203,7 +246,13 @@ export class EntityRenderer {
 
       // HP bar when damaged or selected
       const selected = selectedNpc?.has(a.defId) || (a.kind === 'player' && focus === a.defId);
-      if (a.hp < a.maxHp || selected) {
+      if (f.boss && (a.hp < a.maxHp || a.targetId)) {
+        // Raid boss: wide bar with a frame.
+        const w = 64, top = py - (f.frame.startsWith('cr:dragon') || f.frame.startsWith('cr:boss') ? 66 : 44);
+        hp.fillStyle(0x000000, 0.85).fillRect(px - w / 2 - 2, top - 2, w + 4, 8);
+        hp.fillStyle(a.enraged ? 0xff3030 : 0xc0392b, 1).fillRect(px - w / 2, top, w * Math.max(0, a.hp / a.maxHp), 4);
+        hp.lineStyle(1, 0xf2c14e, 1).strokeRect(px - w / 2 - 2, top - 2, w + 4, 8);
+      } else if (a.hp < a.maxHp || selected) {
         const w = 22 * f.scale * (a.kind === 'creature' && f.frame.includes('dragon') ? 2 : 1);
         const top = py - (f.frame.startsWith('cr:dragon') || f.frame.startsWith('cr:boss') ? 58 : 26 * f.scale);
         hp.fillStyle(0x000000, 0.8).fillRect(px - w / 2 - 1, top - 1, w + 2, 5);
@@ -257,8 +306,17 @@ export class EntityRenderer {
         label(`${r.name}  ${t('Lv')} ${r.minLevel}-${r.maxLevel}`, r.x * S + 4, r.y * S + 2, `#${c.toString(16).padStart(6, '0')}`);
       }
     }
+    // Boss lairs are always marked: scorched ground, a skull-red ring and the name.
+    for (const a of rt.entities.list('spawnAreas')) {
+      if (!a.lair) continue;
+      const cx = (a.x + a.w / 2) * S, cy = (a.y + a.h / 2) * S;
+      g.fillStyle(0x2a0a0a, 0.28).fillEllipse(cx, cy, a.w * S, a.h * S * 0.8);
+      g.lineStyle(isSel('spawnAreas', a.id) ? 3 : 2, 0xb02020, 0.85).strokeEllipse(cx, cy, a.w * S, a.h * S * 0.8);
+      label(a.name, a.x * S, (a.y + a.h) * S + 2, '#ff6a5a');
+    }
     if (show || ed.tool === 'spawn-area' || sel?.col === 'spawnAreas') {
       for (const a of rt.entities.list('spawnAreas')) {
+        if (a.lair && !isSel('spawnAreas', a.id)) continue;
         const tpl = rt.entities.get('creatureTemplates', a.templateId);
         const selA = isSel('spawnAreas', a.id);
         o.lineStyle(selA ? 3 : 2, 0xe2574c, selA ? 1 : 0.8);
@@ -338,8 +396,57 @@ export class EntityRenderer {
     }
   }
 
+  // ---------------------------------------------------------- raids & fx
+  /** Raid rally points: a banner in the clan colour while the raid gathers. */
+  private drawRaids(g: Phaser.GameObjects.Graphics): void {
+    for (const r of this.session.runtime.sim.raids) {
+      const clan = this.session.clans.get(r.clanId);
+      const color = clan ? parseInt(clan.color.slice(1), 16) : 0xdddddd;
+      const x = (r.rallyX + 0.5) * S, y = (r.rallyY + 0.5) * S;
+      const wave = Math.sin(this.time / 200) * 2;
+      g.fillStyle(0x000000, 0.3).fillEllipse(x, y + 4, 18, 6);
+      g.lineStyle(2, 0x5a3a1a, 1).lineBetween(x, y + 4, x, y - 22);
+      g.fillStyle(color, 1).fillTriangle(x, y - 22, x + 14, y - 17 + wave, x, y - 12);
+      if (r.phase === 'gathering') g.lineStyle(1, color, 0.5).strokeCircle(x, y, 5 * S * (0.9 + 0.1 * Math.sin(this.time / 300)));
+    }
+  }
+
+  private onScreen(x: number, y: number): boolean {
+    return this.scene.cameras.main.worldView.contains(x * S, y * S);
+  }
+
+  private burst(x: number, y: number, n: number, colors: number[], speed: number, life: number, size: number, gravity = 0.0004): void {
+    for (let i = 0; i < n && this.particles.length < 500; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const v = speed * (0.4 + Math.random() * 0.8);
+      this.particles.push({ x, y, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v - speed * 0.5, life, max: life, color: colors[i % colors.length], size, g: gravity });
+    }
+  }
+
+  private updateFx(dt: number): void {
+    const g = this.fxGfx;
+    g.clear();
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.life -= dt;
+      if (p.life <= 0) { this.particles.splice(i, 1); continue; }
+      p.vy += p.g * dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      g.fillStyle(p.color, Math.min(1, (p.life / p.max) * 1.5)).fillRect(Math.round(p.x), Math.round(p.y), p.size, p.size);
+    }
+    for (let i = this.waves.length - 1; i >= 0; i--) {
+      const w = this.waves[i];
+      w.life -= dt;
+      if (w.life <= 0) { this.waves.splice(i, 1); continue; }
+      w.r += (w.max - w.r) * Math.min(1, dt / 90);
+      g.lineStyle(3, w.color, w.life / 400).strokeEllipse(w.x, w.y, w.r * 2, w.r * 1.2);
+    }
+  }
+
   update(dt: number): void {
     this.time += dt;
+    this.updateFx(dt);
     if (this.objectsDirty) this.syncObjects();
     if (this.overlaysDirty) this.drawOverlays();
     this.drawActors(dt);
@@ -348,5 +455,6 @@ export class EntityRenderer {
 
   destroy(): void {
     this.unsubs.forEach((u) => u());
+    this.particles = [];
   }
 }

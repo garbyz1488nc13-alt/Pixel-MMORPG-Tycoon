@@ -11,6 +11,7 @@ import { itemKeyIndex } from '@/data/rpgDefaults';
 import type { StudioService } from '@/simulation/studio/StudioService';
 import type { EntityChange } from '@/simulation/EntityStore';
 import type { WorldRuntime } from '@/simulation/WorldRuntime';
+import { getBossPreset } from '@/data/bossTypes';
 import { EntityEditor } from '@/systems/editor/EntityEditor';
 import { CompositeCommand, EntityCommand, TileEditCommand, type EditorCommand, type History } from '@/systems/editor/History';
 import type { TileRect } from '@/systems/editor/shapes';
@@ -101,6 +102,14 @@ class Planner {
     const t = EntityEditor.makeTemplate(type, this.world.entities.list('items'));
     this.templates.push(t);
     return t;
+  }
+
+  /** A raid boss lair (boss template from a preset, reused if this world already has it). */
+  lair(presetKey: string, r: TileRect, name: string): void {
+    const preset = getBossPreset(presetKey);
+    let t = [...this.world.entities.list('creatureTemplates'), ...this.templates].find((x) => x.boss && x.type === preset.type && x.level === preset.level);
+    if (!t) { t = EntityEditor.makeBossTemplate(presetKey, this.world.entities.list('items')); this.templates.push(t); }
+    this.areas.push({ id: createId('spawn'), name, templateId: t.id, ...r, maxCount: 1, lair: { respawnHours: preset.respawnHours, minRaid: preset.minRaid } });
   }
 
   spawnArea(type: CreatureType, r: TileRect, count: number, name?: string): void {
@@ -243,7 +252,7 @@ function dungeonLike(p: Planner, r: TileRect, kind: 'dungeon' | 'cave'): void {
   const count = Math.max(2, Math.min(10, Math.round((r.w * r.h) / 40)));
   if (kind === 'dungeon') {
     p.spawnArea('skeleton', { x: inner.x, y: inner.y + Math.floor(inner.h / 3), w: inner.w, h: Math.max(1, inner.h - Math.floor(inner.h / 3) - 2) }, count, tr('Crypt skeletons'));
-    if (r.w >= 12 && r.h >= 12) p.spawnArea('boss', { x: cx - 2, y: r.y + 2, w: 4, h: 3 }, 1, tr('Throne room'));
+    if (r.w >= 12 && r.h >= 12) p.lair('lich', { x: cx - 2, y: r.y + 2, w: 4, h: 3 }, tr('Lair: {name}', { name: tr('Throne room') }));
   } else {
     p.spawnArea('spider', inner, count, tr('Spider nest'));
   }

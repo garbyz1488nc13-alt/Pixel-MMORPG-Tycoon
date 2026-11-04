@@ -20,7 +20,9 @@ import { StudioTab } from '../sim/StudioTab';
 import { CommunityTab } from '../sim/CommunityTab';
 import { AnalyticsTab } from '../sim/AnalyticsTab';
 import { EventsTab } from '../sim/EventsTab';
+import { ClansTab } from '../sim/ClansTab';
 import type { GameSession } from '@/session/GameSession';
+import { useWorldMusic } from '../hooks/useAudio';
 
 export function EditorScreen() {
   const session = useSessionStore((s) => s.session);
@@ -32,6 +34,7 @@ function Editor({ session }: { session: GameSession }) {
   const tab = useEditorStore((s) => s.tab);
   useEditorHotkeys(session);
   useAutosave(session);
+  useWorldMusic(session);
 
   return (
     <div className="editor">
@@ -55,6 +58,7 @@ function Editor({ session }: { session: GameSession }) {
           {tab === 'players' && <div className="center-overlay"><PlayersTab session={session} /></div>}
           {tab === 'studio' && <div className="center-overlay"><StudioTab session={session} /></div>}
           {tab === 'community' && <div className="center-overlay"><CommunityTab session={session} /></div>}
+          {tab === 'clans' && <div className="center-overlay"><ClansTab session={session} /></div>}
           {tab === 'events' && <div className="center-overlay"><EventsTab session={session} /></div>}
           {tab === 'analytics' && <div className="center-overlay"><AnalyticsTab session={session} /></div>}
         </div>

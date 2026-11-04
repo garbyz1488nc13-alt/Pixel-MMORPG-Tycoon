@@ -11,6 +11,7 @@ import type { EconomyService } from '../economy/EconomyService';
 import type { WorldRuntime } from '../WorldRuntime';
 import type { PlayerManager } from './PlayerManager';
 import type { EventService } from '../events/EventService';
+import type { ClanService } from '../clans/ClanService';
 
 export type Activity =
   | { kind: 'hunt'; areaId: EntityId; templateId?: EntityId }
@@ -21,12 +22,13 @@ export type Activity =
   | { kind: 'rest'; x: number; y: number }
   | { kind: 'social'; x: number; y: number; ticks: number }
   | { kind: 'pvp'; targetId: string; ticks: number }
-  | { kind: 'idle'; ticks: number };
+  | { kind: 'idle'; ticks: number }
+  | { kind: 'raid'; raidId: EntityId };
 
 /** Activity labels for the UI (English source strings). */
 export const ACTIVITY_LABEL: Record<Activity['kind'], string> = {
   hunt: 'Hunting', gather: 'Gathering', npc: 'Talking to NPC', trade: 'Trading', explore: 'Exploring',
-  rest: 'Resting', social: 'Socialising', pvp: 'Hunting players', idle: 'Idle',
+  rest: 'Resting', social: 'Socialising', pvp: 'Hunting players', idle: 'Idle', raid: 'Raiding a boss',
 };
 
 /**
@@ -36,6 +38,8 @@ export const ACTIVITY_LABEL: Record<Activity['kind'], string> = {
 export class PlayerBrain {
   /** World events (festival / faction war attraction). */
   events: EventService | null = null;
+  /** Clans & raids (raid members drop everything to go raiding). */
+  clans: ClanService | null = null;
 
   constructor(private world: WorldRuntime, private actors: ActorManager, private pm: PlayerManager, private econ: EconomyService) {}
 
@@ -54,6 +58,8 @@ export class PlayerBrain {
     for (const area of this.world.entities.list('spawnAreas')) {
       const tpl = this.world.entities.get('creatureTemplates', area.templateId);
       if (!tpl || area.maxCount <= 0) continue;
+      // Boss lairs are raid content: nobody solos them (raids are organised by RaidService).
+      if (area.lair) continue;
       if (templateId && tpl.id !== templateId) continue;
       const diff = tpl.level - p.level;
       const hunters = this.pm.huntersIn(area.id);
@@ -168,6 +174,8 @@ export class PlayerBrain {
     const add = (kind: Activity['kind'], score: number, make: () => Activity | null) =>
       options.push([score + this.rand() * 0.15 + (current?.kind === kind ? 0.08 : 0), make]);
 
+    const raid = this.clans?.raidOf(p.id);
+    if (raid) add('raid', 2, () => ({ kind: 'raid', raidId: raid.id }));
     if (hpPct < 0.35) add('rest', 1, () => ({ kind: 'rest', ...this.safeSpot(a) }));
 
     const complete = p.quests.find((q) => q.status === 'complete');

@@ -4,6 +4,7 @@ import { WorldRepository } from '@/persistence/WorldRepository';
 import { confirmDialog } from '@/stores/dialogStore';
 import { toast } from '@/stores/toastStore';
 import { LanguageSwitch } from './LanguageSwitch';
+import { audio } from '@/audio/AudioEngine';
 
 const AUTOSAVE_OPTIONS = [0, 1, 2, 5, 10];
 
@@ -40,6 +41,18 @@ export function SettingsForm({ showDanger = false }: { showDanger?: boolean }) {
         </div>
       </section>
 
+      <section>
+        <h3 className="pixel-title">{t('Sound')}</h3>
+        <div className="field">
+          <label>{t('Sound effects')}: {Math.round(s.sfxVolume * 100)}%</label>
+          <input type="range" min={0} max={1} step={0.05} value={s.sfxVolume} onChange={(e) => s.update({ sfxVolume: +e.target.value })} onPointerUp={() => audio.play('levelup')} />
+        </div>
+        <div className="field">
+          <label>{t('Music')}: {Math.round(s.musicVolume * 100)}%</label>
+          <input type="range" min={0} max={1} step={0.05} value={s.musicVolume} onChange={(e) => s.update({ musicVolume: +e.target.value })} />
+          <span className="hint">{t('8-bit sounds and chiptune music are generated live. The music turns into battle music while a raid fights a boss.')}</span>
+        </div>
+      </section>
       <section>
         <h3 className="pixel-title">{t('Camera')}</h3>
         <div className="field">

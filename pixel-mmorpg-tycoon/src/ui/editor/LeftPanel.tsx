@@ -11,7 +11,8 @@ import { PixelIcon, type IconName } from '../components/PixelIcon';
 import { SpritePreview } from '../components/SpritePreview';
 import { TerrainSwatch } from '../components/TilePreview';
 import { useEntityList } from '../hooks/useEntities';
-import { MONSTER_SLOT_COST, NPC_HIRE_COST, NPC_UPKEEP_PER_DAY, OBJECT_COST } from '@/data/studio';
+import { LAIR_BASE_COST, LAIR_COST_PER_RAIDER, MONSTER_SLOT_COST, NPC_HIRE_COST, NPC_UPKEEP_PER_DAY, OBJECT_COST } from '@/data/studio';
+import { BOSS_PRESETS } from '@/data/bossTypes';
 
 const SECTIONS: { key: LeftSection; label: string }[] = [
   { key: 'terrain', label: 'Terrain' },
@@ -191,6 +192,29 @@ function CreaturesSection({ session }: { session: GameSession }) {
         <button className="btn small" onClick={() => { const t = session.entities.addTemplate(newType); ed.setTemplateId(t.id); ed.setTool('spawn-area'); }}>+ {tr('New')}</button>
       </div>
       <button className="btn small" onClick={() => ed.setTab('creatures')}>{tr('Open creature editor')}</button>
+      <BossLairSection session={session} />
+    </div>
+  );
+}
+
+function BossLairSection({ session }: { session: GameSession }) {
+  const ed = useEditorStore();
+  const areas = useEntityList(session, 'spawnAreas');
+  const lairs = areas.filter((a) => a.lair);
+  return (
+    <div className="lair-section">
+      <div className="el-title">{tr('Boss lairs')}</div>
+      <div className="hint">{tr('Pick a boss, then click the map. Bosses guard their lair, hit everyone nearby and need a raid of several players.')}</div>
+      <div className="sprite-grid">
+        {BOSS_PRESETS.map((b) => (
+          <button key={b.key} className={`sprite-btn ${ed.tool === 'lair' && ed.bossPreset === b.key ? 'active' : ''}`} onClick={() => ed.setBossPreset(b.key)} title={`${tr(b.name)} — ${tr(b.description)}`}>
+            <SpritePreview frame={`cr:${b.type}:0`} box={32} />
+            <span>{tr(b.name)} <b className="count">{tr('Lv')}{b.level}</b></span>
+            <span className="sub">{tr('Raid {n}+', { n: b.minRaid })}{session.studio.standard ? ` · $${LAIR_BASE_COST + b.minRaid * LAIR_COST_PER_RAIDER}` : ''}</span>
+          </button>
+        ))}
+      </div>
+      <EntityList title={`${tr('Lairs on the map')} (${lairs.length})`} col="spawnAreas" session={session} items={lairs.map((a) => ({ id: a.id, label: a.name, sub: `${tr('Raid {n}+', { n: a.lair!.minRaid })} · ${tr('respawn {h} h', { h: a.lair!.respawnHours })}`, x: a.x + a.w / 2, y: a.y + a.h / 2 }))} />
     </div>
   );
 }

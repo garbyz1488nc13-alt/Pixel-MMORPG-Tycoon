@@ -1,4 +1,5 @@
 import { getNpcType, npcCombatStats } from '@/data/npcTypes';
+import { BOSS_ENRAGE_MULT } from '@/data/bossTypes';
 import type { ActorManager } from './ActorManager';
 import { dist, type Actor } from './Actor';
 
@@ -17,7 +18,7 @@ export function combatStats(mgr: ActorManager, a: Actor): CombatStats | null {
   }
   const t = mgr.template(a);
   if (!t) return null;
-  return { damage: t.damage, defense: t.defense, attackRange: t.attackRange, speed: t.speed };
+  return { damage: a.enraged ? t.damage * BOSS_ENRAGE_MULT : t.damage, defense: t.defense, attackRange: t.attackRange, speed: t.speed };
 }
 
 export function displayName(mgr: ActorManager, a: Actor): string {
@@ -55,7 +56,9 @@ export function kill(mgr: ActorManager, victim: Actor, killer: Actor | null): vo
   victim.moving = false;
   victim.targetId = null;
   victim.lastAttackerId = null;
-  const minutes = victim.kind === 'npc' ? NPC_RESPAWN_MINUTES : victim.kind === 'player' ? PLAYER_RESPAWN_MINUTES : mgr.template(victim)?.respawnMinutes ?? 30;
+  const lair = victim.kind === 'creature' ? mgr.area(victim)?.lair : undefined;
+  const minutes = victim.kind === 'npc' ? NPC_RESPAWN_MINUTES : victim.kind === 'player' ? PLAYER_RESPAWN_MINUTES
+    : lair ? lair.respawnHours * 60 : mgr.template(victim)?.respawnMinutes ?? 30;
   victim.respawnAt = mgr.gameMinutes + minutes;
   if (victim.kind === 'creature') mgr.stats.creatureKills++;
   else if (victim.kind === 'npc') mgr.stats.npcDeaths++;
@@ -69,6 +72,7 @@ export function kill(mgr: ActorManager, victim: Actor, killer: Actor | null): vo
 export function respawn(mgr: ActorManager, a: Actor, x: number, y: number): void {
   a.hp = a.maxHp;
   a.damagers = null;
+  a.enraged = false;
   a.state = 'idle';
   a.lastAttackerId = null;
   a.attackCd = 0;

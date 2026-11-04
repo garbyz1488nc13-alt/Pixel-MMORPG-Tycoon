@@ -6,7 +6,7 @@ import { getTier } from '@/data/studio';
 import type { ClassDef, EquipSlot, ItemDef, QuestDef } from '@/models/rpg';
 import type { FactorKey, PlayerBehavior, PlayerState } from '@/models/sim';
 import { addItem, countItem, removeItem } from '@/systems/rpg/inventory';
-import { characterStats, xpToNext } from '@/systems/rpg/progression';
+import { characterStats, xpToNext, type CharacterStats } from '@/systems/rpg/progression';
 import { objectiveDelta, type QuestEvent } from '@/systems/rpg/quests';
 import type { ActorManager } from '../actors/ActorManager';
 import { newActor, type Actor } from '../actors/Actor';
@@ -27,6 +27,9 @@ export type PlayerEvents = {
   turnedAway: { count: number };
 };
 
+/** Churn multiplier for clan members. */
+export const CLAN_LOYALTY = 0.6;
+
 const pick = <T,>(items: [T, number][], r: number): T => {
   let acc = 0;
   for (const [v, w] of items) { acc += w; if (r <= acc) return v; }
@@ -44,6 +47,7 @@ export class PlayerManager {
   constructor(private world: WorldRuntime, private actors: ActorManager, private econ: EconomyService) {
     this.reindex();
     actors.playerStats = (a) => this.combatStats(a);
+    world.events.on('rpg:changed', () => this.rpgRev++);
     actors.playerName = (a) => this.byId.get(a.defId)?.name ?? '?';
     for (const p of this.world.sim.players) if (p.online) this.spawnActor(p, p.x, p.y);
   }
@@ -79,8 +83,19 @@ export class PlayerManager {
     return Object.values(p.equipment).map((id) => (id ? this.world.entities.get('items', id) : undefined)).filter((x): x is ItemDef => !!x);
   }
 
-  stats(p: PlayerState) {
-    return characterStats(this.classDef(p), p.level, this.world.rpg.progression, this.equipped(p));
+  private statsCache = new WeakMap<PlayerState, { key: string; stats: CharacterStats }>();
+  private rpgRev = 0;
+
+  /** Derived stats, cached until level, class, equipment, items or progression change. */
+  stats(p: PlayerState): CharacterStats {
+    const e = p.equipment as Record<string, string | undefined>;
+    let key = `${this.rpgRev}|${this.world.entities.colVersion.items}|${p.classKey}|${p.level}`;
+    for (const k in e) key += '|' + (e[k] ?? '');
+    const hit = this.statsCache.get(p);
+    if (hit && hit.key === key) return hit.stats;
+    const stats = characterStats(this.classDef(p), p.level, this.world.rpg.progression, this.equipped(p));
+    this.statsCache.set(p, { key, stats });
+    return stats;
   }
 
   private combatStats(a: Actor) {
@@ -315,7 +330,8 @@ export class PlayerManager {
     if (a) { p.x = Math.floor(a.x); p.y = Math.floor(a.y); p.hp = Math.max(1, a.hp); this.actors.removeActor(a); }
     p.online = false;
     const s = p.satisfaction;
-    const quitChance = s < 25 ? 0.75 : s < 40 ? 0.35 : s < 55 ? 0.08 : 0.02;
+    // Clan members are loyal: friends keep them around even when the game annoys them.
+    const quitChance = (s < 25 ? 0.75 : s < 40 ? 0.35 : s < 55 ? 0.08 : 0.02) * (p.clanId ? CLAN_LOYALTY : 1);
     const quit = this.rand() < quitChance;
     const reason = quit ? this.worstFactor(p) : null;
     if (quit) {

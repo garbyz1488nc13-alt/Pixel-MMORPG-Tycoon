@@ -1,6 +1,8 @@
 import { dist, isAlive, type Actor } from '../actors/Actor';
 import type { ActorManager } from '../actors/ActorManager';
-import { combatStats, engage, respawn } from '../actors/combat';
+import { attack, combatStats, engage, respawn, type CombatStats } from '../actors/combat';
+import { BOSS_ENRAGE_AT, BOSS_SLAM_POWER, BOSS_SLAM_RADIUS, BOSS_SLAM_TICKS } from '@/data/bossTypes';
+import type { CreatureTemplate, SpawnArea } from '@/models/entities';
 import type { SimContext, SimulationSystem } from '../types';
 
 /** Monster behaviour: respawning, wandering their spawn area, aggro, chasing, leashing. */
@@ -29,6 +31,7 @@ export class CreatureSystem implements SimulationSystem {
       }
       if (a.attackCd > 0) a.attackCd--;
       if (a.hitFlash > 0) a.hitFlash--;
+      if (tpl.boss) { this.boss(a, tpl, area, stats, ctx.tick); continue; }
 
       let target = a.targetId ? mgr.actors.get(a.targetId) : undefined;
       if (target && !isAlive(target)) target = undefined;
@@ -92,13 +95,74 @@ export class CreatureSystem implements SimulationSystem {
     }
   }
 
-  private findPrey(a: Actor, range: number): Actor | undefined {
+  /**
+   * Raid boss: guards its lair, switches targets now and then (no real threat table —
+   * just like real MMOs feel), slams everyone nearby, enrages at low health and
+   * fully resets when the raid dies or runs away.
+   */
+  private boss(a: Actor, tpl: CreatureTemplate, area: SpawnArea, stats: CombatStats, tick: number): void {
+    const mgr = this.mgr;
+    const home = { x: area.x + area.w / 2, y: area.y + area.h / 2 };
+    const leash = Math.max(area.w, area.h) / 2 + 7;
+    const inReach = (o: Actor) => isAlive(o) && dist(o, home) <= leash;
+    let target = a.targetId ? mgr.actors.get(a.targetId) : undefined;
+    if (target && !inReach(target)) target = undefined;
+    if (!target || tick >= a.nextThink) {
+      a.nextThink = tick + 30;
+      const engaged = !!target || !!a.damagers?.size;
+      const prey = this.findPrey(a, engaged ? leash + 2 : tpl.aggroRange, inReach);
+      if (!target || (prey && mgr.rand() < 0.25)) target = prey;
+    }
+    if (!target) {
+      a.targetId = null;
+      if (a.damagers?.size || a.enraged || a.hp < a.maxHp) {
+        if (a.damagers?.size) mgr.events.emit('bossReset', { actor: a });
+        a.damagers = null;
+        a.enraged = false;
+        a.lastAttackerId = null;
+        a.hp = a.maxHp;
+        a.slamAt = 0;
+      }
+      if (dist(a, home) > 1.2) {
+        if (!a.path) mgr.goTo(a, Math.floor(home.x), Math.floor(home.y), 800);
+        a.state = 'return';
+        if (!a.path || mgr.step(a, stats.speed * 1.4)) a.path = null;
+      } else {
+        a.state = 'idle';
+        a.moving = false;
+        a.path = null;
+      }
+      return;
+    }
+    a.targetId = target.id;
+    if (!a.enraged && a.hp < a.maxHp * BOSS_ENRAGE_AT) {
+      a.enraged = true;
+      mgr.events.emit('enrage', { actor: a });
+    }
+    if (!a.slamAt) a.slamAt = tick + BOSS_SLAM_TICKS;
+    if (tick >= a.slamAt) {
+      a.slamAt = tick + BOSS_SLAM_TICKS;
+      this.near.length = 0;
+      mgr.spatial.query(a.x, a.y, BOSS_SLAM_RADIUS, this.near);
+      let victims = 0;
+      for (const o of [...this.near]) {
+        if (o.kind === 'creature' || !isAlive(o) || dist(a, o) > BOSS_SLAM_RADIUS) continue;
+        attack(mgr, a, o, BOSS_SLAM_POWER);
+        victims++;
+      }
+      mgr.events.emit('slam', { actor: a, radius: BOSS_SLAM_RADIUS, victims });
+      if (!isAlive(target)) return;
+    }
+    engage(mgr, a, target, stats);
+  }
+
+  private findPrey(a: Actor, range: number, ok?: (o: Actor) => boolean): Actor | undefined {
     this.near.length = 0;
     this.mgr.spatial.query(a.x, a.y, range, this.near);
     let best: Actor | undefined;
     let bestD = Infinity;
     for (const o of this.near) {
-      if (o.kind === 'creature' || !isAlive(o)) continue;
+      if (o.kind === 'creature' || !isAlive(o) || (ok && !ok(o))) continue;
       const d = dist(a, o);
       if (d < bestD) { bestD = d; best = o; }
     }

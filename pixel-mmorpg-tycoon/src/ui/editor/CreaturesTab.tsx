@@ -15,7 +15,7 @@ export function CreaturesTab({ session }: { session: GameSession }) {
   const templates = useEntityList(session, 'creatureTemplates');
   const areas = useEntityList(session, 'spawnAreas');
   const live = useLiveCounts(session);
-  const [current, setCurrent] = useState<EntityId | null>(templates[0]?.id ?? null);
+  const [current, setCurrent] = useState<EntityId | null>(() => { const want = useEditorStore.getState().templateId; return want && templates.some((x) => x.id === want) ? want : templates[0]?.id ?? null; });
   const [newType, setNewType] = useState<CreatureType>('goblin');
   const setTab = useEditorStore((s) => s.setTab);
   const setTemplateId = useEditorStore((s) => s.setTemplateId);

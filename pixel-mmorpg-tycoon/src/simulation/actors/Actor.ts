@@ -38,6 +38,10 @@ export interface Actor {
   errand: { kind: 'sell' | 'buy'; merchantId: EntityId; itemId?: EntityId } | null;
   /** Who damaged this actor recently (attacker id → tick), for shared kill credit. */
   damagers: Map<string, number> | null;
+  /** Bosses: below the enrage threshold, hitting harder. */
+  enraged: boolean;
+  /** Bosses: tick of the next area slam. */
+  slamAt: number;
 }
 
 export function newActor(id: string, kind: ActorKind, defId: EntityId, x: number, y: number, maxHp: number): Actor {
@@ -45,7 +49,7 @@ export function newActor(id: string, kind: ActorKind, defId: EntityId, x: number
     id, kind, defId, x: x + 0.5, y: y + 0.5, homeX: x, homeY: y, hp: maxHp, maxHp,
     state: 'idle', path: null, pathIdx: 0, pathRev: -1, goalX: x, goalY: y,
     targetId: null, lastAttackerId: null, attackCd: 0, idleUntil: 0, nextThink: 0, respawnAt: 0,
-    waypointIdx: 0, facing: 1, moving: false, hitFlash: 0, errand: null, damagers: null,
+    waypointIdx: 0, facing: 1, moving: false, hitFlash: 0, errand: null, damagers: null, enraged: false, slamAt: 0,
   };
 }
 

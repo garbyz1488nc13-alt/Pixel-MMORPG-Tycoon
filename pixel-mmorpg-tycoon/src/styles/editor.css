@@ -271,3 +271,13 @@ button.link { background: none; border: none; color: var(--cyan); cursor: pointe
   .topbar-stat { padding: 3px 6px; }
   .topbar-stat .hint { display: none; }
 }
+
+/* ---------- Phase 7: clans, raids, boss lairs ---------- */
+.good-text { color: var(--green, #6cc551); }
+.clan-dot { display: inline-block; width: 10px; height: 10px; border: 1px solid #000; vertical-align: middle; margin-right: 2px; }
+.data-table tbody tr { cursor: default; }
+.data-table tbody tr.selected { background: var(--panel-3); box-shadow: inset 3px 0 0 var(--gold); }
+.raid-row { display: flex; flex-wrap: wrap; column-gap: 10px; padding: 3px 8px; border-bottom: 1px solid var(--panel-2); align-items: baseline; }
+.raid-row .hint { flex-basis: 100%; }
+.lair-section { margin-top: 10px; border-top: 2px solid var(--panel-3); padding-top: 6px; display: flex; flex-direction: column; gap: 6px; }
+.sprite-btn .sub { font-size: 0.85em; color: var(--text-dim); }
