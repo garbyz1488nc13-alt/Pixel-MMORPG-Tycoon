@@ -3,7 +3,7 @@
 Браузерний 2D pixel-art симулятор створення власної MMORPG.
 Стек: **React 18 · TypeScript · Phaser 3 · Vite · Zustand · IndexedDB**.
 
-▶ **Грати в браузері:** https://garbyz1488nc13-alt.github.io/Pixel-MMORPG-Tycoon/
+▶ **Грати в браузері:** https://idologonia.github.io/Pixel-MMORPG-Tycoon/
 
 ![Town](pixel-mmorpg-tycoon/docs/phase2-town.png)
 
