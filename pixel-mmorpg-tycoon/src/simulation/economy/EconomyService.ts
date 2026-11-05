@@ -1,3 +1,4 @@
+import { HOUSED_RESTOCK, SERVICE_BUILDING, serviceBuilding, STREET_RESTOCK } from '@/data/buildings';
 import type { EntityId } from '@/core/ids';
 import { getNpcType } from '@/data/npcTypes';
 import type { ItemDef, ItemStack, ShopEntry } from '@/models/rpg';
@@ -170,6 +171,8 @@ export class EconomyService {
     for (const m of this.merchants()) {
       const actor = this.actors.actors.get(m.id);
       if (actor?.state === 'dead') continue;
+      // A merchant with a proper shop/smithy restocks fast; a street stall slowly.
+      const speed = SERVICE_BUILDING[m.type] ? (serviceBuilding(this.world, m) ? HOUSED_RESTOCK : STREET_RESTOCK) : 1;
       let gold = m.gold;
       let changed = false;
       const items = m.shop.items.map((s): ShopEntry => {
@@ -177,7 +180,7 @@ export class EconomyService {
         const item = this.item(s.itemId);
         if (!item) return s;
         const key = `${m.id}:${s.itemId}`;
-        const carry = (this.restockCarry.get(key) ?? 0) + (s.maxStock - s.stock) * this.eco.restockPerHour * (minutes / 60);
+        const carry = (this.restockCarry.get(key) ?? 0) + (s.maxStock - s.stock) * this.eco.restockPerHour * speed * (minutes / 60);
         let units = Math.floor(carry);
         this.restockCarry.set(key, carry - units);
         if (units <= 0) return s;

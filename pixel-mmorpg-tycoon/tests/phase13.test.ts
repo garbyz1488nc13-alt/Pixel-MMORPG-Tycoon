@@ -4,6 +4,7 @@ import { EntityEditor } from '@/systems/editor/EntityEditor';
 import { History } from '@/systems/editor/History';
 import { attack } from '@/simulation/actors/combat';
 import { questsFromTemplate } from '@/systems/rpg/questTemplates';
+import { doorTile } from '@/data/furniture';
 
 describe('audit fixes', () => {
   it('players drink mana potions in fights and use buff skills', () => {
@@ -31,7 +32,13 @@ describe('audit fixes', () => {
     const w = buildWorld({ size: 128, npcs: 20, seed: 3 });
     const ed = new EntityEditor(() => w.rt, new History(20, () => undefined));
     const sp = w.players.spawnPoint();
-    const banker = ed.addNpc('banker', sp.x + 1, sp.y) ?? ed.addNpc('banker', sp.x, sp.y + 1);
+    // A banker needs a bank building nearby.
+    let bank = null;
+    for (let r = 2; r < 30 && !bank; r++) for (let k = 0; k < 8 && !bank; k++) bank = ed.placeObject('bank', sp.x + Math.round(Math.cos(k) * r), sp.y + Math.round(Math.sin(k) * r));
+    expect(bank).toBeTruthy();
+    const door = doorTile(bank!);
+    let banker = null;
+    for (let r = 0; r < 6 && !banker; r++) for (const [dx, dy] of [[0, 1], [1, 1], [-1, 1], [1, 0], [-1, 0], [0, 2]]) { banker = banker ?? ed.addNpc('banker', door.x + dx * (r + 1), door.y + dy * (r + 1)); }
     expect(banker).toBeTruthy();
     const p = w.players.join()!;
     p.gold = 800; p.level = 6; p.trainedLevel = 1;

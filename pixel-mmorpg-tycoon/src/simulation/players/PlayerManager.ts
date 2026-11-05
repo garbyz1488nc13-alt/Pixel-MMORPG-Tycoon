@@ -1,3 +1,4 @@
+import { BANK_INTEREST_PER_HOUR } from '@/data/buildings';
 import { createId, type EntityId } from '@/core/ids';
 import { EventBus } from '@/core/EventBus';
 import { BEHAVIORS, CLASS_SHARES, FACTORS, getBehavior, playerName } from '@/data/playerTypes';
@@ -315,6 +316,19 @@ export class PlayerManager {
     this.spawnActor(p, sp.x, sp.y);
   }
 
+  /** Bank interest, paid from the world treasury (only while a bank building exists). */
+  private payInterest(): void {
+    const eco = this.world.rpg.economy;
+    if (!this.world.entities.list('objects').some((o) => o.kind === 'bank')) return;
+    for (const p of this.world.sim.players) {
+      if (!p.bank) continue;
+      const due = Math.floor(p.bank * BANK_INTEREST_PER_HOUR * 100) / 100;
+      if (due <= 0 || eco.treasury < due) continue;
+      eco.treasury -= due;
+      p.bank += due;
+    }
+  }
+
   /** Are there trainers in the world? (Then new skills must be learned from one.) */
   hasTrainers(): boolean {
     return this.world.entities.list('npcs').some((n) => n.type === 'trainer');
@@ -382,6 +396,7 @@ export class PlayerManager {
   /** Once per game hour: returning players, newcomers, popularity drift. */
   hourly(): void {
     const sim = this.world.sim;
+    this.payInterest();
     if (!this.serversOpen) {
       if (!this.hasSpawn()) return;
       // Launch day: the queue of waiting players logs in at once.

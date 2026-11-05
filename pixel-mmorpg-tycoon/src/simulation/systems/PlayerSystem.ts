@@ -1,3 +1,4 @@
+import { serviceBuilding, temples, TEMPLE_HEAL } from '@/data/buildings';
 import type { EntityId } from '@/core/ids';
 import { getObjectDef } from '@/data/objects';
 import type { PlayerState } from '@/models/sim';
@@ -174,7 +175,8 @@ export class PlayerSystem implements SimulationSystem {
 
       if (a.state === 'dead') {
         if (mgr.gameMinutes >= a.respawnAt) {
-          const sp = this.pm.spawnPoint();
+          // Come back to life at the nearest temple (if any), otherwise at a spawn point.
+          const sp = this.templeNear(a) ?? this.pm.spawnPoint();
           respawn(mgr, a, sp.x, sp.y);
           a.hp = Math.ceil(a.maxHp / 2);
           m.act = null;
@@ -226,7 +228,7 @@ export class PlayerSystem implements SimulationSystem {
       a.targetId = null;
       if (attacker && !isAlive(attacker)) a.lastAttackerId = null;
 
-      if (ctx.tick - m.lastRegionCheck > 20) { m.lastRegionCheck = ctx.tick; this.checkRegions(p, a); this.helpAllies(p, a, m, ctx.tick); }
+      if (ctx.tick - m.lastRegionCheck > 20) { m.lastRegionCheck = ctx.tick; this.checkRegions(p, a); this.helpAllies(p, a, m, ctx.tick); this.templeHealing(p, a, ctx.tick); }
 
       if ((!m.act || ctx.tick >= m.nextPlan) && plans > 0) {
         plans--;
@@ -306,6 +308,37 @@ export class PlayerSystem implements SimulationSystem {
     p.inventory = removeItem(p.inventory, pot.id, 1).inv;
     p.mana = Math.min(maxMana, p.mana + (pot.stats.restoreMana ?? 0));
     m.lastPotion = tick;
+  }
+
+  private templeHealers: { x: number; y: number }[] = [];
+  private templeHealersAt = -1e9;
+
+  /** Healers who live by a temple heal hurt players walking past. */
+  private templeHealing(p: PlayerState, a: Actor, tick: number): void {
+    if (tick - this.templeHealersAt > 200) {
+      this.templeHealersAt = tick;
+      const w = this.world();
+      this.templeHealers = w.entities.list('npcs').filter((n) => n.type === 'healer' && serviceBuilding(w, n))
+        .map((n) => this.mgr.actors.get(n.id)).filter((x): x is Actor => !!x && isAlive(x)).map((x) => ({ x: x.x, y: x.y }));
+    }
+    if (a.hp >= a.maxHp || a.targetId) return;
+    for (const h of this.templeHealers) {
+      if (Math.hypot(h.x - a.x, h.y - a.y) > 5) continue;
+      const amount = Math.min(a.maxHp - a.hp, Math.ceil(a.maxHp * TEMPLE_HEAL));
+      a.hp += amount;
+      this.mgr.events.emit('heal', { target: a, healer: a, amount });
+      this.pm.feel(p, 'social', 0.2);
+      return;
+    }
+  }
+
+  private templeNear(a: Actor): { x: number; y: number } | null {
+    let best: { x: number; y: number } | null = null, bd = Infinity;
+    for (const t of temples(this.world())) {
+      const d = Math.hypot(t.x - a.x, t.y - a.y);
+      if (d < bd) { const s = this.mgr.randomWalkableNear(t.x, t.y + 1, 1.5); if (s) { bd = d; best = s; } }
+    }
+    return best;
   }
 
   /** Chat hook when a trainer teaches new skills. */
@@ -502,7 +535,14 @@ export class PlayerSystem implements SimulationSystem {
         } else if (act.purpose === 'turnin' && act.questId) this.pm.turnIn(p, act.questId);
         else if (act.purpose === 'talk') this.pm.questEvent(p, { type: 'talk', npcId: act.npcId });
         else if (act.purpose === 'bank') { const keep = 40; if (p.gold > keep) { p.bank = (p.bank ?? 0) + p.gold - keep; p.gold = keep; } }
-        else if (act.purpose === 'train') { p.trainedLevel = p.level; this.pm.feel(p, 'levelup', 0.3); this.trained?.(p); }
+        else if (act.purpose === 'train') {
+          p.trainedLevel = p.level;
+          this.pm.feel(p, 'levelup', 0.3);
+          // A trainer at the tavern also gives a lesson: bonus XP.
+          const npc = world.entities.get('npcs', act.npcId);
+          if (npc && serviceBuilding(world, npc)) this.pm.gainXp(p, p.level * 30);
+          this.trained?.(p);
+        }
         else if (act.purpose === 'deliver' && act.questId) {
           const q = world.entities.get('quests', act.questId);
           for (const o of q?.objectives ?? []) if (o.type === 'deliver' && o.targetId && o.receiverId === act.npcId)

@@ -1,3 +1,4 @@
+import { BUILDING_ROLE, NPC_HOUSED_HINT, NPC_STREET_HINT, SERVICE_BUILDING, serviceBuilding } from '@/data/buildings';
 import { ENTERABLE } from '@/data/furniture';
 import { getObjectDef } from '@/data/objects';
 import { t } from '@/i18n';
@@ -87,6 +88,7 @@ function ObjectInspector({ session, id, actions }: { session: GameSession; id: s
           </select>
         </Field>
       )}
+      {BUILDING_ROLE[o.kind] && <div className="feedback good"><div className="hint">{t(BUILDING_ROLE[o.kind])}</div></div>}
       {actions}
     </div>
   );
@@ -95,9 +97,18 @@ function ObjectInspector({ session, id, actions }: { session: GameSession; id: s
 function NpcInspector({ session, id, actions }: { session: GameSession; id: string; actions: JSX.Element }) {
   const npc = useEntity(session, 'npcs', id);
   const setTab = useEditorStore((s) => s.setTab);
+  useEntityList(session, 'objects');
   if (!npc) return null;
+  const needs = SERVICE_BUILDING[npc.type];
+  const housed = needs ? serviceBuilding(session.runtime, npc) : undefined;
   return (
     <div className="form">
+      {needs && (
+        <div className={`feedback ${housed ? 'good' : 'bad'}`}>
+          <b>{housed ? t('Works from a {b}', { b: t(getObjectDef(needs)?.name ?? needs) }) : t('No {b} nearby', { b: t(getObjectDef(needs)?.name ?? needs) })}</b>
+          <div className="hint">{t(housed ? NPC_HOUSED_HINT[npc.type]! : NPC_STREET_HINT[npc.type]!)}</div>
+        </div>
+      )}
       <NpcForm session={session} npc={npc} compact />
       <div className="chip-row">
         <button className="btn small" onClick={() => setTab('npc')}>{t('Inventory & shop…')}</button>

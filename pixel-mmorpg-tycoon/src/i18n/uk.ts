@@ -1815,4 +1815,22 @@ export const uk: Record<string, string> = {
   'new skills, yay!': 'нові навички, ура!',
   'trainer taught me a new move': 'тренер навчив нового прийому',
   'time to test my new skill': 'час випробувати нову навичку',
+
+  // ---- Buildings that matter
+  'Works from a {b}': 'Працює в будівлі: {b}',
+  'No {b} nearby': 'Поруч немає: {b}',
+  'A merchant within 8 tiles of the door restocks twice as fast. Without a shop merchants run a slow street stall.': 'Торговець у межах 8 клітинок від дверей поповнює товар удвічі швидше. Без магазину торговці мають повільний вуличний лоток.',
+  'A blacksmith within 8 tiles of the door restocks twice as fast.': 'Коваль у межах 8 клітинок від дверей поповнює товар удвічі швидше.',
+  'Dead players come back to life at the nearest temple. A healer living by it heals hurt players who walk past.': 'Загиблі гравці воскресають біля найближчого храму. Цілитель поруч лікує поранених, які проходять повз.',
+  'Lets a banker take deposits: players store gold safe from death and earn interest from the treasury.': 'Дає банкіру приймати вклади: гравці зберігають золото від втрат при смерті й отримують відсотки зі скарбниці.',
+  'Players rest and hang out inside (furniture). A trainer living here gives bonus XP lessons.': 'Гравці відпочивають і проводять час усередині (меблі). Тренер тут дає уроки з бонусним досвідом.',
+  'Restocks twice as fast.': 'Поповнює товар удвічі швидше.',
+  'Heals hurt players walking past the temple.': 'Лікує поранених гравців, що проходять повз храм.',
+  'Takes deposits; savings earn interest.': 'Приймає вклади; заощадження приносять відсотки.',
+  'Lessons give bonus XP.': 'Уроки дають бонусний досвід.',
+  'Street stall: restocks at half speed. Build a Shop within 8 tiles.': 'Вуличний лоток: поповнює товар удвічі повільніше. Збудуйте Магазин у межах 8 клітинок.',
+  'Restocks at half speed. Build a Smithy within 8 tiles.': 'Поповнює товар удвічі повільніше. Збудуйте Кузню в межах 8 клітинок.',
+  'Only sells potions. Build a Temple within 8 tiles so they heal players.': 'Лише продає зілля. Збудуйте Храм у межах 8 клітинок, щоб цілитель лікував гравців.',
+  'Cannot take deposits without a Bank within 8 tiles.': 'Не приймає вкладів без Банку в межах 8 клітинок.',
+  'Teaches skills, but no lessons. Put them by a Tavern.': 'Навчає навичок, але без уроків. Поселіть біля Таверни.',
 };

@@ -15,6 +15,7 @@ import { BOSS_PRESETS } from '@/data/bossTypes';
 import { QUEST_TEMPLATES } from '@/systems/rpg/questTemplates';
 import { LEAGUES } from '@/simulation/liveops/SeasonService';
 import { FURNITURE } from '@/data/furniture';
+import { BUILDING_ROLE, NPC_HOUSED_HINT, NPC_STREET_HINT } from '@/data/buildings';
 import { CHAT } from '@/data/chatLines';
 import { CLAN_STYLES } from '@/data/clanData';
 import { EVENT_METRICS, EVENT_TYPES, TRIGGER_KINDS } from '@/data/eventTypes';
@@ -88,6 +89,7 @@ export function dynamicKeys(): Set<string> {
   CHEAT_KINDS.forEach((c) => { k.add(c.label); k.add(c.hint); });
   ANTI_CHEAT.forEach((a) => { k.add(a.name); k.add(a.description); });
   LEAGUES.forEach((l) => k.add(l.label));
+  [BUILDING_ROLE, NPC_HOUSED_HINT, NPC_STREET_HINT].forEach((m) => Object.values(m).forEach((x) => k.add(x!)));
   REGION_TYPES.forEach((r) => k.add(r.description));
   Object.values(PVP_LABEL).forEach((x) => k.add(x));
   ['Red', 'Blue'].forEach((x) => k.add(x));

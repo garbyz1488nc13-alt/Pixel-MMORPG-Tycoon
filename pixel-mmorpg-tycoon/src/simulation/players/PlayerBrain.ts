@@ -1,3 +1,4 @@
+import { serviceBuilding } from '@/data/buildings';
 import type { EntityId } from '@/core/ids';
 import { getBehavior } from '@/data/playerTypes';
 import { TerrainId } from '@/data/terrain';
@@ -404,6 +405,8 @@ export class PlayerBrain {
     let best: EntityId | null = null, bd = 80;
     for (const n of this.world.entities.list('npcs')) {
       if (n.type !== type) continue;
+      // Bankers only take deposits when they have a bank building.
+      if (type === 'banker' && !serviceBuilding(this.world, n)) continue;
       const act = this.actors.actors.get(n.id);
       if (!act || act.state === 'dead') continue;
       const d = Math.hypot(act.x - a.x, act.y - a.y);
