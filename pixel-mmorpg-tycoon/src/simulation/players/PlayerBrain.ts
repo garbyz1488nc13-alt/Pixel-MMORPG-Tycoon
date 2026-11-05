@@ -5,6 +5,7 @@ import { GATHER_SOURCES } from '@/data/rpgDefaults';
 import { getRegionType, type PvpRule } from '@/data/regionTypes';
 import { doorTile } from '@/data/furniture';
 import type { PlayerState } from '@/models/sim';
+import { unlockedSkills } from '@/systems/rpg/progression';
 import { totalUnits } from '@/systems/rpg/inventory';
 import { sellPrice } from '@/systems/rpg/pricing';
 import type { ActorManager } from '../actors/ActorManager';
@@ -18,7 +19,7 @@ import type { ClanService } from '../clans/ClanService';
 export type Activity =
   | { kind: 'hunt'; areaId: EntityId; templateId?: EntityId; spot?: { x: number; y: number } }
   | { kind: 'gather'; itemId: EntityId; kinds: string[]; objectId?: EntityId; timer: number; done: number }
-  | { kind: 'npc'; npcId: EntityId; purpose: 'accept' | 'turnin' | 'talk' | 'deliver'; questId?: EntityId }
+  | { kind: 'npc'; npcId: EntityId; purpose: 'accept' | 'turnin' | 'talk' | 'deliver' | 'bank' | 'train'; questId?: EntityId }
   | { kind: 'trade'; merchantId: EntityId; buyItemId?: EntityId }
   | { kind: 'explore'; regionId: EntityId; x: number; y: number }
   | { kind: 'rest'; x: number; y: number }
@@ -97,7 +98,10 @@ export class PlayerBrain {
       const crowd = hunters / Math.max(1, area.maxCount);
       const distance = a ? Math.hypot(area.x + area.w / 2 - a.x, area.y + area.h / 2 - a.y) : 0;
       // Event monsters (invasions, bosses, dungeons) draw a crowd regardless of level.
-      const fit = templateId ? 1 : area.eventId ? 0.85 : diff >= -4 && diff <= 2 ? 1 - Math.abs(diff + 1) * 0.12 : diff > 2 ? 0.15 / diff : 0.2;
+      let fit = templateId ? 1 : area.eventId ? 0.85 : diff >= -4 && diff <= 2 ? 1 - Math.abs(diff + 1) * 0.12 : diff > 2 ? 0.15 / diff : 0.2;
+      // The designer's recommended level range for the region counts too.
+      const lv = !templateId && this.regionLevels(Math.floor(area.x + area.w / 2), Math.floor(area.y + area.h / 2));
+      if (lv) fit += p.level < lv.min - 1 ? -0.35 : p.level > lv.max + 3 ? -0.2 : 0.1;
       out.push({ areaId: area.id, diff, score: fit - Math.min(0.6, crowd * 0.25) - distance / 400 });
     }
     return out.sort((x, y) => y.score - x.score);
@@ -202,10 +206,15 @@ export class PlayerBrain {
           const cur = p.equipment[it.slot] ? this.world.entities.get('items', p.equipment[it.slot]!) : undefined;
           gain = this.pm.itemScore(it) - (cur ? this.pm.itemScore(cur) : 0);
         } else if (it.category === 'potion' && (it.stats.heal ?? 0) > 0 && this.healingCount(p) < 2) gain = 3;
+        else if (it.category === 'potion' && (it.stats.restoreMana ?? 0) > 0 && (p.classKey === 'mage' || p.classKey === 'paladin') && this.manaCount(p) < 2) gain = 2.5;
         if (gain > 0 && (!best || gain > best.gain)) best = { merchantId: m.id, itemId: it.id, gain };
       }
     }
     return best;
+  }
+
+  manaCount(p: PlayerState): number {
+    return p.inventory.reduce((n, s) => n + ((this.world.entities.get('items', s.itemId)?.stats.restoreMana ?? 0) > 0 ? s.qty : 0), 0);
   }
 
   healingCount(p: PlayerState): number {
@@ -239,6 +248,14 @@ export class PlayerBrain {
       add('npc', 0.45 + 0.4 * w.quest, () => ({ kind: 'npc', npcId: nearest.giverId!, purpose: 'accept', questId: nearest.id }));
     } else if (!avail.length && !active.length && w.quest > 1 && this.rand() < 0.3) this.pm.feel(p, 'noQuests');
     if (active.length) add('hunt', 0.45 + 0.4 * w.quest, () => this.questActivity(p));
+
+    // Bankers keep gold safe from death penalties; trainers teach newly unlocked skills.
+    const banker = p.gold > 150 && this.nearestNpc(a, 'banker');
+    if (banker) add('npc', 0.3 + Math.min(0.5, p.gold / 2000), () => ({ kind: 'npc', npcId: banker, purpose: 'bank' }));
+    if (this.pm.hasTrainers() && this.pm.skillLevel(p) < p.level && unlockedSkills(this.pm.classDef(p), p.level).length > unlockedSkills(this.pm.classDef(p), this.pm.skillLevel(p)).length) {
+      const trainer = this.nearestNpc(a, 'trainer');
+      if (trainer) add('npc', 0.7, () => ({ kind: 'npc', npcId: trainer, purpose: 'train' }));
+    }
 
     const sellable = totalUnits(this.econ.sellable({ inventory: p.inventory } as never));
     const slotsUsed = p.inventory.length;
@@ -381,6 +398,28 @@ export class PlayerBrain {
       for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) if (this.world.nav.isWalkable(x + dx, y + dy)) return { x: x + dx, y: y + dy };
     }
     return null;
+  }
+
+  private nearestNpc(a: Actor, type: string): EntityId | null {
+    let best: EntityId | null = null, bd = 80;
+    for (const n of this.world.entities.list('npcs')) {
+      if (n.type !== type) continue;
+      const act = this.actors.actors.get(n.id);
+      if (!act || act.state === 'dead') continue;
+      const d = Math.hypot(act.x - a.x, act.y - a.y);
+      if (d < bd) { bd = d; best = n.id; }
+    }
+    return best;
+  }
+
+  /** Level range of the region a tile lies in (the smallest region with a range), if any. */
+  regionLevels(x: number, y: number): { min: number; max: number } | null {
+    let best: { min: number; max: number; area: number } | null = null;
+    for (const r of this.world.entities.list('regions')) {
+      if (x < r.x || y < r.y || x >= r.x + r.w || y >= r.y + r.h || getRegionType(r.type).safe) continue;
+      if (!best || r.w * r.h <= best.area) best = { min: r.minLevel, max: r.maxLevel, area: r.w * r.h };
+    }
+    return best;
   }
 
   private distTo(a: Actor, npcId: EntityId): number {

@@ -77,6 +77,13 @@ export interface PlayerState {
   clanId?: EntityId;
   /** Season titles ("Season 2 champion"). */
   titles?: string[];
+  /** Gold stored with a banker (safe when dying). */
+  bank?: number;
+  /** Highest level whose skills a trainer has taught (only matters if the world has trainers). */
+  trainedLevel?: number;
+  /** War Cry & co: damage bonus until this tick (runtime). */
+  buffUntil?: number;
+  buffPower?: number;
 }
 
 export type ClanStyle = 'hardcore' | 'casual' | 'pvp' | 'traders';

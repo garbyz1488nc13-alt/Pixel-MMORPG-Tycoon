@@ -94,6 +94,7 @@ export class EntityRenderer {
         if (this.onScreen(toX, toY) || this.onScreen(fromX, fromY)) audio.play('place');
       }),
       session.actors.events.on('heal', ({ target, amount }) => {
+        if (amount === 0) { this.burst(target.x * S, (target.y - 0.6) * S, 10, [0xf2c14e, 0xffffff], 0.08, 500, 2, -0.03); return; } // a buff
         this.spawnFloat(target.x * S, (target.y - 0.6) * S, `+${amount}`, '#9cf0c0');
         this.burst(target.x * S, (target.y - 0.4) * S, 8, [0x9cf0c0, 0xffffff], 0.06, 600, 2, -0.03);
       }),

@@ -1807,4 +1807,12 @@ export const uk: Record<string, string> = {
   'Mushrooms': 'Гриби',
   'Goblin Totem': 'Гоблінський тотем',
   'Wooden Spikes': 'Дерев\'яні кілки',
+
+  // ---- Audit fixes
+  'in the bank': 'у банку',
+  'Skills learned up to level': 'Навички вивчено до рівня',
+  'These were used when the world was created. Change the treasury in the Economy tab, hire NPCs on the map; players arrive on their own.': 'Ці значення використано під час створення світу. Скарбницю змінюйте у вкладці «Економіка», NPC наймайте на мапі; гравці приходять самі.',
+  'new skills, yay!': 'нові навички, ура!',
+  'trainer taught me a new move': 'тренер навчив нового прийому',
+  'time to test my new skill': 'час випробувати нову навичку',
 };

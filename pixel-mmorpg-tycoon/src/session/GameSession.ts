@@ -132,6 +132,7 @@ export class GameSession {
     this.engine.addSystem(this.chat);
     this.playerSystem.groupEvent = (leader, members) => this.chat.onGroup(leader, members);
     this.playerSystem.leisureEvent = (p, what) => this.chat.onLeisure(p, what);
+    this.playerSystem.trained = (p) => this.chat.onLeisure(p, 'trained');
     this.engine.addSystem(new HourlySystem(this.players, this.studio, (debt) => {
       if (debt > 0) log.event(t('The studio is in debt (day {n}). Building is blocked until funds are positive.', { n: debt }), 'warn', this.runtime.clock.totalMinutes);
     }, this.community, this.analytics, this.worldEvents, this.clans, [this.auction, this.seasons, this.patches]));

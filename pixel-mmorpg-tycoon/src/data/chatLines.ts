@@ -26,6 +26,7 @@ export const CHAT: Record<string, string[]> = {
   patch: ['new patch!!', 'read the patch notes?', 'they nerfed my class >:('],
   groupAsk: ['LFG! who wants to hunt?', 'group up, anyone?', 'need 2 more, come!'],
   groupYes: ['sure, inv me', 'coming!', 'I\'m in o/', 'wait for me'],
+  trained: ['new skills, yay!', 'trainer taught me a new move', 'time to test my new skill'],
   caught: ['caught a fish!', 'nice catch :D', 'fish for dinner'],
   afk: ['brb', 'afk 5 min', 'brb food'],
   campfire: ['cozy fire', 'warming up :)', 'nice spot'],

@@ -33,6 +33,10 @@ export type PlayerEvents = {
 /** Gold a new player starts with (enough for a couple of basic armour pieces). */
 export const STARTING_PLAYER_GOLD = 80;
 
+/** World difficulty: how quickly unhappy players quit, and how forgiving their mood is. */
+export const CHURN_BY_DIFFICULTY: Record<string, number> = { relaxed: 0.6, normal: 1, hard: 1.4, brutal: 1.9 };
+export const MOOD_BY_DIFFICULTY: Record<string, number> = { relaxed: 0.75, normal: 1, hard: 1.2, brutal: 1.4 };
+
 /** Churn multiplier for clan members. */
 export const CLAN_LOYALTY = 0.6;
 
@@ -108,7 +112,7 @@ export class PlayerManager {
     const p = this.byId.get(a.defId);
     if (!p) return null;
     const s = this.stats(p);
-    const dmgHack = p.cheat === 'damage' ? 3 : p.cheat === 'griefer' ? 2 : 1;
+    const dmgHack = (p.cheat === 'damage' ? 3 : p.cheat === 'griefer' ? 2 : 1) * ((p.buffUntil ?? 0) > this.actors.tick ? 1 + (p.buffPower ?? 0) / 100 : 1);
     const speedHack = p.cheat === 'speed' ? 2.5 : 1;
     return { damage: s.attack * dmgHack, defense: s.defense, attackRange: RANGED.has(p.classKey) ? 3.2 : 1.3, speed: (1.6 + Math.min(1, s.agi / 60)) * speedHack };
   }
@@ -148,7 +152,9 @@ export class PlayerManager {
 
   // ------------------------------------------------------- satisfaction
   feel(p: PlayerState, key: FactorKey, times = 1): void {
-    const d = FACTORS[key].delta * times;
+    // Harder worlds: bad experiences hurt more, good ones help less.
+    const diff = MOOD_BY_DIFFICULTY[this.world.config.difficulty] ?? 1;
+    const d = FACTORS[key].delta * times * (FACTORS[key].positive ? 2 - diff : diff);
     p.factors[key] = (p.factors[key] ?? 0) + d;
     p.satisfaction = Math.max(0, Math.min(100, p.satisfaction + d));
   }
@@ -282,7 +288,7 @@ export class PlayerManager {
     const classKey = pick(CLASS_SHARES, this.rand());
     const now = this.world.clock.totalMinutes;
     const p: PlayerState = {
-      id: createId('pl'), name: playerName(this.rand), classKey, behavior, level: 1, xp: 0, gold: STARTING_PLAYER_GOLD, hp: 0, mana: 0,
+      id: createId('pl'), name: playerName(this.rand), classKey, behavior, level: 1, trainedLevel: 1, xp: 0, gold: STARTING_PLAYER_GOLD, hp: 0, mana: 0,
       inventory: [], equipment: {}, quests: [], completedQuests: [], satisfaction: 60, factors: {}, visitedRegions: [],
       online: false, returnAt: 0, sessionLeft: 0, playMinutes: 0, joinedAt: now, x: 0, y: 0,
       stats: { kills: 0, deaths: 0, questsDone: 0, goldEarned: 0, pvpKills: 0 },
@@ -307,6 +313,17 @@ export class PlayerManager {
     p.x = sp.x;
     p.y = sp.y;
     this.spawnActor(p, sp.x, sp.y);
+  }
+
+  /** Are there trainers in the world? (Then new skills must be learned from one.) */
+  hasTrainers(): boolean {
+    return this.world.entities.list('npcs').some((n) => n.type === 'trainer');
+  }
+
+  /** Level whose skills the player can use: trained skills only when the world has trainers. */
+  skillLevel(p: PlayerState): number {
+    if (!this.hasTrainers()) return p.level;
+    return Math.min(p.level, p.trainedLevel ?? p.level); // older saves: everything already learned
   }
 
   /** Somewhere for players to appear: a spawn point on the map or inside a building. */
@@ -349,7 +366,7 @@ export class PlayerManager {
     p.online = false;
     const s = p.satisfaction;
     // Clan members are loyal: friends keep them around even when the game annoys them.
-    const quitChance = (s < 25 ? 0.75 : s < 40 ? 0.35 : s < 55 ? 0.08 : 0.02) * (p.clanId ? CLAN_LOYALTY : 1);
+    const quitChance = Math.min(0.95, (s < 25 ? 0.75 : s < 40 ? 0.35 : s < 55 ? 0.08 : 0.02) * (p.clanId ? CLAN_LOYALTY : 1) * CHURN_BY_DIFFICULTY[this.world.config.difficulty]);
     const quit = this.rand() < quitChance;
     const reason = quit ? this.worstFactor(p) : null;
     if (quit) {

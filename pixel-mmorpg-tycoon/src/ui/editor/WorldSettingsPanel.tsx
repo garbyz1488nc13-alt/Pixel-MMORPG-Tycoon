@@ -108,20 +108,10 @@ export function WorldSettingsPanel({ session }: { session: GameSession }) {
                 ))}
               </div>
             </div>
-            <div className="field">
-              <label>{t('Starting gold (treasury)')}</label>
-              <input className="input" type="number" min={0} step={500} value={rt.config.startingGold} onChange={(e) => updateConfig({ startingGold: Math.max(0, +e.target.value) })} />
-            </div>
-            <div className="two-col">
-              <div className="field">
-                <label>{t('Initial NPCs')}</label>
-                <input className="input" type="number" min={0} max={200} value={rt.config.initialNpcCount} onChange={(e) => updateConfig({ initialNpcCount: Math.max(0, Math.min(200, +e.target.value)) })} />
-              </div>
-              <div className="field">
-                <label>{t('Initial simulated players')}</label>
-                <input className="input" type="number" min={0} max={1000} value={rt.config.initialPlayerCount} onChange={(e) => updateConfig({ initialPlayerCount: Math.max(0, Math.min(1000, +e.target.value)) })} />
-              </div>
-            </div>
+            <div className="kv"><span>{t('Starting gold (treasury)')}</span><span>{rt.config.startingGold.toLocaleString()}</span></div>
+            <div className="kv"><span>{t('Initial NPCs')}</span><span>{rt.config.initialNpcCount}</span></div>
+            <div className="kv"><span>{t('Initial simulated players')}</span><span>{rt.config.initialPlayerCount}</span></div>
+            <div className="hint">{t('These were used when the world was created. Change the treasury in the Economy tab, hire NPCs on the map; players arrive on their own.')}</div>
             <div className="hint">{t('Created {date}', { date: formatDate(rt.createdAt) })} · ID {rt.id}</div>
           </div>
         </div>

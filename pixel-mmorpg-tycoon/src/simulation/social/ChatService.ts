@@ -77,7 +77,7 @@ export class ChatService implements SimulationSystem {
 
   /** Pastimes: fishing, AFK, campfire, dancing, sightseeing. */
   onLeisure(p: PlayerState, what: string): void {
-    const chance: Record<string, number> = { caught: 0.7, afk: 0.9, campfire: 0.4, dance: 0.5, sightsee: 0.3 };
+    const chance: Record<string, number> = { trained: 0.6, caught: 0.7, afk: 0.9, campfire: 0.4, dance: 0.5, sightsee: 0.3 };
     if (CHAT[what] && this.actors.rand() < (chance[what] ?? 0)) this.say(p.id, this.pick(what));
   }
 

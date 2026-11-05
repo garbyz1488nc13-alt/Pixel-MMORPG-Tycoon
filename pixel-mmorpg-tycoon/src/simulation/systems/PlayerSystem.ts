@@ -145,7 +145,7 @@ export class PlayerSystem implements SimulationSystem {
       const p = this.pm.get(victim.defId);
       if (!p) return;
       p.stats.deaths++;
-      p.gold = Math.floor(p.gold * 0.9);
+      p.gold = Math.floor(p.gold * 0.9); // banked gold is safe
       this.pm.feel(p, 'death');
       if (killer?.kind === 'player') {
         this.pm.feel(p, 'pvpKilled');
@@ -200,6 +200,8 @@ export class PlayerSystem implements SimulationSystem {
       }
       // Drink a potion / eat when low.
       if (a.hp < a.maxHp * 0.3 && ctx.tick - m.lastPotion > 30) this.heal(p, a, m, ctx.tick);
+      // Mana potions when out of mana in a fight.
+      if (inCombat && p.mana < stats.maxMana * 0.2 && ctx.tick - m.lastPotion > 30) this.drinkMana(p, m, ctx.tick, stats.maxMana);
 
       // Session over: log out once out of combat.
       // ("Just one more pull!" — raiders stay until the raid is over, within reason.)
@@ -276,7 +278,7 @@ export class PlayerSystem implements SimulationSystem {
     if (m.act?.kind === 'follow') { groupIds.add(m.act.leaderId); for (const f of this.followers(m.act.leaderId)) groupIds.add(f); }
     for (const f of this.followers(a.id)) groupIds.add(f);
     const cls = this.pm.classDef(p);
-    const healSkill = unlockedSkills(cls, p.level).find((s) => s.kind === 'heal' && s.manaCost <= p.mana && (m.skillReady.get(s.id) ?? 0) <= tick);
+    const healSkill = unlockedSkills(cls, this.pm.skillLevel(p)).find((s) => s.kind === 'heal' && s.manaCost <= p.mana && (m.skillReady.get(s.id) ?? 0) <= tick);
     for (const o of this.mgr.spatial.query(a.x, a.y, 7)) {
       if (o.kind !== 'player' || o.id === a.id || !isAlive(o) || o.hp > o.maxHp * 0.45) continue;
       const q = this.pm.get(o.defId);
@@ -297,6 +299,18 @@ export class PlayerSystem implements SimulationSystem {
     }
   }
 
+  private drinkMana(p: PlayerState, m: Mind, tick: number, maxMana: number): void {
+    const items = this.world().entities;
+    const pot = p.inventory.map((s) => items.get('items', s.itemId)).find((it) => it && (it.stats.restoreMana ?? 0) > 0);
+    if (!pot) return;
+    p.inventory = removeItem(p.inventory, pot.id, 1).inv;
+    p.mana = Math.min(maxMana, p.mana + (pot.stats.restoreMana ?? 0));
+    m.lastPotion = tick;
+  }
+
+  /** Chat hook when a trainer teaches new skills. */
+  trained: ((p: PlayerState) => void) | null = null;
+
   private heal(p: PlayerState, a: Actor, m: Mind, tick: number): void {
     const items = this.world().entities;
     const healers = p.inventory.map((s) => items.get('items', s.itemId)).filter((it) => it && (it.stats.heal ?? 0) > 0 && (it.category === 'potion' || it.category === 'food'));
@@ -308,7 +322,7 @@ export class PlayerSystem implements SimulationSystem {
       return;
     }
     const cls = this.pm.classDef(p);
-    const skill = unlockedSkills(cls, p.level).find((s) => s.kind === 'heal' && s.manaCost <= p.mana && (m.skillReady.get(s.id) ?? 0) <= tick);
+    const skill = unlockedSkills(cls, this.pm.skillLevel(p)).find((s) => s.kind === 'heal' && s.manaCost <= p.mana && (m.skillReady.get(s.id) ?? 0) <= tick);
     if (skill) {
       p.mana -= skill.manaCost;
       a.hp = Math.min(a.maxHp, a.hp + Math.round((a.maxHp * skill.power) / 100));
@@ -320,7 +334,18 @@ export class PlayerSystem implements SimulationSystem {
   /** Called on each attack: spend mana on the strongest ready attack skill. Returns damage multiplier. */
   private useSkill(p: PlayerState, m: Mind, tick: number): number {
     const cls = this.pm.classDef(p);
-    const skill = unlockedSkills(cls, p.level)
+    const known = unlockedSkills(cls, this.pm.skillLevel(p));
+    // Buffs (War Cry…) first: +power% damage for a while.
+    const buff = known.find((s) => s.kind === 'buff' && s.manaCost <= p.mana && (m.skillReady.get(s.id) ?? 0) <= tick && (p.buffUntil ?? 0) <= tick);
+    if (buff) {
+      p.mana -= buff.manaCost;
+      p.buffUntil = tick + 150;
+      p.buffPower = buff.power;
+      m.skillReady.set(buff.id, tick + buff.cooldown * 10);
+      const actor = this.mgr.actors.get(p.id);
+      if (actor) { actor.castUntil = tick + 10; this.mgr.events.emit('heal', { target: actor, healer: actor, amount: 0 }); }
+    }
+    const skill = known
       .filter((s) => s.kind === 'attack' && s.manaCost <= p.mana && (m.skillReady.get(s.id) ?? 0) <= tick)
       .sort((a, b) => b.power - a.power)[0];
     if (!skill) return 1;
@@ -476,6 +501,8 @@ export class PlayerSystem implements SimulationSystem {
           for (const q of this.pm.availableQuests(p).filter((q) => q.giverId === act.npcId).slice(0, 3)) this.pm.acceptQuest(p, q);
         } else if (act.purpose === 'turnin' && act.questId) this.pm.turnIn(p, act.questId);
         else if (act.purpose === 'talk') this.pm.questEvent(p, { type: 'talk', npcId: act.npcId });
+        else if (act.purpose === 'bank') { const keep = 40; if (p.gold > keep) { p.bank = (p.bank ?? 0) + p.gold - keep; p.gold = keep; } }
+        else if (act.purpose === 'train') { p.trainedLevel = p.level; this.pm.feel(p, 'levelup', 0.3); this.trained?.(p); }
         else if (act.purpose === 'deliver' && act.questId) {
           const q = world.entities.get('quests', act.questId);
           for (const o of q?.objectives ?? []) if (o.type === 'deliver' && o.targetId && o.receiverId === act.npcId)

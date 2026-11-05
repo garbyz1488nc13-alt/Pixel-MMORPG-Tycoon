@@ -47,7 +47,8 @@ export function PlayerDetail({ session, player, compact = false }: { session: Ga
       <div className="kv"><span>{t('XP')}</span><span>{player.xp} / {need || '—'}</span></div>
       <div className="kv"><span>{t('HP')}</span><span>{actor ? `${actor.hp}/${actor.maxHp}` : stats.maxHp}</span></div>
       <div className="kv"><span>{t('Attack')} / {t('Defense')}</span><span>{stats.attack} / {stats.defense}</span></div>
-      <div className="kv"><span>{session.runtime.rpg.economy.currencyName}</span><span>{player.gold}</span></div>
+      <div className="kv"><span>{session.runtime.rpg.economy.currencyName}</span><span>{player.gold}{player.bank ? ` + ${player.bank} ${t('in the bank')}` : ''}</span></div>
+      {session.players.hasTrainers() && <div className="kv"><span>{t('Skills learned up to level')}</span><span className={session.players.skillLevel(player) < player.level ? 'bad-text' : ''}>{session.players.skillLevel(player)}</span></div>}
       <div className="kv"><span>{t('Kills / deaths')}</span><span>{player.stats.kills} / {player.stats.deaths}</span></div>
       <div className="kv"><span>{t('Quests done')}</span><span>{player.stats.questsDone}</span></div>
       <div className="kv"><span>{t('Played')}</span><span>{Math.round(player.playMinutes / 60)} {t('h')}</span></div>

@@ -54,10 +54,12 @@ function quest(ctx: Ctx, name: string, description: string, objectives: { type: 
 /** Monsters that really spawn (outside lairs), closest to the level. */
 function monsterFor(ctx: Ctx, needLoot = false): CreatureTemplate | undefined {
   const s = ctx.world.entities;
-  const spawned = new Set(s.list('spawnAreas').filter((a) => !a.lair && !a.eventId && a.maxCount > 0).map((a) => a.templateId));
-  const list = s.list('creatureTemplates').filter((c) => spawned.has(c.id) && !c.boss && (!needLoot || c.loot.length));
+  const pop = new Map<string, number>();
+  for (const a of s.list('spawnAreas')) if (!a.lair && !a.eventId && a.maxCount > 0) pop.set(a.templateId, (pop.get(a.templateId) ?? 0) + a.maxCount);
+  const list = s.list('creatureTemplates').filter((c) => pop.has(c.id) && !c.boss && (!needLoot || c.loot.length));
   if (!list.length) return undefined;
-  const score = (c: CreatureTemplate) => Math.abs(c.level - ctx.level) + (c.level > ctx.level + 2 ? 5 : 0) + ctx.rand() * 0.5;
+  // Close to the level, and plenty of them alive (a pond of 6 slimes can't feed a whole server).
+  const score = (c: CreatureTemplate) => Math.abs(c.level - ctx.level) + (c.level > ctx.level + 2 ? 5 : 0) + 6 / Math.max(1, pop.get(c.id)!) + ctx.rand() * 0.5;
   return [...list].sort((a, b) => score(a) - score(b))[0];
 }
 
