@@ -141,7 +141,7 @@ function forest(p: Planner, r: TileRect): void {
       else if (roll < 0.425) p.place('mushrooms', x, y);
       else if (roll < 0.435) p.place('stump', x, y);
     }
-  if (r.w * r.h >= 64) p.spawnArea('wolf', shrink(r, 2), Math.min(8, Math.max(2, Math.round((r.w * r.h) / 120))), tr('Wolf den'));
+  if (r.w * r.h >= 64) p.spawnArea('wolf', shrink(r, 2), Math.min(12, Math.max(5, Math.round((r.w * r.h) / 60))), tr('Wolf den'));
 }
 
 function shrink(r: TileRect, n: number): TileRect {
@@ -383,8 +383,8 @@ export function generateStarterContent(world: WorldRuntime, npcCount: number, se
       p.place('hut', campRect.x + 1, campRect.y + 2);
       p.place('hut', campRect.x + campRect.w - 3, campRect.y + 2);
       for (const k of ['totem', 'totem', 'spikes', 'spikes', 'bones', 'bones', 'bones', 'torch', 'torch', 'tent']) p.place(k, campRect.x + rnd(p, campRect.w), campRect.y + 1 + rnd(p, Math.max(1, campRect.h - 1)));
-      p.spawnArea('goblin', campRect, 5, tr('Goblin camp'));
-      p.spawnArea('slime', campRect, 6, tr('Slime pond'));
+      p.spawnArea('goblin', campRect, 10, tr('Goblin camp'));
+      p.spawnArea('slime', campRect, 12, tr('Slime pond'));
       applyPlan(world, null, p, tr('Starter camp'));
     }
   }

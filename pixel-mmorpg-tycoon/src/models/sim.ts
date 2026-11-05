@@ -185,6 +185,8 @@ export interface SimState {
   /** Per boss lair (spawn area id). */
   lairStats: Record<EntityId, LairStats>;
   auction: AuctionState;
+  /** Per quest: how many times it was taken and completed (quest giver statistics). */
+  questStats?: Record<EntityId, { taken: number; done: number }>;
   season: SeasonState;
   patches: PatchState;
 }

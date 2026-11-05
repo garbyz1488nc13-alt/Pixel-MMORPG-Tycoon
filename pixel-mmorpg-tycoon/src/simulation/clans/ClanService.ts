@@ -118,7 +118,9 @@ export class ClanService implements SimulationSystem {
     const usedColors = new Set(this.sim.clans.map((c) => c.color));
     const color = CLAN_COLORS.find((c) => !usedColors.has(c)) ?? CLAN_COLORS[Math.floor(this.rand() * CLAN_COLORS.length)];
     const clan: Clan = {
-      id: createId('clan'), name, tag: clanTag(name), color, style: styleFor(founder.behavior), leaderId: founder.id,
+      id: createId('clan'), name, tag: clanTag(name), color,
+      // Usually the founder's own style, sometimes something else entirely.
+      style: this.rand() < 0.4 ? (['hardcore', 'casual', 'pvp', 'traders'] as const)[Math.floor(this.rand() * 4)] : styleFor(founder.behavior), leaderId: founder.id,
       members: [], foundedAt: this.now, fame: 0, drama: 0, raidWins: 0, raidWipes: 0, bossKills: {},
     };
     this.sim.clans.push(clan);

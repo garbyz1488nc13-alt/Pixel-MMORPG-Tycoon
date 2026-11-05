@@ -220,6 +220,13 @@ export class PlayerManager {
   acceptQuest(p: PlayerState, q: QuestDef): void {
     if (p.quests.some((x) => x.questId === q.id)) return;
     p.quests.push({ questId: q.id, counts: q.objectives.map(() => 0), status: 'active' });
+    this.questStat(q.id).taken++;
+  }
+
+  /** Quest giver statistics (taken / completed per quest). */
+  questStat(questId: EntityId): { taken: number; done: number } {
+    const all = (this.world.sim.questStats ??= {});
+    return (all[questId] ??= { taken: 0, done: 0 });
   }
 
   turnIn(p: PlayerState, questId: EntityId): void {
@@ -227,6 +234,7 @@ export class PlayerManager {
     const q = this.world.entities.get('quests', questId);
     if (idx < 0 || !q) return;
     p.quests.splice(idx, 1);
+    this.questStat(q.id).done++;
     if (!p.completedQuests.includes(q.id)) p.completedQuests.push(q.id);
     // Deliver objectives consume the items.
     for (const o of q.objectives) if (o.type === 'deliver' && o.targetId) p.inventory = removeItem(p.inventory, o.targetId, o.count).inv;

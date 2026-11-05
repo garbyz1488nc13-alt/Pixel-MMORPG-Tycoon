@@ -6,6 +6,7 @@ import type { CreatureTemplate, NpcDef } from '@/models/entities';
 import type { ObjectiveType, QuestDef } from '@/models/rpg';
 import type { WorldRuntime } from '@/simulation/WorldRuntime';
 import { xpToNext } from './progression';
+import { autoRewards } from './questRewards';
 
 /**
  * Ready-made quest blueprints for lazy designers: each one fills itself with this
@@ -47,7 +48,7 @@ function rewards(ctx: Ctx, weight: number): QuestDef['rewards'] {
 function quest(ctx: Ctx, name: string, description: string, objectives: { type: ObjectiveType; targetId: EntityId; count: number; receiverId?: EntityId }[], weight: number, extra: Partial<QuestDef> = {}): QuestDef {
   return {
     id: createId('quest'), name, description, giverId: ctx.giver.id, requiredLevel: Math.max(1, ctx.level),
-    objectives: objectives.map((o) => ({ id: createId('obj'), ...o })), rewards: rewards(ctx, weight), prerequisiteId: null, repeatable: false, ...extra,
+    objectives: objectives.map((o) => ({ id: createId('obj'), ...o })), rewards: rewards(ctx, weight), prerequisiteId: null, repeatable: false, autoRewards: true, ...extra,
   };
 }
 
@@ -138,7 +139,9 @@ export function questsFromTemplate(world: WorldRuntime, key: QuestTemplateKey, l
   const npcs = world.entities.list('npcs');
   const giver = (giverId && world.entities.get('npcs', giverId)) || npcs.find((n) => n.type === 'questgiver') || npcs[0];
   if (!giver) return { quests: [], error: tr('Place an NPC first — quests need a quest giver.') };
-  return build(key, { world, level: Math.max(1, Math.round(level)), giver, npcs, rand });
+  const res = build(key, { world, level: Math.max(1, Math.round(level)), giver, npcs, rand });
+  for (const q of res.quests) q.rewards = autoRewards(q, world);
+  return res;
 }
 
 /** A starter pack for a level: one quest of every kind that fits this world. */

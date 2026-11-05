@@ -44,7 +44,7 @@ export class Pathfinder {
       const dx = Math.abs((i % W) - gx);
       const dy = Math.abs(((i / W) | 0) - gy);
       // Scaled towards the road cost so paths actually follow roads (slightly inadmissible = faster).
-      return (Math.max(dx, dy) + 0.41 * Math.min(dx, dy)) * 0.6;
+      return (Math.max(dx, dy) + 0.41 * Math.min(dx, dy)) * 0.8;
     };
     this.g[start] = 0;
     this.f[start] = h(start);

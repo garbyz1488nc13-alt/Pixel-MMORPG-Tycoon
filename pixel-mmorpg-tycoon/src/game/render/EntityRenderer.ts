@@ -4,7 +4,7 @@ import { getCreatureType } from '@/data/creatureTypes';
 import { getNpcType } from '@/data/npcTypes';
 import { getObjectDef } from '@/data/objects';
 import { getRegionType } from '@/data/regionTypes';
-import { TILE_SIZE } from '@/data/terrain';
+import { TerrainId, TILE_SIZE } from '@/data/terrain';
 import type { GameSession } from '@/session/GameSession';
 import type { Actor } from '@/simulation/actors/Actor';
 import { ATTACK_COOLDOWN_TICKS } from '@/simulation/actors/combat';
@@ -307,6 +307,20 @@ export class EntityRenderer {
       // Standing players look around now and then.
       const lookAround = a.kind === 'player' && !moving && a.state !== 'attack' && Math.floor((this.time + (this.seed(a) % 3000)) / 2500) % 3 === 2;
       spr.setFlipX(lookAround ? a.facing > 0 : a.facing < 0);
+      // Fishing: face the water, a bobber floats there with rings around it.
+      if (f.frame.includes(':fish')) {
+        const g = this.session.runtime.grid;
+        const tx = Math.floor(a.x), ty = Math.floor(a.y);
+        const dir = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dy]) => g.inBounds(tx + dx, ty + dy) && g.get(tx + dx, ty + dy) === TerrainId.Water);
+        if (dir) {
+          spr.setFlipX(dir[0] < 0);
+          const bx = (tx + dir[0] + 0.5) * S + (dir[0] === 0 ? (dir[1] > 0 ? 6 : -6) : 0), by = (ty + dir[1] + 0.5) * S + Math.sin(this.time / 300) * 1.5;
+          const ring = (this.time / 1200) % 1;
+          ground.lineStyle(1, 0xffffff, 0.6 * (1 - ring)).strokeEllipse(bx, by + 2, 6 + ring * 14, 3 + ring * 6);
+          ground.fillStyle(0xffffff, 1).fillRect(bx - 2, by - 3, 4, 2);
+          ground.fillStyle(0xe2574c, 1).fillRect(bx - 2, by - 1, 4, 3);
+        }
+      }
       // Dust puffs from running feet.
       if (moving && a.kind !== 'npc' && Math.random() < dt / 900) this.burst(px, py + 6, 2, [0xb8a27a, 0x8f7c58], 0.02, 380, 2, -0.00005);
       if (warRegion && a.kind === 'player' && px >= warRegion.x * S && py >= warRegion.y * S && px < (warRegion.x + warRegion.w) * S && py < (warRegion.y + warRegion.h) * S) {
@@ -501,6 +515,13 @@ export class EntityRenderer {
   // ---------------------------------------------------------- raids & fx
   /** Raid rally points: a banner in the clan colour while the raid gathers. */
   private drawRaids(g: Phaser.GameObjects.Graphics): void {
+    // Meetups: a soft ring where players gather to talk.
+    for (const m of this.session.meetups.active) {
+      const x = (m.x + 0.5) * S, y = (m.y + 0.5) * S;
+      const pulse = 0.85 + 0.15 * Math.sin(this.time / 400);
+      g.lineStyle(2, 0xffe08a, 0.55).strokeEllipse(x, y, 4.4 * S * pulse, 3.2 * S * pulse);
+      g.fillStyle(0xffe08a, 0.08).fillEllipse(x, y, 4.4 * S * pulse, 3.2 * S * pulse);
+    }
     for (const r of this.session.runtime.sim.raids) {
       const clan = this.session.clans.get(r.clanId);
       const color = clan ? parseInt(clan.color.slice(1), 16) : 0xdddddd;

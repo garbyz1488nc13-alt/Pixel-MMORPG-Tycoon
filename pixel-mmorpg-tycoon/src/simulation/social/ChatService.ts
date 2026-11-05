@@ -81,6 +81,11 @@ export class ChatService implements SimulationSystem {
     if (CHAT[what] && this.actors.rand() < (chance[what] ?? 0)) this.say(p.id, this.pick(what));
   }
 
+  /** A random line of a chat category (English source key). */
+  line(cat: string): string {
+    return this.pick(cat);
+  }
+
   private pick(cat: string): string {
     const list = CHAT[cat] ?? EMOTES;
     return list[Math.floor(this.actors.rand() * list.length)];

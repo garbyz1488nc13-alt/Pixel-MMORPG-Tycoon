@@ -29,7 +29,8 @@ export type Activity =
   | { kind: 'idle'; ticks: number }
   | { kind: 'raid'; raidId: EntityId }
   | { kind: 'leisure'; action: LeisureAction; x: number; y: number; ticks: number; duration: number }
-  | { kind: 'follow'; leaderId: string; ticks: number };
+  | { kind: 'follow'; leaderId: string; ticks: number }
+  | { kind: 'meetup'; meetupId: EntityId; x: number; y: number; cx: number; cy: number };
 
 /** Little things players do between quests. */
 export type LeisureAction = 'fish' | 'campfire' | 'dance' | 'sightsee' | 'afk';
@@ -37,7 +38,7 @@ export type LeisureAction = 'fish' | 'campfire' | 'dance' | 'sightsee' | 'afk';
 /** Activity labels for the UI (English source strings). */
 export const ACTIVITY_LABEL: Record<Activity['kind'], string> = {
   hunt: 'Hunting', gather: 'Gathering', npc: 'Talking to NPC', trade: 'Trading', explore: 'Exploring',
-  rest: 'Resting', social: 'Socialising', pvp: 'Hunting players', idle: 'Idle', raid: 'Raiding a boss', leisure: 'Taking a break', follow: 'In a group',
+  rest: 'Resting', social: 'Socialising', pvp: 'Hunting players', idle: 'Idle', raid: 'Raiding a boss', leisure: 'Taking a break', follow: 'In a group', meetup: 'At a meetup',
 };
 
 /**
@@ -385,7 +386,8 @@ export class PlayerBrain {
       () => { const d = this.innDoor(a, 'social'); const s = d && this.actors.randomWalkableNear(d.x, d.y + 2, 2); return s ? mk('dance', s.x, s.y) : null; },
       () => { const s = this.actors.randomWalkableNear(a.x + (this.rand() - 0.5) * 30, a.y + (this.rand() - 0.5) * 30, 4); return s ? mk('sightsee', s.x, s.y) : null; },
     ];
-    const start = Math.floor(this.rand() * options.length);
+    // Fishing is the favourite pastime when there is water around.
+    const start = this.rand() < 0.4 ? 0 : Math.floor(this.rand() * options.length);
     for (let i = 0; i < options.length; i++) { const act = options[(start + i) % options.length](); if (act) return act; }
     return null;
   }
@@ -393,8 +395,9 @@ export class PlayerBrain {
   /** A walkable tile next to water, not too far away. */
   private waterEdge(a: Actor): { x: number; y: number } | null {
     const g = this.world.grid;
-    for (let k = 0; k < 40; k++) {
-      const x = Math.floor(a.x + (this.rand() - 0.5) * 50), y = Math.floor(a.y + (this.rand() - 0.5) * 50);
+    for (let k = 0; k < 120; k++) {
+      const r = 4 + (k / 120) * 36, ang = this.rand() * Math.PI * 2;
+      const x = Math.floor(a.x + Math.cos(ang) * r), y = Math.floor(a.y + Math.sin(ang) * r);
       if (!g.inBounds(x, y) || g.get(x, y) !== TerrainId.Water) continue;
       for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) if (this.world.nav.isWalkable(x + dx, y + dy)) return { x: x + dx, y: y + dy };
     }

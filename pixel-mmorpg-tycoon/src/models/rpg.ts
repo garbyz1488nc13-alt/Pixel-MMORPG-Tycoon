@@ -71,6 +71,8 @@ export interface QuestDef {
   /** Quest chain: this quest unlocks after the prerequisite is completed. */
   prerequisiteId: EntityId | null;
   repeatable: boolean;
+  /** Rewards are recalculated automatically from the objectives and level. */
+  autoRewards?: boolean;
 }
 
 export interface EconomyConfig {

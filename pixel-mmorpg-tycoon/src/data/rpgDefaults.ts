@@ -167,15 +167,15 @@ const S = (name: string, unlockLevel: number, kind: 'attack' | 'heal' | 'buff', 
 
 export const CLASS_SOURCE: { key: ClassDef['key']; name: string; description: string; primary: ClassDef['primary']; base: ClassDef['base']; growth: ClassDef['growth']; skills: [string, number, 'attack' | 'heal' | 'buff', number, number, number][] }[] = [
   { key: 'warrior', name: 'Warrior', description: 'Front-line fighter with heavy armour and high health.', primary: 'str', base: { str: 8, agi: 4, int: 2, vit: 7 }, growth: { str: 2.2, agi: 0.8, int: 0.3, vit: 1.8 },
-    skills: [['Power Strike', 1, 'attack', 1.8, 5, 4], ['War Cry', 5, 'buff', 20, 10, 20], ['Whirlwind', 12, 'attack', 2.6, 18, 10]] },
+    skills: [['Power Strike', 1, 'attack', 1.8, 5, 4], ['War Cry', 3, 'buff', 20, 10, 20], ['Whirlwind', 12, 'attack', 2.6, 18, 10]] },
   { key: 'mage', name: 'Mage', description: 'Master of destructive spells; fragile but deadly.', primary: 'int', base: { str: 2, agi: 3, int: 9, vit: 4 }, growth: { str: 0.3, agi: 0.7, int: 2.5, vit: 0.9 },
-    skills: [['Fireball', 1, 'attack', 2.2, 12, 3], ['Frost Nova', 6, 'attack', 1.6, 20, 8], ['Arcane Shield', 10, 'buff', 30, 25, 25]] },
+    skills: [['Fireball', 1, 'attack', 2.2, 12, 3], ['Frost Nova', 6, 'attack', 1.6, 20, 8], ['Arcane Shield', 7, 'buff', 30, 25, 25]] },
   { key: 'archer', name: 'Archer', description: 'Ranged damage dealer with keen eyes.', primary: 'agi', base: { str: 4, agi: 9, int: 3, vit: 5 }, growth: { str: 0.8, agi: 2.3, int: 0.5, vit: 1.1 },
-    skills: [['Aimed Shot', 1, 'attack', 2, 6, 4], ['Volley', 7, 'attack', 2.4, 15, 9], ['Eagle Eye', 12, 'buff', 25, 12, 30]] },
+    skills: [['Aimed Shot', 1, 'attack', 2, 6, 4], ['Volley', 7, 'attack', 2.4, 15, 9], ['Eagle Eye', 8, 'buff', 25, 12, 30]] },
   { key: 'rogue', name: 'Rogue', description: 'Swift and sneaky; critical strikes from the shadows.', primary: 'agi', base: { str: 5, agi: 8, int: 3, vit: 5 }, growth: { str: 1, agi: 2.1, int: 0.5, vit: 1 },
-    skills: [['Backstab', 1, 'attack', 2.4, 8, 5], ['Poison Blade', 5, 'buff', 15, 10, 15], ['Shadow Step', 10, 'attack', 3, 20, 12]] },
+    skills: [['Backstab', 1, 'attack', 2.4, 8, 5], ['Poison Blade', 3, 'buff', 15, 10, 15], ['Shadow Step', 10, 'attack', 3, 20, 12]] },
   { key: 'paladin', name: 'Paladin', description: 'Holy knight who both fights and heals.', primary: 'str', base: { str: 7, agi: 3, int: 5, vit: 7 }, growth: { str: 1.7, agi: 0.6, int: 1.2, vit: 1.6 },
-    skills: [['Holy Strike', 1, 'attack', 1.7, 8, 4], ['Lay on Hands', 4, 'heal', 40, 20, 20], ['Divine Aura', 10, 'buff', 20, 25, 30]] },
+    skills: [['Holy Strike', 1, 'attack', 1.7, 8, 4], ['Lay on Hands', 4, 'heal', 40, 20, 20], ['Divine Aura', 7, 'buff', 20, 25, 30]] },
 ];
 
 export function createDefaultClasses(): ClassDef[] {
@@ -186,7 +186,7 @@ export function createDefaultClasses(): ClassDef[] {
 }
 
 export const DEFAULT_PROGRESSION_RULES: Omit<ProgressionConfig, 'classes'> = {
-  maxLevel: 50, xpBase: 100, xpExponent: 1.5, baseHp: 50, hpPerVit: 10, baseMana: 20, manaPerInt: 8, attackPerPrimary: 1.5, defensePerVit: 0.5,
+  maxLevel: 50, xpBase: 70, xpExponent: 1.5, baseHp: 50, hpPerVit: 10, baseMana: 20, manaPerInt: 8, attackPerPrimary: 1.5, defensePerVit: 0.5,
 };
 
 export function createDefaultRpg(startingGold = DEFAULT_ECONOMY.treasury): RpgConfig {

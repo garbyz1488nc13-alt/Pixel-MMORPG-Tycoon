@@ -16,7 +16,7 @@ import type { PlayerManager } from '../players/PlayerManager';
 import { GAME_MINUTES_PER_TICK } from '../time';
 import type { SimContext, SimulationSystem } from '../types';
 
-interface Mind { act: Activity | null; nextPlan: number; stuck: number; skillReady: Map<EntityId, number>; lastPotion: number; lastRegionCheck: number; portal?: { from: EntityId; to: EntityId } | null }
+interface Mind { act: Activity | null; nextPlan: number; stuck: number; skillReady: Map<EntityId, number>; lastPotion: number; lastRegionCheck: number; portal?: { from: EntityId; to: EntityId } | null; pathFail?: { x: number; y: number; until: number } }
 
 /** Max AI re-plans per tick (spreads the cost when hundreds of players are online). */
 const PLANS_PER_TICK = 6;
@@ -43,6 +43,22 @@ export class PlayerSystem implements SimulationSystem {
   auction: { isDropOnly(itemId: string): boolean } | null = null;
   /** Clans & raids (set by the session). */
   clans: ClanService | null = null;
+
+  /** Send a player to a meetup (they stay until released). */
+  joinMeetup(playerId: string, meetupId: string, x: number, y: number, cx: number, cy: number): void {
+    const m = this.mind(playerId);
+    m.act = { kind: 'meetup', meetupId, x, y, cx, cy };
+    m.nextPlan = Number.MAX_SAFE_INTEGER;
+    const a = this.mgr.actors.get(playerId);
+    if (a) { a.path = null; a.targetId = null; }
+  }
+
+  /** Free for a meetup: not fighting, raiding, following or in PvP. */
+  isFree(playerId: string): boolean {
+    const a = this.mgr.actors.get(playerId);
+    const k = this.minds.get(playerId)?.act?.kind;
+    return !!a && !a.targetId && !['raid', 'follow', 'pvp', 'meetup', 'npc', 'trade'].includes(k ?? '');
+  }
 
   /** Make a player re-think right away (e.g. a raid formed or ended). */
   replan(playerId: string): void {
@@ -247,10 +263,19 @@ export class PlayerSystem implements SimulationSystem {
   groupEvent: ((leader: PlayerState, members: PlayerState[]) => void) | null = null;
 
   /** Who follows whom (runtime only). */
+  private followerMap = new Map<string, string[]>();
+  private followerTick = -1;
+
   private followers(leaderId: string): string[] {
-    const out: string[] = [];
-    for (const [id, m] of this.minds) if (m.act?.kind === 'follow' && m.act.leaderId === leaderId) out.push(id);
-    return out;
+    if (this.followerTick !== this.mgr.tick) {
+      this.followerTick = this.mgr.tick;
+      this.followerMap.clear();
+      for (const [id, m] of this.minds) if (m.act?.kind === 'follow') {
+        const list = this.followerMap.get(m.act.leaderId);
+        if (list) list.push(id); else this.followerMap.set(m.act.leaderId, [id]);
+      }
+    }
+    return this.followerMap.get(leaderId) ?? [];
   }
 
   /** A player heading out to hunt invites nearby players of a similar level. */
@@ -267,6 +292,7 @@ export class PlayerSystem implements SimulationSystem {
       if (this.mgr.rand() > friendly) continue;
       const mind = this.mind(o.id);
       mind.act = { kind: 'follow', leaderId: a.id, ticks: 0 };
+      this.followerTick = -1;
       mind.nextPlan = tick + 400;
       o.path = null;
       members.push(q);
@@ -451,9 +477,12 @@ export class PlayerSystem implements SimulationSystem {
     const m = this.mind(a.id);
     if (m.portal) { this.usePortal(a, m, speed); return false; }
     if (!a.path || a.goalX !== x || a.goalY !== y) {
+      // Don't hammer the pathfinder with a goal that just failed (e.g. another island).
+      if (m.pathFail && m.pathFail.x === x && m.pathFail.y === y && this.mgr.tick < m.pathFail.until) return false;
       const shortcut = Math.hypot(a.x - x, a.y - y) > 20 ? this.portalRoute(a, x, y, false) : null;
       if (shortcut) { m.portal = shortcut; return false; }
       if (!this.mgr.goTo(a, x, y, 6000)) {
+        m.pathFail = { x, y, until: this.mgr.tick + 20 };
         const any = this.portalRoute(a, x, y, true);
         if (any) m.portal = any;
         return false;
@@ -491,7 +520,8 @@ export class PlayerSystem implements SimulationSystem {
         }
         // Nothing to fight right now: walk into the area and wait.
         m.stuck++;
-        if (!act.spot || (!a.path && !m.portal && this.mgr.rand() < 0.05)) act.spot = this.mgr.randomTileInArea(area) ?? undefined;
+        const unreachable = act.spot && m.pathFail && m.pathFail.x === act.spot.x && m.pathFail.y === act.spot.y && this.mgr.tick < m.pathFail.until;
+        if (!act.spot || unreachable || (!a.path && !m.portal && this.mgr.rand() < 0.05)) act.spot = this.mgr.randomTileInArea(area) ?? undefined;
         if (act.spot && !this.moveTo(a, act.spot.x, act.spot.y, speed, 1.5)) { if (!a.path && !m.portal) a.state = 'idle'; }
         else a.state = 'idle';
         if (m.stuck > 160) { this.pm.feel(p, 'crowded'); this.done(m, tick); }
@@ -631,6 +661,12 @@ export class PlayerSystem implements SimulationSystem {
         if (act.ticks % 90 === 0) this.pm.feel(p, act.action === 'sightsee' ? 'explore' : 'social', 0.3);
         if (act.ticks === 1) this.leisureEvent?.(p, act.action);
         if (act.ticks > act.duration) this.done(m, tick);
+        return;
+      }
+      case 'meetup': {
+        if (!this.moveTo(a, act.x, act.y, speed, 0.9)) { if (!a.path && ++m.stuck > 60) { m.stuck = 0; a.path = null; } return; }
+        a.state = 'idle';
+        a.facing = act.cx >= a.x ? 1 : -1;
         return;
       }
       case 'follow': {

@@ -7,7 +7,7 @@ import type { WorldRuntime } from '../WorldRuntime';
  * Rebuilt lazily (one pass over the map) after any change.
  */
 /** Movement cost on roads and bridges: travellers prefer the paths you lay out. */
-export const ROAD_COST = 0.4;
+export const ROAD_COST = 0.5;
 
 export class NavGrid {
   walkable = new Uint8Array(0);

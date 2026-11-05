@@ -19,6 +19,7 @@ import { AuctionService } from '@/simulation/liveops/AuctionService';
 import { SeasonService } from '@/simulation/liveops/SeasonService';
 import { PatchService } from '@/simulation/liveops/PatchService';
 import { ChatService } from '@/simulation/social/ChatService';
+import { MeetupService } from '@/simulation/social/MeetupService';
 import { createWorldSave } from '@/systems/generation/createWorld';
 import { generateStarterContent } from '@/systems/generation/Populate';
 
@@ -57,6 +58,10 @@ export function buildWorld(opts: { size?: number; npcs?: number; seed?: number; 
   const chat = new ChatService(rt, actors, players, clans, auction, patches);
   ps.groupEvent = (leader, members) => chat.onGroup(leader, members);
   ps.leisureEvent = (p, what) => chat.onLeisure(p, what);
+  const meetups = new MeetupService(rt, actors, players, chat, clans);
+  meetups.assign = (id, mt, slot) => { const s = meetups.slotPos(mt, slot); ps.joinMeetup(id, mt.id, s.x, s.y, mt.x, mt.y); };
+  meetups.release = (id) => ps.replan(id);
+  meetups.isFree = (id) => ps.isFree(id);
   const engine = new SimulationEngine(rt);
   engine.addSystem(new ClockSystem(engine.events));
   engine.addSystem(new NpcSystem(actors));
@@ -65,7 +70,8 @@ export function buildWorld(opts: { size?: number; npcs?: number; seed?: number; 
   engine.addSystem(ps);
   engine.addSystem(clans);
   engine.addSystem(chat);
+  engine.addSystem(meetups);
   const hourly = new HourlySystem(players, studio, () => undefined, community, analytics, events, clans, [auction, seasons, patches]);
   engine.addSystem(hourly);
-  return { rt, actors, econ, studio, players, community, analytics, events, brain, ps, engine, hourly, clans, auction, seasons, patches, chat };
+  return { rt, actors, econ, studio, players, community, analytics, events, brain, ps, engine, hourly, clans, auction, seasons, patches, chat, meetups };
 }

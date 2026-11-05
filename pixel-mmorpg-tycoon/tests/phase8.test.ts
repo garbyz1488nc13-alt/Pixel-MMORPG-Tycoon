@@ -31,7 +31,9 @@ describe('studio economy', () => {
     const p2w = day('p2w');
     expect(cosm.row.sources?.shop ?? 0).toBeGreaterThan(30);
     expect(p2w.row.sources?.shop ?? 0).toBeGreaterThan((cosm.row.sources?.shop ?? 0) * 2);
-    expect(p2w.mood).toBeLessThan(cosm.mood);
+    // The p2w shop specifically annoys players (overall mood also depends on everything else they did).
+    const p2wAnger = (w: typeof p2w.w) => w.rt.sim.players.reduce((n, p) => n + (p.factors.p2w ?? 0), 0);
+    expect(p2wAnger(p2w.w)).toBeLessThan(p2wAnger(cosm.w));
     expect(p2w.w.players.online().some((p) => (p.factors.p2w ?? 0) < 0)).toBe(true);
   }, 30000);
 

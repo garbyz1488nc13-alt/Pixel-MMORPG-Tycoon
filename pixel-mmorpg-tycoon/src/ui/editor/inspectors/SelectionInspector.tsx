@@ -98,11 +98,25 @@ function NpcInspector({ session, id, actions }: { session: GameSession; id: stri
   const npc = useEntity(session, 'npcs', id);
   const setTab = useEditorStore((s) => s.setTab);
   useEntityList(session, 'objects');
+  useLiveCounts(session);
   if (!npc) return null;
   const needs = SERVICE_BUILDING[npc.type];
+  const given = session.runtime.entities.list('quests').filter((q) => q.giverId === npc.id);
+  const qs = session.runtime.sim.questStats ?? {};
+  const taken = given.reduce((n, q) => n + (qs[q.id]?.taken ?? 0), 0);
+  const done = given.reduce((n, q) => n + (qs[q.id]?.done ?? 0), 0);
   const housed = needs ? serviceBuilding(session.runtime, npc) : undefined;
   return (
     <div className="form">
+      {given.length > 0 && (
+        <div className="feedback good">
+          <b>{t('Quest giver')}</b>
+          <div className="kv"><span>{t('Quests offered')}</span><span>{given.length}</span></div>
+          <div className="kv"><span>{t('Times taken')}</span><span>{taken}</span></div>
+          <div className="kv"><span>{t('Times completed')}</span><span>{done}{taken ? ` (${Math.round((done / taken) * 100)}%)` : ''}</span></div>
+          {given.slice(0, 6).map((q) => <div key={q.id} className="kv hint"><span>{q.name}</span><span>{qs[q.id]?.taken ?? 0} / {qs[q.id]?.done ?? 0}</span></div>)}
+        </div>
+      )}
       {needs && (
         <div className={`feedback ${housed ? 'good' : 'bad'}`}>
           <b>{housed ? t('Works from a {b}', { b: t(getObjectDef(needs)?.name ?? needs) }) : t('No {b} nearby', { b: t(getObjectDef(needs)?.name ?? needs) })}</b>

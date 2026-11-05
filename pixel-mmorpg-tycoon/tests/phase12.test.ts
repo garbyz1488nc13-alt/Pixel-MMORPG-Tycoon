@@ -16,8 +16,10 @@ describe('portals', () => {
     let far: { x: number; y: number } | null = null;
     for (let r = 50; r < 120 && !far; r += 5) far = w.actors.randomWalkableNear(a.x + (a.x < 64 ? r : -r), a.y, 6);
     expect(far).toBeTruthy();
-    const pa = ed.placeObject('portal', near.x, near.y)!;
-    const pb = ed.placeObject('portal', far!.x, far!.y)!;
+    const place = (x: number, y: number) => { for (let r = 0; r < 4; r++) for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1], [1, 1]]) { const o = ed.placeObject('portal', x + dx * r, y + dy * r); if (o) return o; } return null; };
+    const pa = place(near.x, near.y)!;
+    const pb = place(far!.x, far!.y)!;
+    expect(pa && pb).toBeTruthy();
     ed.update('objects', pa.id, { linkId: pb.id });
     ed.update('objects', pb.id, { linkId: pa.id });
     let used = 0;

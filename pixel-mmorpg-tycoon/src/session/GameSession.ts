@@ -23,6 +23,7 @@ import { AuctionService } from '@/simulation/liveops/AuctionService';
 import { SeasonService, leagueFor } from '@/simulation/liveops/SeasonService';
 import { PatchService } from '@/simulation/liveops/PatchService';
 import { ChatService } from '@/simulation/social/ChatService';
+import { MeetupService } from '@/simulation/social/MeetupService';
 import { audio } from '@/audio/AudioEngine';
 import { doorTile } from '@/data/furniture';
 import type { PlayerState } from '@/models/sim';
@@ -81,6 +82,7 @@ export class GameSession {
   readonly seasons: SeasonService;
   readonly patches: PatchService;
   readonly chat: ChatService;
+  readonly meetups: MeetupService;
   readonly bridge = new EventBus<BridgeEvents>();
   slot: SaveSlotKey;
   /** Copied objects for Ctrl+C / Ctrl+V. */
@@ -133,6 +135,11 @@ export class GameSession {
     this.playerSystem.groupEvent = (leader, members) => this.chat.onGroup(leader, members);
     this.playerSystem.leisureEvent = (p, what) => this.chat.onLeisure(p, what);
     this.playerSystem.trained = (p) => this.chat.onLeisure(p, 'trained');
+    this.meetups = new MeetupService(this.runtime, this.actors, this.players, this.chat, this.clans);
+    this.meetups.assign = (id, mt, slot) => { const s = this.meetups.slotPos(mt, slot); this.playerSystem.joinMeetup(id, mt.id, s.x, s.y, mt.x, mt.y); };
+    this.meetups.release = (id) => this.playerSystem.replan(id);
+    this.meetups.isFree = (id) => this.playerSystem.isFree(id);
+    this.engine.addSystem(this.meetups);
     this.engine.addSystem(new HourlySystem(this.players, this.studio, (debt) => {
       if (debt > 0) log.event(t('The studio is in debt (day {n}). Building is blocked until funds are positive.', { n: debt }), 'warn', this.runtime.clock.totalMinutes);
     }, this.community, this.analytics, this.worldEvents, this.clans, [this.auction, this.seasons, this.patches]));
@@ -191,6 +198,8 @@ export class GameSession {
       }),
       this.patches.events.on('released', ({ record }) =>
         log.event(t('Patch {v} is live! Hype {h}, new bugs: {b}.', { v: record.version, h: record.hype, b: record.bugsIntroduced }), 'success', this.runtime.clock.totalMinutes)),
+      this.meetups.events.on('ended', ({ outcome, params }) =>
+        log.sim(t('Meetup: {text}', { text: t(outcome, params) }), 'info', this.runtime.clock.totalMinutes)),
       this.clans.events.on('founded', ({ clan, founder }) =>
         log.event(t('{name} founded the clan "{clan}" [{tag}].', { name: founder.name, clan: clan.name, tag: clan.tag }), 'success', this.runtime.clock.totalMinutes)),
       this.clans.events.on('disbanded', ({ clan, reason }) =>

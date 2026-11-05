@@ -96,6 +96,9 @@ export function dynamicKeys(): Set<string> {
   FURNITURE.forEach((f) => { k.add(f.name); if (f.hint) k.add(f.hint); });
   Object.values(CHAT).forEach((l) => l.forEach((x) => k.add(x)));
   ['Runner-up', 'Third place', 'Auction', 'Seasons', 'Patches', 'Slower', 'Faster', 'Unchanged'].forEach((s) => k.add(s));
+  const meetupSrc = readFileSync(join(__dirname, '../src/simulation/social/MeetupService.ts'), 'utf8');
+  for (const m of meetupSrc.matchAll(/outcome = '((?:\\.|[^'])*)'/g)) k.add(m[1].replace(/\\'/g, "'"));
+  for (const m of meetupSrc.matchAll(/let outcome = '((?:\\.|[^'])*)'/g)) k.add(m[1]);
   const patchSrc = readFileSync(join(__dirname, '../src/simulation/liveops/PatchService.ts'), 'utf8');
   for (const m of patchSrc.matchAll(/(?:key|label): '([A-Z{](?:\\.|[^'])*)'/g)) k.add(m[1].replace(/\\'/g, "'"));
   for (const m of patchSrc.matchAll(/'((?:Faster|Slower) levelling[^']*)'/g)) k.add(m[1]);

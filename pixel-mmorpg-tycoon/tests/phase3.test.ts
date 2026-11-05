@@ -81,8 +81,8 @@ describe('loot & progression', () => {
   it('computes XP curve and stats with equipment level requirements', () => {
     const { rt, item } = setup();
     const p = rt.rpg.progression;
-    expect(xpToNext(1, p)).toBe(100);
-    expect(xpToNext(4, p)).toBe(800);
+    expect(xpToNext(1, p)).toBe(p.xpBase);
+    expect(xpToNext(4, p)).toBe(Math.round(p.xpBase * Math.pow(4, p.xpExponent)));
     expect(levelForXp(totalXpFor(10, p), p)).toBe(10);
     const warrior = p.classes.find((c) => c.key === 'warrior')!;
     const bare = characterStats(warrior, 10, p);

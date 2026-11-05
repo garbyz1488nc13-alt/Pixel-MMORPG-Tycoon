@@ -48,7 +48,7 @@ describe('audit fixes', () => {
     const m = w.ps.mind(p.id);
     for (let i = 0; i < 3000 && (!(p.bank ?? 0) || (p.trainedLevel ?? 1) < 6); i++) { if (!m.act) m.nextPlan = 0; w.engine.step(); p.sessionLeft = 999; }
     expect(p.bank ?? 0).toBeGreaterThan(0);
-    expect(p.trainedLevel).toBe(6);
+    expect(p.trainedLevel).toBeGreaterThanOrEqual(6); // a tavern lesson may level them up further
   }, 60000);
 
   it('region level ranges steer where players hunt', () => {

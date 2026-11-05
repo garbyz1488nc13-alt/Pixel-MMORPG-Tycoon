@@ -11,6 +11,7 @@ import { Field, NumberInput, TextInput } from '../components/Fields';
 import { useEntityList } from '../hooks/useEntities';
 import { ItemRowEditor } from './ItemRowEditor';
 import { useRpg } from './useRpg';
+import { autoRewards } from '@/systems/rpg/questRewards';
 import { QuestTemplatesPanel } from './QuestTemplatesPanel';
 
 export function QuestsTab({ session }: { session: GameSession }) {
@@ -28,12 +29,18 @@ export function QuestsTab({ session }: { session: GameSession }) {
     <div className="tab-page">
       <div className="panel tab-list">
         <div className="panel-header">{t('Quests')} ({quests.length})
-          <button className="btn small primary" onClick={() => setCurrent(session.entities.addQuest(defaultGiver).id)}>+ {t('New quest')}</button>
+          <span className="row">
+            <button className="btn small" title={t('Set every quest to automatic rewards and recalculate them.')} onClick={async () => {
+              if (!(await confirmDialog({ title: t('Recalculate rewards'), message: t('Recalculate XP and gold for all {n} quests from their objectives and level? (Undo with Ctrl+Z.)', { n: quests.length }), confirmLabel: t('Recalculate') }))) return;
+              session.entities.recalcQuestRewards();
+            }}>{t('Auto rewards for all')}</button>
+            <button className="btn small primary" onClick={() => setCurrent(session.entities.addQuest(defaultGiver).id)}>+ {t('New quest')}</button>
+          </span>
         </div>
         <QuestTemplatesPanel session={session} giverId={defaultGiver} onCreated={setCurrent} />
         <div className="table-scroll scroll">
           <table className="data-table">
-            <thead><tr><th>{t('Name')}</th><th>{t('Quest giver')}</th><th>{t('Lv')}</th><th>{t('Chain')}</th><th>{t('Objectives')}</th><th>{t('Status')}</th></tr></thead>
+            <thead><tr><th>{t('Name')}</th><th>{t('Quest giver')}</th><th>{t('Lv')}</th><th>{t('Chain')}</th><th>{t('Objectives')}</th><th title={t('Taken / completed by players')}>{t('Taken / done')}</th><th>{t('Status')}</th></tr></thead>
             <tbody>
               {[...quests].sort((a, b) => chainPosition(a, store) - chainPosition(b, store) || a.requiredLevel - b.requiredLevel).map((q) => {
                 const issues = validateQuest(q, store, session.runtime.rpg);
@@ -45,6 +52,7 @@ export function QuestsTab({ session }: { session: GameSession }) {
                     <td>{q.requiredLevel}</td>
                     <td>{chainPosition(q, store)}</td>
                     <td>{q.objectives.length}</td>
+                    <td>{session.runtime.sim.questStats?.[q.id]?.taken ?? 0} / {session.runtime.sim.questStats?.[q.id]?.done ?? 0}</td>
                     <td className={errors ? 'bad' : issues.length ? 'warn' : 'good'}>{errors ? t('{n} errors', { n: errors }) : issues.length ? t('{n} warnings', { n: issues.length }) : t('Ready')}</td>
                   </tr>
                 );
@@ -82,7 +90,12 @@ function TargetSelect({ session, type, value, onChange }: { session: GameSession
 
 function QuestForm({ session, quest, onDuplicated, onDeleted }: { session: GameSession; quest: QuestDef; onDuplicated: (id: EntityId) => void; onDeleted: () => void }) {
   const store = session.runtime.entities;
-  const up = (patch: Partial<QuestDef>, label = t('Edit quest')) => session.entities.update('quests', quest.id, patch, label);
+  // With auto rewards on, any change to objectives/level/repeatable re-prices the quest.
+  const up = (patch: Partial<QuestDef>, label = t('Edit quest')) => {
+    const next = { ...quest, ...patch };
+    if (next.autoRewards && !('rewards' in patch)) patch = { ...patch, rewards: autoRewards(next, session.runtime) };
+    session.entities.update('quests', quest.id, patch, label);
+  };
   const setObj = (i: number, patch: Partial<QuestObjective>) => up({ objectives: quest.objectives.map((o, j) => (j === i ? { ...o, ...patch } : o)) }, t('Edit objective'));
   const issues = validateQuest(quest, store, session.runtime.rpg);
   const npcs = store.list('npcs');
@@ -145,10 +158,11 @@ function QuestForm({ session, quest, onDuplicated, onDeleted }: { session: GameS
         </div>
       </Field>
 
+      <label className="check"><input type="checkbox" checked={!!quest.autoRewards} onChange={(e) => up({ autoRewards: e.target.checked, ...(e.target.checked ? { rewards: autoRewards(quest, session.runtime) } : {}) }, t('Auto rewards'))} /> {t('Automatic rewards (from objectives and level)')}</label>
       <Field label={t('Rewards')}>
         <div className="two-col">
-          <Field label={t('Experience')}><NumberInput value={quest.rewards.xp} min={0} max={1e8} onChange={(xp) => up({ rewards: { ...quest.rewards, xp } }, t('Edit rewards'))} /></Field>
-          <Field label={cur}><NumberInput value={quest.rewards.currency} min={0} max={1e9} onChange={(currency) => up({ rewards: { ...quest.rewards, currency } }, t('Edit rewards'))} /></Field>
+          <Field label={t('Experience')}><NumberInput value={quest.rewards.xp} min={0} max={1e8} onChange={(xp) => up({ autoRewards: false, rewards: { ...quest.rewards, xp } }, t('Edit rewards'))} /></Field>
+          <Field label={cur}><NumberInput value={quest.rewards.currency} min={0} max={1e9} onChange={(currency) => up({ autoRewards: false, rewards: { ...quest.rewards, currency } }, t('Edit rewards'))} /></Field>
         </div>
         <ItemRowEditor session={session} rows={quest.rewards.items} empty={t('No item rewards.')} make={(itemId) => ({ itemId, qty: 1 })} onChange={(items) => up({ rewards: { ...quest.rewards, items } }, t('Edit rewards'))} columns={[{ key: 'qty', label: t('Qty'), min: 1, max: 999 }]} />
       </Field>

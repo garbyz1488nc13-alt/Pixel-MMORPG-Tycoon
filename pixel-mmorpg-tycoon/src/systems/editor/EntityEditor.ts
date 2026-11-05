@@ -13,6 +13,7 @@ import type { StudioService } from '@/simulation/studio/StudioService';
 import { DEFAULT_NPC_GOLD, defaultLoot, defaultShop, itemKeyIndex } from '@/data/rpgDefaults';
 import { getBossPreset, LAIR_SIZE } from '@/data/bossTypes';
 import { EntityCommand, type History } from './History';
+import { autoRewards } from '@/systems/rpg/questRewards';
 import type { TileRect } from './shapes';
 
 type Item<C extends EntityCollection> = WorldEntities[C][number];
@@ -277,10 +278,16 @@ export class EntityEditor {
   addQuest(giverId: EntityId | null): QuestDef {
     const q: QuestDef = {
       id: createId('quest'), name: tr('New quest'), description: '', giverId, requiredLevel: 1,
-      objectives: [], rewards: { xp: 100, currency: 20, items: [] }, prerequisiteId: null, repeatable: false,
+      objectives: [], rewards: { xp: 100, currency: 20, items: [] }, prerequisiteId: null, repeatable: false, autoRewards: true,
     };
     this.commit(tr('Add quest'), [this.rt.entities.add('quests', q)]);
     return q;
+  }
+
+  /** Switch every quest to automatic rewards and recalculate them (one undo step). */
+  recalcQuestRewards(): void {
+    const changes = this.rt.entities.list('quests').map((q) => this.rt.entities.update('quests', q.id, { autoRewards: true, rewards: autoRewards(q, this.rt) }));
+    this.commit(tr('Recalculate rewards'), changes);
   }
 
   /** Add several ready-made quests as one undo step. */
