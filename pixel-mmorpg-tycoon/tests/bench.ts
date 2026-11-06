@@ -25,9 +25,11 @@ import { createWorldSave } from '@/systems/generation/createWorld';
 import { generateStarterContent } from '@/systems/generation/Populate';
 
 /** Full simulation stack on a big world, for tests and benchmarks. */
-export function buildWorld(opts: { size?: number; npcs?: number; seed?: number; mode?: 'sandbox' | 'standard' } = {}) {
+export function buildWorld(opts: { size?: number; npcs?: number; seed?: number; mode?: 'sandbox' | 'standard'; progression?: boolean } = {}) {
   const size = opts.size ?? 160;
   const save = createWorldSave({ name: 'Bench', width: size, height: size, worldType: 'continent', difficulty: 'normal', seed: 21, startingGold: 10000, initialNpcCount: opts.npcs ?? 60, initialPlayerCount: 0, gameMode: opts.mode ?? 'sandbox' });
+  // Older tests expect every feature open; progression tests opt in.
+  if (!opts.progression) delete save.studio.progression;
   const rt = new WorldRuntime(save);
   generateStarterContent(rt, opts.npcs ?? 60, 21);
   for (const ev of EventService.starterEvents(rt)) rt.entities.add('events', ev);

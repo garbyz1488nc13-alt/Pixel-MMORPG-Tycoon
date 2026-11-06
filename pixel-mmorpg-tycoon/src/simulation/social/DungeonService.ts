@@ -17,6 +17,8 @@ const HEALERS = new Set(['paladin']);
 /** Game minutes a run lasts once inside. */
 export const DUNGEON_MINUTES = 30;
 const GATHER_TICKS = 700;
+/** Rooms in every dungeon (the last one is the boss room). */
+export const ROOMS = 7;
 
 export interface DungeonRun {
   id: EntityId;
@@ -26,6 +28,62 @@ export interface DungeonRun {
   /** Tick the gathering gives up / the run ends. */
   until: number;
   level: number;
+  /** Tick the party went inside. */
+  startedAt?: number;
+  /** Decided at the door: does the party clear it, and in which room do they wipe. */
+  outcome?: { cleared: boolean; wipeRoom: number };
+}
+
+/** A dungeon's own map: stone walls, rooms linked by corridors, the boss in the last room. */
+export interface DungeonLayout {
+  w: number;
+  h: number;
+  /** 1 = floor, 0 = wall. */
+  floor: Uint8Array;
+  rooms: { x: number; y: number; w: number; h: number }[];
+  /** Walk order through the rooms (tile centres). */
+  path: { x: number; y: number }[];
+  cave: boolean;
+}
+
+function seedOf(id: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+
+/** Build the layout of a dungeon (always the same for the same entrance). */
+export function dungeonLayout(id: string, cave: boolean): DungeonLayout {
+  let s = seedOf(id) || 1;
+  const rnd = () => ((s = Math.imul(s ^ (s >>> 15), 2246822507) + 0x9e3779b9 >>> 0) / 4294967296);
+  const w = 40, h = 24;
+  const floor = new Uint8Array(w * h);
+  const rooms: DungeonLayout['rooms'] = [];
+  // Rooms snake left→right through a 4×2 grid of cells.
+  const order = [[0, 1], [1, 1], [1, 0], [2, 0], [2, 1], [3, 1], [3, 0]];
+  for (const [cx, cy] of order) {
+    const rw = 5 + Math.floor(rnd() * 3), rh = 4 + Math.floor(rnd() * 3);
+    const x = cx * 10 + 1 + Math.floor(rnd() * (9 - rw)), y = cy * 12 + 1 + Math.floor(rnd() * (11 - rh));
+    rooms.push({ x, y, w: rw, h: rh });
+  }
+  const dig = (x: number, y: number) => { if (x > 0 && y > 0 && x < w - 1 && y < h - 1) floor[y * w + x] = 1; };
+  for (const r of rooms) for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) dig(x, y);
+  const path: DungeonLayout['path'] = [];
+  for (let i = 0; i < rooms.length; i++) {
+    const r = rooms[i];
+    const c = { x: Math.floor(r.x + r.w / 2), y: Math.floor(r.y + r.h / 2) };
+    if (i > 0) {
+      const p = path[path.length - 1];
+      // L-shaped corridor (caves wiggle).
+      let x = p.x, y = p.y;
+      while (x !== c.x) { x += Math.sign(c.x - x); dig(x, y); if (cave && rnd() < 0.3) dig(x, y + 1); }
+      while (y !== c.y) { y += Math.sign(c.y - y); dig(x, y); if (cave && rnd() < 0.3) dig(x + 1, y); }
+    }
+    path.push(c);
+  }
+  // Caves: ragged edges.
+  if (cave) for (let i = 0; i < 120; i++) { const x = 1 + Math.floor(rnd() * (w - 2)), y = 1 + Math.floor(rnd() * (h - 2)); if (floor[y * w + x - 1] || floor[y * w + x + 1]) dig(x, y); }
+  return { w, h, floor, rooms, path, cave };
 }
 
 export type DungeonEvents = {
@@ -88,6 +146,7 @@ export class DungeonService implements SimulationSystem {
 
   /** Try to form a party for some dungeon now. */
   form(): DungeonRun | null {
+    if (!this.world.feature('dungeons')) return null;
     const doors = this.entrances();
     if (!doors.length) return null;
     const busy = new Set(this.runs.map((r) => r.entranceId));
@@ -128,16 +187,41 @@ export class DungeonService implements SimulationSystem {
         if (here >= Math.min(run.members.length, 3) && (here === run.members.length || tick >= run.until - GATHER_TICKS / 2)) {
           run.phase = 'inside';
           run.until = tick + DUNGEON_MINUTES * 4;
+          run.startedAt = tick;
+          run.outcome = this.decide(run);
           this.stats(door.id).runs++;
         } else if (tick >= run.until) this.end(run, false, true);
-      } else if (tick >= run.until) {
-        const ps = run.members.map((id) => this.pm.get(id)).filter((p): p is PlayerState => !!p);
-        const avg = ps.reduce((n, p) => n + p.level, 0) / ps.length;
-        const tank = ps.some((p) => TANKS.has(p.classKey)), healer = ps.some((p) => HEALERS.has(p.classKey));
-        const chance = Math.max(0.1, Math.min(0.95, 0.45 + (avg - run.level) * 0.08 + (tank ? 0.12 : 0) + (healer ? 0.15 : 0) + (ps.length - 3) * 0.05));
-        this.end(run, this.rand() < chance, false);
+      } else {
+        // A wipe ends the run early, in the room where it happened.
+        const o = run.outcome ?? (run.outcome = this.decide(run));
+        const wiped = !o.cleared && this.progress(run) * ROOMS >= o.wipeRoom + 0.6;
+        if (wiped || tick >= run.until) this.end(run, o.cleared && !wiped, false);
       }
     }
+  }
+
+  /** Chance to clear: level, party size, tank and healer. */
+  private decide(run: DungeonRun): { cleared: boolean; wipeRoom: number } {
+    const ps = run.members.map((id) => this.pm.get(id)).filter((p): p is PlayerState => !!p);
+    const avg = ps.reduce((n, p) => n + p.level, 0) / Math.max(1, ps.length);
+    const tank = ps.some((p) => TANKS.has(p.classKey)), healer = ps.some((p) => HEALERS.has(p.classKey));
+    const chance = Math.max(0.1, Math.min(0.95, 0.45 + (avg - run.level) * 0.08 + (tank ? 0.12 : 0) + (healer ? 0.15 : 0) + (ps.length - 3) * 0.05));
+    const cleared = this.rand() < chance;
+    // Most wipes happen at the boss.
+    return { cleared, wipeRoom: cleared ? -1 : this.rand() < 0.6 ? ROOMS - 1 : 1 + Math.floor(this.rand() * (ROOMS - 2)) };
+  }
+
+  /** 0..1: how far the party is through the dungeon. */
+  progress(run: DungeonRun): number {
+    if (run.phase !== 'inside' || run.startedAt === undefined) return 0;
+    return Math.min(1, (this.actors.tick - run.startedAt) / (DUNGEON_MINUTES * 4));
+  }
+
+  private layouts = new Map<EntityId, DungeonLayout>();
+  layout(o: MapObject): DungeonLayout {
+    let l = this.layouts.get(o.id);
+    if (!l) { l = dungeonLayout(o.id, o.kind === 'cave_entrance'); this.layouts.set(o.id, l); }
+    return l;
   }
 
   private end(run: DungeonRun, cleared: boolean, abandoned: boolean): void {

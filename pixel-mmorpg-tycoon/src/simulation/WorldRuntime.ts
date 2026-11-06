@@ -20,6 +20,7 @@ export type RuntimeEvents = {
   'rpg:changed': undefined;
   /** Studio funds/tier/settings changed. */
   'studio:changed': undefined;
+  'studio:released': { key: string };
 };
 
 /**
@@ -46,6 +47,12 @@ export class WorldRuntime {
   readonly objectIndex: ObjectIndex;
   readonly nav: NavGrid;
   private _dirty = false;
+
+  /** Is a gradual-unlock feature available (always true outside progression mode)? */
+  feature(key: string): boolean {
+    const pr = this.studio.progression;
+    return !pr || this.config.gameMode !== 'standard' || pr.unlocked.includes(key);
+  }
 
   constructor(save: WorldSave) {
     this.id = save.id;

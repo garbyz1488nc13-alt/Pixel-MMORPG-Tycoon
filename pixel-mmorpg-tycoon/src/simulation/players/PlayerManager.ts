@@ -4,7 +4,8 @@ import { EventBus } from '@/core/EventBus';
 import { BEHAVIORS, CLASS_SHARES, FACTORS, getBehavior, playerName } from '@/data/playerTypes';
 import { itemKeyIndex } from '@/data/rpgDefaults';
 import { getTier } from '@/data/studio';
-import { doorTile, ROOM_RENT_PER_DAY } from '@/data/furniture';
+import { STANDARD_LAUNCH_PLAYERS } from '@/data/progression';
+import { homeInterior, doorTile, RENTABLE, ROOM_RENT_PER_DAY } from '@/data/furniture';
 import type { Furniture, MapObject } from '@/models/entities';
 import type { ClassDef, EquipSlot, ItemDef, QuestDef } from '@/models/rpg';
 import type { FactorKey, PlayerBehavior, PlayerState } from '@/models/sim';
@@ -382,8 +383,9 @@ export class PlayerManager {
   rooms(): { building: MapObject; bed: Furniture }[] {
     const out: { building: MapObject; bed: Furniture }[] = [];
     for (const o of this.world.entities.list('objects')) {
-      if (o.kind !== 'hotel' && o.kind !== 'tavern') continue;
-      for (const f of o.interior?.furniture ?? []) if (f.kind === 'bed') out.push({ building: o, bed: f });
+      if (!RENTABLE.has(o.kind)) continue;
+      // Homes built before rooms existed still count with their default beds.
+      for (const f of o.interior?.furniture ?? homeInterior(o.kind)?.furniture ?? []) if (f.kind === 'bed') out.push({ building: o, bed: f });
     }
     return out;
   }
@@ -391,7 +393,7 @@ export class PlayerManager {
   private setOwner(building: MapObject, x: number, y: number, ownerId: EntityId | undefined): void {
     // Always start from the stored building: several players may rent in the same hour.
     const fresh = this.world.entities.get('objects', building.id) ?? building;
-    const furniture = (fresh.interior?.furniture ?? []).map((f) => (f.kind === 'bed' && f.x === x && f.y === y ? { ...f, ownerId } : f));
+    const furniture = (fresh.interior?.furniture ?? homeInterior(fresh.kind)?.furniture ?? []).map((f) => (f.kind === 'bed' && f.x === x && f.y === y ? { ...f, ownerId } : f));
     this.world.entities.update('objects', building.id, { interior: { furniture } });
   }
 
@@ -406,13 +408,14 @@ export class PlayerManager {
   /** Door of the player's home building, if they rent a room. */
   homeDoor(p: PlayerState): { x: number; y: number } | null {
     const b = p.home && this.world.entities.get('objects', p.home.objectId);
-    const bed = b?.interior?.furniture.find((f) => f.kind === 'bed' && f.x === p.home!.x && f.y === p.home!.y && f.ownerId === p.id);
+    const bed = (b?.interior?.furniture ?? (b ? homeInterior(b.kind)?.furniture : undefined))?.find((f) => f.kind === 'bed' && f.x === p.home!.x && f.y === p.home!.y && f.ownerId === p.id);
     if (!b || !bed) { p.home = undefined; return null; }
     return doorTile(b);
   }
 
   /** Hourly: settled players rent a free room near where they play; rent is due at midnight. */
   private housingHourly(): void {
+    if (!this.world.feature('housing')) return;
     const free = this.rooms().filter((r) => !r.bed.ownerId || !this.byId.has(r.bed.ownerId));
     for (const p of this.online()) {
       if (p.home) { this.homeDoor(p); if (p.home) this.feel(p, 'home'); continue; }
@@ -535,7 +538,7 @@ export class PlayerManager {
       if (!this.hasSpawn()) return;
       // Launch day: the queue of waiting players logs in at once.
       this.world.config.launched = true;
-      const n = this.seedInitial(this.world.config.initialPlayerCount);
+      const n = this.seedInitial(this.world.studio.progression ? Math.min(STANDARD_LAUNCH_PLAYERS, this.world.config.initialPlayerCount) : this.world.config.initialPlayerCount);
       this.events.emit('launched', { count: n });
       return;
     }
@@ -553,6 +556,8 @@ export class PlayerManager {
     // Newcomers: driven by popularity (and subscription price in standard mode).
     let rate = (sim.popularity / 8) * this.activity();
     if (this.world.config.gameMode === 'standard') rate *= Math.max(0.2, Math.min(1.5, 2 - this.world.studio.subscriptionPrice / 3));
+    // Progression mode: newcomers only come if people hear about the game.
+    if (this.world.config.gameMode === 'standard' && this.world.studio.progression) rate *= 0.1 + this.world.studio.progression.hype / 25;
     sim.arrivalCarry += rate;
     while (sim.arrivalCarry >= 1) {
       sim.arrivalCarry -= 1;

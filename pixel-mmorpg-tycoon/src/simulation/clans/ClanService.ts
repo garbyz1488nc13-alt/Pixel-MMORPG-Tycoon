@@ -165,6 +165,7 @@ export class ClanService implements SimulationSystem {
 
   // --------------------------------------------------------------- hourly
   hourly(): void {
+    if (!this.world.feature('clans')) return;
     this.cleanup();
     const online = this.pm.online();
     // Bonding: members enjoy playing with their clan mates.
@@ -317,6 +318,7 @@ export class ClanService implements SimulationSystem {
   }
 
   update(ctx: SimContext): void {
+    if (!this.world.feature('clans')) return;
     void ctx;
     for (const raid of [...this.sim.raids]) {
       raid.members = raid.members.filter((id) => this.pm.get(id)?.online);

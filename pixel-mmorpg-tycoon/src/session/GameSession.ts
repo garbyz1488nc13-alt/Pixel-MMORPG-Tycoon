@@ -1,3 +1,4 @@
+import { FEATURES } from '@/data/progression';
 import { EventBus } from '@/core/EventBus';
 import { t } from '@/i18n';
 import { createId } from '@/core/ids';
@@ -208,6 +209,10 @@ export class GameSession {
         log.event(t('Patch {v} is live! Hype {h}, new bugs: {b}.', { v: record.version, h: record.hype, b: record.bugsIntroduced }), 'success', this.runtime.clock.totalMinutes)),
       this.dungeons.events.on('finished', ({ run, name, cleared, loot }) =>
         log.sim(cleared ? t('A party of {n} cleared {name} (loot: {l}).', { n: run.members.length, name: t(name), l: loot }) : t('A party of {n} wiped in {name}.', { n: run.members.length, name: t(name) }), cleared ? 'success' : 'warn', this.runtime.clock.totalMinutes)),
+      this.runtime.events.on('studio:released', ({ key }) => {
+        const f = FEATURES.find((x) => x.key === key);
+        log.event(t('Update released: {name}! Players are talking about it.', { name: t(f?.name ?? key) }), 'success', this.runtime.clock.totalMinutes);
+      }),
       this.meetups.events.on('ended', ({ outcome, params }) =>
         log.sim(t('Meetup: {text}', { text: t(outcome, params) }), 'info', this.runtime.clock.totalMinutes)),
       this.clans.events.on('founded', ({ clan, founder }) =>

@@ -28,6 +28,7 @@ import { PatchesTab } from '../sim/PatchesTab';
 import type { GameSession } from '@/session/GameSession';
 import { useWorldMusic } from '../hooks/useAudio';
 import { InteriorModal } from './InteriorModal';
+import { DungeonModal } from './DungeonModal';
 
 export function EditorScreen() {
   const session = useSessionStore((s) => s.session);
@@ -43,6 +44,7 @@ function Editor({ session }: { session: GameSession }) {
   const interiorId = useEditorStore((s) => s.interiorId);
   const layout = { hideLeft: useSettingsStore((s) => s.hideLeft), hideRight: useSettingsStore((s) => s.hideRight), hideLog: useSettingsStore((s) => s.hideLog) };
   const setInterior = useEditorStore((s) => s.setInterior);
+  const dungeonId = useEditorStore((s) => s.dungeonId);
 
   return (
     <div className={`editor ${layout.hideLeft ? 'no-left' : ''} ${layout.hideRight ? 'no-right' : ''} ${layout.hideLog ? 'no-log' : ''}`}>
@@ -74,6 +76,7 @@ function Editor({ session }: { session: GameSession }) {
           {tab === 'analytics' && <div className="center-overlay"><AnalyticsTab session={session} /></div>}
         </div>
         <RightPanel session={session} />
+        {dungeonId && <DungeonModal session={session} objectId={dungeonId} onClose={() => useEditorStore.getState().setDungeon(null)} />}
         {interiorId && <InteriorModal session={session} objectId={interiorId} onClose={() => setInterior(null)} />}
       </div>
       <BottomLog />

@@ -1,3 +1,4 @@
+import { ProgressionPanel } from './ProgressionPanel';
 import { OBJECT_CATEGORIES } from '@/data/objects';
 import { MAX_SUBSCRIPTION, MONSTER_SLOT_COST, NPC_HIRE_COST, NPC_UPKEEP_PER_DAY, OBJECT_COST, REFUND_RATE, SERVER_TIERS, SHOP_MODELS } from '@/data/studio';
 import type { IncomeSource, ShopModel } from '@/models/sim';
@@ -48,7 +49,7 @@ export function StudioTab({ session }: { session: GameSession }) {
     { key: 'shop', label: 'Cash shop', color: '#f2c14e' },
     { key: 'sponsors', label: 'Sponsors', color: '#b56cff' },
   ];
-  const costPerDay = tier.upkeepPerDay + counts.npcs * NPC_UPKEEP_PER_DAY;
+  const costPerDay = studio.staffPerDay() + tier.upkeepPerDay + counts.npcs * NPC_UPKEEP_PER_DAY;
   const net = st.ledger.map((r) => Math.round(r.income - r.expenses - r.build));
   const upgrade = () => {
     if (studio.upgrade()) {
@@ -70,6 +71,7 @@ export function StudioTab({ session }: { session: GameSession }) {
           <div className="panel stat-tile"><span className="hint">{t('Running costs per day')}</span><b>{money(costPerDay)}</b></div>
           <div className="panel stat-tile"><span className="hint">{t('Today')}</span><b>{today ? money(today.income - today.expenses - today.build) : '—'}</b></div>
         </div>
+        <ProgressionPanel session={session} />
         {st.daysInDebt > 0 && <div className="panel warn-box">{t('The studio is in debt (day {n}). Building is blocked until funds are positive.', { n: st.daysInDebt })}</div>}
         <div className="panel">
           <div className="panel-header">{t('Where the money comes from')}</div>

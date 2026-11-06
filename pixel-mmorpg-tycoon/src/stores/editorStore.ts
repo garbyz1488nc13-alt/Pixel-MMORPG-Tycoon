@@ -32,6 +32,8 @@ interface EditorState {
   templateId: EntityId | null;
   /** Building whose interior is open. */
   interiorId: string | null;
+  dungeonId: string | null;
+  setDungeon: (id: string | null) => void;
   setInterior: (id: string | null) => void;
   /** Boss preset placed by the lair tool. */
   bossPreset: string;
@@ -81,6 +83,7 @@ const initial = {
   templateId: null,
   bossPreset: 'goblin_king',
   interiorId: null,
+  dungeonId: null,
   selection: null,
   focusPlayer: null,
   followPlayer: false,
@@ -105,6 +108,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   setTemplateId: (templateId) => set({ templateId }),
   setBossPreset: (bossPreset) => set({ bossPreset, tool: 'lair' }),
   setInterior: (interiorId) => set({ interiorId }),
+  setDungeon: (dungeonId) => set({ dungeonId }),
   select: (selection) => set(selection && selection.ids.length ? { selection, focusPlayer: null, followPlayer: false } : { selection: null }),
   setFocusPlayer: (focusPlayer) => set(focusPlayer ? { focusPlayer, selection: null } : { focusPlayer: null, followPlayer: false }),
   setFollowPlayer: (followPlayer) => set({ followPlayer }),

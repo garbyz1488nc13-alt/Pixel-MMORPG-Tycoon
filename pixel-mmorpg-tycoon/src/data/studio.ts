@@ -50,7 +50,9 @@ import type { SimState, StudioState, GameMode, ShopModel } from '@/models/sim';
 export const EMPTY_START_FUNDS_MULT = 3;
 
 export function createDefaultStudio(mode: GameMode, difficulty: Difficulty, start: 'ready' | 'empty' = 'ready'): StudioState {
-  return { funds: mode === 'standard' ? STARTING_FUNDS[difficulty] * (start === 'empty' ? EMPTY_START_FUNDS_MULT : 1) : 0, serverTier: 1, subscriptionPrice: DEFAULT_SUBSCRIPTION, shopModel: 'cosmetic', sandboxMaxOnline: 150, ledger: [], daysInDebt: 0 };
+  return { funds: mode === 'standard' ? STARTING_FUNDS[difficulty] * (start === 'empty' ? EMPTY_START_FUNDS_MULT : 1) : 0, serverTier: 1, subscriptionPrice: DEFAULT_SUBSCRIPTION, shopModel: 'cosmetic', sandboxMaxOnline: 150, ledger: [], daysInDebt: 0,
+    // Standard games start small: features are researched one by one.
+    ...(mode === 'standard' ? { progression: { unlocked: [], research: null, staff: { dev: 0, marketer: 0, cm: 0 }, hype: 10 } } : {}) };
 }
 
 export function createDefaultSim(): SimState {

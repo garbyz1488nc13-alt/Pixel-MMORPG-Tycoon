@@ -206,7 +206,9 @@ export class PlayerSystem implements SimulationSystem {
       if (a.state === 'dead') {
         if (mgr.gameMinutes >= a.respawnAt) {
           // Come back to life at the nearest temple (if any), otherwise at a spawn point.
-          const sp = this.templeNear(a) ?? this.pm.spawnPoint();
+          // Tenants come back to life at home.
+          const home = this.pm.homeDoor(p);
+          const sp = (home && this.mgr.randomWalkableNear(home.x, home.y + 1, 1.5)) ?? this.templeNear(a) ?? this.pm.spawnPoint();
           respawn(mgr, a, sp.x, sp.y);
           a.hp = Math.ceil(a.maxHp / 2);
           m.act = null;
@@ -629,6 +631,9 @@ export class PlayerSystem implements SimulationSystem {
       case 'rest': {
         if (!this.moveTo(a, act.x, act.y, speed, 2)) { if (!a.path && ++m.stuck > 40) this.done(m, tick); return; }
         a.state = 'idle';
+        // At home: put gold into the personal storage, safe from death.
+        const home = this.pm.homeDoor(p);
+        if (home && Math.hypot(a.x - home.x, a.y - home.y) < 3 && p.gold > 60) { p.bank = (p.bank ?? 0) + p.gold - 60; p.gold = 60; }
         if (a.hp >= a.maxHp * 0.9) this.done(m, tick);
         return;
       }

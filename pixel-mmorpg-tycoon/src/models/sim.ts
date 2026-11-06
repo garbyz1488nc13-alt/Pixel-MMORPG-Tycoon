@@ -289,4 +289,12 @@ export interface StudioState {
   /** Per game day: income/expenses. */
   ledger: LedgerRow[];
   daysInDebt: number;
+  /** Standard mode: gradual unlocks. Missing = everything is open (sandbox, older saves). */
+  progression?: {
+    unlocked: string[];
+    research: { key: string; done: number } | null;
+    staff: { dev: number; marketer: number; cm: number };
+    /** 0..100: how many people hear about the game. */
+    hype: number;
+  };
 }

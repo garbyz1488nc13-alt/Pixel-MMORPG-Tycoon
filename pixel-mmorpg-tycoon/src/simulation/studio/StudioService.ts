@@ -8,6 +8,7 @@ import type { FactorKey, IncomeSource, PlayerState } from '@/models/sim';
 export interface ShopPlayers { feel(p: PlayerState, key: FactorKey, mult?: number): void; gainXp(p: PlayerState, amount: number): void; rand?: () => number }
 import { t } from '@/i18n';
 import { ANTI_CHEAT } from '@/data/community';
+import { CAMPAIGNS, FEATURES, FOUNDER_WORK, STAFF, type FeatureKey, type StaffRole } from '@/data/progression';
 import type { EntityChange } from '../EntityStore';
 import type { WorldRuntime } from '../WorldRuntime';
 
@@ -130,12 +131,88 @@ export class StudioService {
     const viewers = online.reduce((n, p) => n + (p.streamer?.viewers ?? 0), 0);
     this.earn(viewers * SPONSOR_PER_VIEWER_HOUR, 'sponsors');
     const antiCheat = ANTI_CHEAT[this.world.sim.antiCheat]?.costPerDay ?? 0;
-    const expenses = (this.tier().upkeepPerDay + this.world.entities.count('npcs') * NPC_UPKEEP_PER_DAY + antiCheat) / 24;
+    this.progressionHourly(online, pm);
+    const expenses = (this.staffPerDay() + this.tier().upkeepPerDay + this.world.entities.count('npcs') * NPC_UPKEEP_PER_DAY + antiCheat) / 24;
     this.state.funds -= expenses;
     const row = this.today();
     row.expenses += expenses;
     this.world.events.emit('studio:changed', undefined);
     return { income: row.income - before, expenses };
+  }
+
+  // ------------------------------------------------------------ progression
+  get progression() {
+    return this.standard ? this.state.progression : undefined;
+  }
+
+  staffPerDay(): number {
+    const pr = this.progression;
+    if (!pr) return 0;
+    return (Object.keys(STAFF) as StaffRole[]).reduce((n, r) => n + pr.staff[r] * STAFF[r].perDay, 0);
+  }
+
+  /** Start researching a feature (pays the cost up front). Returns an error or null. */
+  startResearch(key: FeatureKey): string | null {
+    const pr = this.progression;
+    const f = FEATURES.find((x) => x.key === key);
+    if (!pr || !f) return null;
+    if (pr.unlocked.includes(key)) return t('Already released.');
+    if (pr.research) return t('The team is already working on something.');
+    if (f.requires && !pr.unlocked.includes(f.requires)) return t('Release {name} first.', { name: t(FEATURES.find((x) => x.key === f.requires)!.name) });
+    if (this.state.funds < f.cost) return t('Not enough money: needs ${cost}, you have ${funds}.', { cost: f.cost, funds: Math.floor(this.state.funds) });
+    this.state.funds -= f.cost;
+    this.today().build += f.cost;
+    pr.research = { key, done: 0 };
+    this.world.events.emit('studio:changed', undefined);
+    return null;
+  }
+
+  hire(role: StaffRole, delta: number): void {
+    const pr = this.progression;
+    if (!pr) return;
+    pr.staff[role] = Math.max(0, Math.min(10, pr.staff[role] + delta));
+    this.world.events.emit('studio:changed', undefined);
+  }
+
+  /** Run a marketing campaign. Returns an error or null. */
+  campaign(key: string): string | null {
+    const pr = this.progression;
+    const c = CAMPAIGNS.find((x) => x.key === key);
+    if (!pr || !c) return null;
+    if (this.state.funds < c.cost) return t('Not enough money: needs ${cost}, you have ${funds}.', { cost: c.cost, funds: Math.floor(this.state.funds) });
+    this.state.funds -= c.cost;
+    this.today().expenses += c.cost;
+    pr.hype = Math.min(100, pr.hype + c.hype);
+    this.world.events.emit('studio:changed', undefined);
+    return null;
+  }
+
+  /** Newcomer multiplier from hype (progression mode only). */
+  arrivalMult(): number {
+    const pr = this.progression;
+    return pr ? 0.1 + pr.hype / 25 : 1;
+  }
+
+  /** Hourly: research moves on, hype fades (marketers keep it up), releases. */
+  private progressionHourly(online: PlayerState[], pm?: ShopPlayers): void {
+    const pr = this.progression;
+    if (!pr) return;
+    pr.hype = Math.max(0, Math.min(100, pr.hype * 0.96 + pr.staff.marketer * 1.5 + pr.staff.cm * 0.4));
+    for (const p of online) if (pr.staff.cm) p.satisfaction = Math.min(100, p.satisfaction + 0.3 * pr.staff.cm);
+    if (pr.research) {
+      pr.research.done += (FOUNDER_WORK + pr.staff.dev) / 24;
+      const f = FEATURES.find((x) => x.key === pr.research!.key);
+      if (!f || pr.research.done >= f.work) {
+        const key = pr.research.key;
+        pr.research = null;
+        if (!pr.unlocked.includes(key)) pr.unlocked.push(key);
+        // An update is news: hype and happy players.
+        pr.hype = Math.min(100, pr.hype + 20);
+        this.world.sim.popularity = Math.min(100, this.world.sim.popularity + 3);
+        for (const p of online) pm?.feel(p, 'patch');
+        this.world.events.emit('studio:released', { key });
+      }
+    }
   }
 
   /** Online players buy things in the cash shop: happy players and whales spend more. */

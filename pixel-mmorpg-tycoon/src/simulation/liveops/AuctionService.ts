@@ -79,6 +79,7 @@ export class AuctionService {
   }
 
   hourly(): void {
+    if (!this.world.feature('auction')) return;
     this.expire();
     const online = this.pm.online().filter((p) => !p.cheat || p.cheat === 'gold' || p.cheat === 'bot');
     for (const p of online) this.listLoot(p);

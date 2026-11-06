@@ -2,6 +2,11 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useEditorStore, type EditorTab } from '@/stores/editorStore';
 import { t as tr } from '@/i18n';
 import { PixelIcon } from '../components/PixelIcon';
+import { useSessionStore } from '@/stores/sessionStore';
+import { useSimTick } from '../sim/useSimTick';
+
+/** Tabs that need a researched feature in standard mode. */
+const NEEDS: Partial<Record<EditorTab, string>> = { clans: 'clans', auction: 'auction', seasons: 'seasons', events: 'events' };
 
 /** Tabs not yet implemented are shown locked with the phase that delivers them. */
 const TABS: { key: EditorTab; label: string; phase?: number }[] = [
@@ -27,17 +32,20 @@ const TABS: { key: EditorTab; label: string; phase?: number }[] = [
 export function TabBar() {
   const current = useEditorStore((s) => s.tab);
   const setTab = useEditorStore((s) => s.setTab);
+  const session = useSessionStore((s) => s.session);
+  useSimTick(2000);
+  const locked = (k: EditorTab) => !!NEEDS[k] && !!session && !session.runtime.feature(NEEDS[k]!);
   return (
     <div className="tabbar">
       {TABS.map((tab) => (
         <button
           key={tab.key}
-          className={`tab ${current === tab.key ? 'active' : ''} ${tab.phase ? 'locked' : ''}`}
+          className={`tab ${current === tab.key ? 'active' : ''} ${tab.phase || locked(tab.key) ? 'locked' : ''}`}
           disabled={!!tab.phase}
-          title={tab.phase ? tr('Not built yet — arrives in Phase {n}', { n: tab.phase }) : undefined}
+          title={tab.phase ? tr('Not built yet — arrives in Phase {n}', { n: tab.phase }) : locked(tab.key) ? tr('Not released yet: develop it in the Studio tab.') : undefined}
           onClick={() => setTab(tab.key)}
         >
-          {tab.phase && <PixelIcon name="lock" size={10} />}
+          {(tab.phase || locked(tab.key)) && <PixelIcon name="lock" size={10} />}
           {tr(tab.label)}
           {tab.phase && <span className="badge">P{tab.phase}</span>}
         </button>

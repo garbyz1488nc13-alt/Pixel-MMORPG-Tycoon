@@ -102,6 +102,7 @@ function ObjectInspector({ session, id, actions }: { session: GameSession; id: s
               <Field label={t('Dungeon name')}><TextInput value={o.dungeon?.name ?? ''} onChange={(name) => session.entities.update('objects', o.id, { dungeon: { level: lv, ...o.dungeon, name } }, t('Edit dungeon'))} /></Field>
             </div>
             <div className="kv"><span>{t('Runs / cleared / wiped')}</span><span>{st.runs} / {st.clears} / {st.wipes}</span></div>
+            <button className="btn primary" onClick={() => useEditorStore.getState().setDungeon(o.id)}>{t('Look inside')}</button>
           </div>
         );
       })()}

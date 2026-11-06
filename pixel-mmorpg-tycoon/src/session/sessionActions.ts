@@ -1,3 +1,4 @@
+import { STANDARD_LAUNCH_PLAYERS } from '@/data/progression';
 import type { TileGrid } from '@/models/TileGrid';
 import { t } from '@/i18n';
 import type { SaveSlotKey, WorldSave } from '@/models/world';
@@ -47,7 +48,8 @@ export async function createAndOpenWorld(opts: NewWorldOptions, preview?: TileGr
     log.event(t('Empty start: build your world from scratch. Players log in once you place a player spawn point (Map → Spawns, or inside a tavern).'), 'info', save.clock.totalMinutes);
   } else if (opts.initialNpcCount > 0) {
     session.studio.free = true;
-    const summary = generateStarterContent(session.runtime, Math.min(200, opts.initialNpcCount), opts.seed);
+    // Standard games start with a few NPCs and monsters; the rest is up to you.
+    const summary = generateStarterContent(session.runtime, Math.min(session.runtime.studio.progression ? 6 : 200, opts.initialNpcCount), opts.seed);
     session.studio.free = false;
     log.event(t('Starter content: {summary}', { summary }), 'success', save.clock.totalMinutes);
     focusFirstRegion(session);
@@ -55,7 +57,8 @@ export async function createAndOpenWorld(opts: NewWorldOptions, preview?: TileGr
     session.patches.resetSnapshot();
   }
   if (opts.initialPlayerCount > 0 && opts.startMode !== 'empty') {
-    const n = session.players.seedInitial(opts.initialPlayerCount);
+    // Standard games start tiny: a couple of curious players.
+    const n = session.players.seedInitial(session.runtime.studio.progression ? Math.min(STANDARD_LAUNCH_PLAYERS, opts.initialPlayerCount) : opts.initialPlayerCount);
     log.event(t('{n} players are waiting for the servers to start.', { n }), 'info', save.clock.totalMinutes);
   }
   await session.save('slot1', true);

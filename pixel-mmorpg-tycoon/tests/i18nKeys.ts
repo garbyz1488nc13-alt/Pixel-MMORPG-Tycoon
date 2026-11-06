@@ -1,3 +1,4 @@
+import { CAMPAIGNS, FEATURES, STAFF } from '@/data/progression';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { AGGRESSIONS, CREATURE_TYPES } from '@/data/creatureTypes';
@@ -45,6 +46,9 @@ export function sourceKeys(dir = join(__dirname, '../src')): Set<string> {
 export function dynamicKeys(): Set<string> {
   const k = new Set<string>();
   TERRAINS.forEach((x) => k.add(x.name));
+  FEATURES.forEach((x) => { k.add(x.name); k.add(x.hint); });
+  Object.values(STAFF).forEach((x) => { k.add(x.name); k.add(x.hint); });
+  CAMPAIGNS.forEach((x) => k.add(x.name));
   OBJECTS.forEach((x) => k.add(x.name));
   OBJECT_CATEGORIES.forEach((x) => k.add(x.label));
   NPC_TYPES.forEach((x) => k.add(x.name));

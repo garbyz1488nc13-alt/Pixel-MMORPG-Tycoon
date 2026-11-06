@@ -201,7 +201,7 @@ export class EventService {
     const now = this.world.clock.totalMinutes;
     for (const a of [...this.sim.activeEvents]) if (now >= a.endsAt) this.end(a.id);
     const hourChanged = Math.floor(now / 60) > Math.floor(prevMinutes / 60);
-    if (!hourChanged) return;
+    if (!hourChanged || !this.world.feature('events')) return;
     const time = toGameTime(now);
     for (const def of this.world.entities.list('events')) {
       if (!def.enabled || this.isRunning(def.id) || !this.cooledDown(def)) continue;

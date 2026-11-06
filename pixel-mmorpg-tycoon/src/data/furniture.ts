@@ -47,5 +47,19 @@ export function defaultInterior(kind: string): import('@/models/entities').Inter
   return undefined;
 }
 
+/** Homes come unfurnished; their default rooms (one per bed) are used until you furnish them. */
+export function homeInterior(kind: string): import('@/models/entities').Interior | undefined {
+  const beds: Record<string, [number, number][]> = {
+    hut: [[1, 1]],
+    house_small: [[1, 1], [4, 1]],
+    house_large: [[1, 1], [3, 1], [5, 1], [7, 1]],
+  };
+  if (beds[kind]) return { furniture: [...beds[kind].map(([x, y]) => ({ kind: 'bed' as const, x, y })), { kind: 'table', x: 2, y: 3 }, { kind: 'chair', x: 3, y: 3 }, { kind: 'barrel', x: 1, y: 3 }] };
+  return defaultInterior(kind);
+}
+
+/** Buildings whose beds are rooms for rent. */
+export const RENTABLE = new Set(['hotel', 'tavern', 'hut', 'house_small', 'house_large']);
+
 /** Daily rent for a room (gold to the world treasury). */
 export const ROOM_RENT_PER_DAY = 8;

@@ -80,6 +80,7 @@ export class SeasonService {
   }
 
   hourly(): void {
+    if (!this.world.feature('seasons')) return;
     const now = this.world.clock.totalMinutes;
     const left = this.endsAt() - now;
     // The final day: competitive players love the race to the top.
