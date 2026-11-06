@@ -13,7 +13,7 @@ export const SERVER_TIERS: ServerTier[] = [
 ];
 export const getTier = (n: number) => SERVER_TIERS[Math.max(0, Math.min(SERVER_TIERS.length - 1, n - 1))];
 
-export const STARTING_FUNDS: Record<Difficulty, number> = { relaxed: 25000, normal: 12000, hard: 6000, brutal: 3000 };
+export const STARTING_FUNDS: Record<Difficulty, number> = { relaxed: 50000, normal: 25000, hard: 12000, brutal: 6000 };
 
 /** Build cost of one object in $ (standard mode). */
 export const OBJECT_COST: Record<ObjectCategory, number> = {

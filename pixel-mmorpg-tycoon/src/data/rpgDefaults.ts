@@ -186,7 +186,7 @@ export function createDefaultClasses(): ClassDef[] {
 }
 
 export const DEFAULT_PROGRESSION_RULES: Omit<ProgressionConfig, 'classes'> = {
-  maxLevel: 50, xpBase: 70, xpExponent: 1.5, baseHp: 50, hpPerVit: 10, baseMana: 20, manaPerInt: 8, attackPerPrimary: 1.5, defensePerVit: 0.5,
+  maxLevel: 50, xpBase: 140, xpExponent: 1.8, baseHp: 50, hpPerVit: 10, baseMana: 20, manaPerInt: 8, attackPerPrimary: 1.5, defensePerVit: 0.5,
 };
 
 export function createDefaultRpg(startingGold = DEFAULT_ECONOMY.treasury): RpgConfig {
