@@ -1,3 +1,4 @@
+import { accusations, cheatLabel } from '@/data/community';
 import { FACTORS, getBehavior } from '@/data/playerTypes';
 import { EQUIP_SLOTS } from '@/data/rpgDefaults';
 import { t } from '@/i18n';
@@ -53,6 +54,7 @@ export function PlayerDetail({ session, player, compact = false }: { session: Ga
       <div className="kv"><span>{t('Quests done')}</span><span>{player.stats.questsDone}</span></div>
       <div className="kv"><span>{t('Played')}</span><span>{Math.round(player.playMinutes / 60)} {t('h')}</span></div>
       <div className="kv"><span>{t('Reports')}</span><span className={player.reports > 2 ? 'bad-text' : ''}>{player.reports}</span></div>
+      {accusations(player).length > 0 && <div className="kv"><span>{t('Accused of')}</span><span className="hint">{accusations(player).map((x) => `${t(cheatLabel(x.kind))} ×${x.n}`).join(', ')}</span></div>}
       <div className="kv"><span>{t('Suspicion')}</span><span>{session.community.suspicion(player)}%</span></div>
       <div className="chip-row">
         <button className="btn small danger" onClick={() => banPlayer(session, player)}>{t('Ban')}</button>

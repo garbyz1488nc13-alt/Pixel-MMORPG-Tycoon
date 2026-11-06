@@ -1880,4 +1880,5 @@ export const uk: Record<string, string> = {
   'what do you want for it?': 'що хочеш за це?',
   'who leads?': 'хто лідер?',
   'wolves or goblins?': 'вовки чи гобліни?',
+  'Accused of': 'Звинувачують у',
 };

@@ -59,15 +59,30 @@ export const FACTORS: Record<FactorKey, { delta: number; label: string; positive
   season: { delta: 2, label: 'Competitive seasons', positive: true },
 };
 
-const PREFIX = ['Dark', 'Shadow', 'Pixel', 'Iron', 'Silent', 'Crimson', 'Lucky', 'Frost', 'Storm', 'Mighty', 'Sneaky', 'Epic', 'Lazy', 'Golden', 'Wild', 'Cosmic'];
-const ROOT = ['Wolf', 'Blade', 'Panda', 'Mage', 'Knight', 'Fox', 'Dragon', 'Raven', 'Slayer', 'Hunter', 'Bard', 'Tiger', 'Owl', 'Goblin', 'Lord', 'Kitten'];
-const UA = ['Bogdan', 'Taras', 'Oksana', 'Kozak', 'Mavka', 'Lisovyk', 'Vovk', 'Sokil', 'Zirka', 'Bandura'];
+const PREFIX = ['Dark', 'Shadow', 'Pixel', 'Iron', 'Silent', 'Crimson', 'Lucky', 'Frost', 'Storm', 'Mighty', 'Sneaky', 'Epic', 'Lazy', 'Golden', 'Wild', 'Cosmic',
+  'Toxic', 'Holy', 'Night', 'Blood', 'Steel', 'Ancient', 'Crazy', 'Sleepy', 'Angry', 'Tiny', 'Big', 'Fluffy', 'Savage', 'Royal', 'Rusty', 'Salty', 'Turbo', 'Mega', 'Ultra', 'Void', 'Rune', 'Ember', 'Ghost', 'Thunder'];
+const ROOT = ['Wolf', 'Blade', 'Panda', 'Mage', 'Knight', 'Fox', 'Dragon', 'Raven', 'Slayer', 'Hunter', 'Bard', 'Tiger', 'Owl', 'Goblin', 'Lord', 'Kitten',
+  'Reaper', 'Healer', 'Tank', 'Potato', 'Ninja', 'Paladin', 'Rogue', 'Wizard', 'Viking', 'Samurai', 'Pirate', 'Bear', 'Hawk', 'Moth', 'Toad', 'Cat', 'Duck', 'Squid', 'Golem', 'Lich', 'Elf', 'Orc', 'Monk', 'Druid'];
+const UA = ['Bogdan', 'Taras', 'Oksana', 'Kozak', 'Mavka', 'Lisovyk', 'Vovk', 'Sokil', 'Zirka', 'Bandura', 'Kharakternyk', 'Molfar', 'Chumak', 'Hetman', 'Varenyk', 'Borshch', 'Salo', 'Lelek', 'Kalyna', 'Dnipro', 'Perun', 'Domovyk', 'Vedmid', 'Yizhak'];
+const FIRST = ['Kevin', 'Olena', 'Max', 'Anya', 'Dima', 'Sasha', 'Lena', 'Ivan', 'Kate', 'Petro', 'Ira', 'Nazar', 'Sofia', 'Artem', 'Yulia', 'Steve'];
+const FUNNY = ['NoobMaster', 'AFK_', 'LagMaster', 'IAmTank', 'HealMePls', 'NotABot', 'Leeroy', 'BigPotato', 'LootGoblin', 'ClickClick', 'OneMoreRun', 'WipeLord', 'DPSmeter', 'NoMana', 'BrbFood', 'MomsHero'];
+const TITLES = ['Sir', 'Lady', 'Lord', 'Dr', 'Captain', 'King', 'Queen', 'Master', 'Big', 'Lil'];
 
-/** Gamer-tag style names. */
+/** Gamer-tag style names in many flavours (they look like a real MMO server's player list). */
 export function playerName(rand: () => number): string {
-  const r = rand();
+  const pick = <T,>(a: T[]) => a[Math.floor(rand() * a.length)];
   const n = Math.floor(rand() * 99);
-  if (r < 0.15) return `${UA[Math.floor(rand() * UA.length)]}_${n}`;
-  if (r < 0.3) return `xX${ROOT[Math.floor(rand() * ROOT.length)]}Xx`;
-  return `${PREFIX[Math.floor(rand() * PREFIX.length)]}${ROOT[Math.floor(rand() * ROOT.length)]}${r < 0.65 ? n : ''}`;
+  const year = 1990 + Math.floor(rand() * 20);
+  const r = rand();
+  if (r < 0.12) return `${pick(UA)}_${n}`;
+  if (r < 0.2) return `xX${pick(ROOT)}${pick(['', 'Slayer', 'Killer', 'Lord'])}Xx`;
+  if (r < 0.28) return `${pick(FIRST)}${year}`;
+  if (r < 0.35) return `${pick(TITLES)}${pick(ROOT)}`;
+  if (r < 0.41) return `${pick(FUNNY)}${pick(FUNNY).endsWith('_') ? pick(FIRST) : rand() < 0.5 ? n : ''}`.replace(/_$/, '');
+  if (r < 0.46) return `${pick(PREFIX)}${pick(ROOT)}TV`;
+  if (r < 0.51) return `${pick(PREFIX).toUpperCase()}_${pick(ROOT).toUpperCase()}`;
+  if (r < 0.57) return `${pick(ROOT).toLowerCase()}_${pick(PREFIX).toLowerCase()}${rand() < 0.5 ? n : ''}`;
+  if (r < 0.62) return `${pick(PREFIX)}${pick(UA)}`;
+  if (r < 0.67) return `The${pick(PREFIX)}${pick(ROOT)}`;
+  return `${pick(PREFIX)}${pick(ROOT)}${r < 0.85 ? n : ''}`;
 }

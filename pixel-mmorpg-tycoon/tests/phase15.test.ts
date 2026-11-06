@@ -72,3 +72,18 @@ describe('clans and fishing', () => {
     expect(fishing).toBeGreaterThan(0);
   }, 60000);
 });
+
+describe('reports and names', () => {
+  it('reports say what the player is accused of, and player names are unique', async () => {
+    const { buildWorld } = await import('./bench');
+    const w = buildWorld({ size: 96, npcs: 10, seed: 3 });
+    for (let i = 0; i < 60; i++) w.players.join();
+    const names = w.rt.sim.players.map((p) => p.name);
+    expect(new Set(names).size).toBe(names.length);
+    const { addReport, accusations } = await import('@/data/community');
+    const p = w.rt.sim.players[0];
+    addReport(p, 'speed'); addReport(p, 'speed'); addReport(p, 'damage');
+    expect(p.reports).toBe(3);
+    expect(accusations(p)[0]).toEqual({ kind: 'speed', n: 2 });
+  });
+});

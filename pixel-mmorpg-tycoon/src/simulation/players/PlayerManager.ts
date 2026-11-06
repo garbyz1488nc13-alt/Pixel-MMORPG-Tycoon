@@ -297,7 +297,7 @@ export class PlayerManager {
     const classKey = pick(CLASS_SHARES, this.rand());
     const now = this.world.clock.totalMinutes;
     const p: PlayerState = {
-      id: createId('pl'), name: playerName(this.rand), classKey, behavior, level: 1, trainedLevel: 1, xp: 0, gold: STARTING_PLAYER_GOLD, hp: 0, mana: 0,
+      id: createId('pl'), name: this.uniqueName(), classKey, behavior, level: 1, trainedLevel: 1, xp: 0, gold: STARTING_PLAYER_GOLD, hp: 0, mana: 0,
       inventory: [], equipment: {}, quests: [], completedQuests: [], satisfaction: 60, factors: {}, visitedRegions: [],
       online: false, returnAt: 0, sessionLeft: 0, playMinutes: 0, joinedAt: now, x: 0, y: 0,
       stats: { kills: 0, deaths: 0, questsDone: 0, goldEarned: 0, pvpKills: 0 },
@@ -335,6 +335,14 @@ export class PlayerManager {
       eco.treasury -= due;
       p.bank += due;
     }
+  }
+
+  /** A gamer tag nobody on the server uses yet. */
+  private uniqueName(): string {
+    const taken = new Set(this.world.sim.players.map((p) => p.name));
+    let name = playerName(this.rand);
+    for (let i = 0; i < 20 && taken.has(name); i++) name = playerName(this.rand);
+    return taken.has(name) ? `${name}${Math.floor(this.rand() * 900 + 100)}` : name;
   }
 
   /** Are there trainers in the world? (Then new skills must be learned from one.) */

@@ -73,6 +73,8 @@ export interface PlayerState {
   cheat?: CheatKind;
   /** How many times other players reported this player. */
   reports: number;
+  /** What reporters accused them of (they can be wrong). */
+  reportKinds?: Partial<Record<CheatKind, number>>;
   /** Clan membership. */
   clanId?: EntityId;
   /** Season titles ("Season 2 champion"). */

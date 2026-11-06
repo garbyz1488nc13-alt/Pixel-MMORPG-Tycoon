@@ -2,6 +2,7 @@ import { createId, type EntityId } from '@/core/ids';
 import { EventBus } from '@/core/EventBus';
 import {
   ANTI_CHEAT, BANNED_INNOCENT_REVIEW, cheaterChance, REVIEW_OPENERS, REVIEW_PHRASES, STREAMER_REVIEW_BAD, STREAMER_REVIEW_GOOD, streamerChance,
+  addReport, guessCheat,
 } from '@/data/community';
 import { FACTORS } from '@/data/playerTypes';
 import type { CheatKind, FactorKey, PlayerState, Review, ReviewLine } from '@/models/sim';
@@ -187,12 +188,13 @@ export class CommunityService {
         // Only some witnesses bother to report, and at most a few per hour.
         if (reports < 3 && this.rand() < 0.12) reports++;
       }
-      p.reports += reports;
+      for (let i = 0; i < reports; i++) addReport(p, guessCheat(p.cheat, () => this.rand()));
     }
 
     // Honest top players sometimes get reported by jealous rivals.
     const top = [...online].filter((p) => !p.cheat).sort((a, b) => b.level - a.level)[0];
-    if (top && this.rand() < 0.08) top.reports++;
+    // Jealous accusations: "nobody gets that strong legit, must be a damage/speed hack".
+    if (top && this.rand() < 0.08) addReport(top, this.rand() < 0.6 ? 'damage' : 'speed');
 
     // Anti-cheat: auto-bans, false positives, and annoyance at the highest level.
     if (ac.detect > 0) {

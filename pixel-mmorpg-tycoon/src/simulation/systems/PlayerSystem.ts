@@ -1,3 +1,4 @@
+import { addReport, guessCheat } from '@/data/community';
 import { serviceBuilding, temples, TEMPLE_HEAL } from '@/data/buildings';
 import type { EntityId } from '@/core/ids';
 import { getObjectDef } from '@/data/objects';
@@ -168,8 +169,9 @@ export class PlayerSystem implements SimulationSystem {
         this.pm.feel(p, 'pvpKilled');
         const k = this.pm.get(killer.defId);
         // Victims of cheaters (or ganks inside safe zones) report the killer.
-        if (k?.cheat) { this.pm.feel(p, 'cheaters'); k.reports++; }
-        else if (this.brain.isSafe(Math.floor(victim.x), Math.floor(victim.y)) && k) k.reports++;
+        if (k?.cheat) { this.pm.feel(p, 'cheaters'); addReport(k, guessCheat(k.cheat, () => this.mgr.rand())); }
+        // Killed in a safe zone: "griefer!"
+        else if (this.brain.isSafe(Math.floor(victim.x), Math.floor(victim.y)) && k) addReport(k, 'griefer');
       }
       else if (killer?.kind === 'creature' && (this.mgr.template(killer)?.level ?? 0) > p.level + 2) this.pm.feel(p, 'tooHard');
       this.pm.hunting.delete(p.id);

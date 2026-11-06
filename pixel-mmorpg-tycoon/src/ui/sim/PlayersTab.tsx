@@ -1,3 +1,4 @@
+import { accusations, cheatLabel } from '@/data/community';
 import { useMemo, useState } from 'react';
 import { FACTORS, getBehavior } from '@/data/playerTypes';
 import { t } from '@/i18n';
@@ -99,7 +100,7 @@ export function PlayersTab({ session }: { session: GameSession }) {
                   return (
                     <tr key={p.id} className={focus === p.id ? 'active' : ''} onClick={() => setFocus(p.id)}>
                       <td><SpritePreview frame={`pl:${p.classKey}:0`} box={18} /></td>
-                      <td>{p.name}{p.streamer && p.online && <span className="badge live">LIVE</span>}{p.reports > 0 && <span className="badge report" title={t('Reports')}>!{p.reports}</span>}</td><td>{p.level}</td>
+                      <td>{p.name}{p.streamer && p.online && <span className="badge live">LIVE</span>}{p.reports > 0 && <span className="badge report" title={`${t('Reports')}: ${accusations(p).map((x) => `${t(cheatLabel(x.kind))} ×${x.n}`).join(', ')}`}>!{p.reports}</span>}</td><td>{p.level}</td>
                       <td>{t(getBehavior(p.behavior).name)}</td>
                       <td>{p.online ? (act ? t(ACTIVITY_LABEL[act.kind]) : '—') : t('Offline')}</td>
                       <td><span style={{ color: moodColor(p.satisfaction) }}>{Math.round(p.satisfaction)}%</span></td>

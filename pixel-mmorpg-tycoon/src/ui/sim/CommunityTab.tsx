@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ANTI_CHEAT } from '@/data/community';
+import { accusations, ANTI_CHEAT, cheatLabel } from '@/data/community';
 import { FACTORS, getBehavior } from '@/data/playerTypes';
 import { t } from '@/i18n';
 import type { PlayerState, Review } from '@/models/sim';
@@ -154,7 +154,7 @@ export function CommunityTab({ session }: { session: GameSession }) {
           {suspects.length === 0 && <div className="hint">{t('No suspicious players online.')}</div>}
           {suspects.length > 0 && (
             <table className="data-table compact-table">
-              <thead><tr><th /><th>{t('Name')}</th><th>{t('Reports')}</th><th>{t('Suspicion')}</th><th /></tr></thead>
+              <thead><tr><th /><th>{t('Name')}</th><th>{t('Reports')}</th><th>{t('Accused of')}</th><th>{t('Suspicion')}</th><th /></tr></thead>
               <tbody>
                 {suspects.map((p) => {
                   const s = community.suspicion(p);
@@ -163,6 +163,7 @@ export function CommunityTab({ session }: { session: GameSession }) {
                       <td><SpritePreview frame={`pl:${p.classKey}:0`} box={16} /></td>
                       <td><button className="link" onClick={() => setFocus(p.id)} title={t(getBehavior(p.behavior).name)}>{p.name}</button> <span className="hint">{t('Lv')} {p.level}</span></td>
                       <td>{p.reports}</td>
+                      <td className="hint">{accusations(p).slice(0, 2).map((x) => `${t(cheatLabel(x.kind))} ×${x.n}`).join(', ') || '—'}</td>
                       <td><div className="bar"><div className="bar-fill" style={{ width: `${s}%`, background: s > 60 ? '#e2574c' : s > 30 ? '#f2c14e' : '#6cc551' }} /></div></td>
                       <td><button className="btn small danger" onClick={() => banPlayer(session, p)}>{t('Ban')}</button></td>
                     </tr>

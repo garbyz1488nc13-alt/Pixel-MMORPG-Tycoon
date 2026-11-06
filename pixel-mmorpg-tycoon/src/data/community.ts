@@ -1,4 +1,4 @@
-import type { CheatKind, FactorKey } from '@/models/sim';
+import type { CheatKind, FactorKey, PlayerState } from '@/models/sim';
 
 /**
  * Review phrases. Each factor has a couple of variants so reviews don't repeat.
@@ -71,3 +71,24 @@ export function cheaterChance(popularity: number): number {
 export function streamerChance(popularity: number): number {
   return 0.006 + popularity * 0.0004;
 }
+
+/** Record a report with the cheat the reporter believes it is. */
+export function addReport(p: PlayerState, kind: CheatKind, n = 1): void {
+  if (n <= 0) return;
+  p.reports += n;
+  const k = (p.reportKinds ??= {});
+  k[kind] = (k[kind] ?? 0) + n;
+}
+
+/** A witness guesses the cheat: usually right, sometimes not. */
+export function guessCheat(real: CheatKind | undefined, rand: () => number): CheatKind {
+  if (real && rand() < 0.75) return real;
+  return CHEAT_KINDS[Math.floor(rand() * CHEAT_KINDS.length)].key;
+}
+
+/** Accusations sorted by how often they were made. */
+export function accusations(p: PlayerState): { kind: CheatKind; n: number }[] {
+  return Object.entries(p.reportKinds ?? {}).map(([kind, n]) => ({ kind: kind as CheatKind, n: n ?? 0 })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
+}
+
+export const cheatLabel = (k: CheatKind) => CHEAT_KINDS.find((c) => c.key === k)?.label ?? k;
