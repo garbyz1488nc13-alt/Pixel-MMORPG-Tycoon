@@ -38,12 +38,23 @@ export class PlayerSystem implements SimulationSystem {
     return m;
   }
 
+  /** Group dungeons (players inside are out of the world for a while). */
+  dungeons: { inside(): Set<string> } | null = null;
   /** Chat hook for pastimes ("caught a fish!", AFK…). */
   leisureEvent: ((p: PlayerState, what: string) => void) | null = null;
   /** Auction house (drop-only loot is listed there instead of sold to merchants). */
   auction: { isDropOnly(itemId: string): boolean } | null = null;
   /** Clans & raids (set by the session). */
   clans: ClanService | null = null;
+
+  /** Send a player to a dungeon entrance (they stay until released). */
+  joinDungeon(playerId: string, runId: string, x: number, y: number): void {
+    const m = this.mind(playerId);
+    m.act = { kind: 'dungeon', runId, x, y };
+    m.nextPlan = Number.MAX_SAFE_INTEGER;
+    const a = this.mgr.actors.get(playerId);
+    if (a) { a.path = null; a.targetId = null; }
+  }
 
   /** Send a player to a meetup (they stay until released). */
   joinMeetup(playerId: string, meetupId: string, x: number, y: number, cx: number, cy: number): void {
@@ -58,7 +69,7 @@ export class PlayerSystem implements SimulationSystem {
   isFree(playerId: string): boolean {
     const a = this.mgr.actors.get(playerId);
     const k = this.minds.get(playerId)?.act?.kind;
-    return !!a && !a.targetId && !['raid', 'follow', 'pvp', 'meetup', 'npc', 'trade'].includes(k ?? '');
+    return !!a && !a.targetId && !['raid', 'follow', 'pvp', 'meetup', 'npc', 'trade', 'dungeon'].includes(k ?? '');
   }
 
   /** Make a player re-think right away (e.g. a raid formed or ended). */
@@ -191,6 +202,7 @@ export class PlayerSystem implements SimulationSystem {
       if (!p) { mgr.removeActor(a); continue; }
       const m = this.mind(a.id);
 
+      if (this.dungeons?.inside().has(p.id)) { p.playMinutes += GAME_MINUTES_PER_TICK; continue; } // inside an instance
       if (a.state === 'dead') {
         if (mgr.gameMinutes >= a.respawnAt) {
           // Come back to life at the nearest temple (if any), otherwise at a spawn point.
@@ -290,7 +302,7 @@ export class PlayerSystem implements SimulationSystem {
       const om = this.minds.get(o.id);
       const busy = om?.act && !['hunt', 'idle', 'social', 'leisure'].includes(om.act.kind);
       if (!q || busy || Math.abs(q.level - p.level) > 3 || this.clans?.raidOf(q.id) || this.followers(o.id).length || this.pm.availableQuests(q).length) continue;
-      const friendly = q.clanId && q.clanId === p.clanId ? 0.8 : 0.35;
+      const friendly = (q.clanId && q.clanId === p.clanId) || p.friends?.includes(q.id) ? 0.8 : 0.35;
       if (this.mgr.rand() > friendly) continue;
       const mind = this.mind(o.id);
       mind.act = { kind: 'follow', leaderId: a.id, ticks: 0 };
@@ -299,7 +311,10 @@ export class PlayerSystem implements SimulationSystem {
       o.path = null;
       members.push(q);
     }
-    if (members.length) this.groupEvent?.(p, members);
+    if (members.length) {
+      this.groupEvent?.(p, members);
+      for (const q of members) if (this.mgr.rand() < 0.3) this.pm.befriend(p, q);
+    }
   }
 
   /** Heal hurt group mates (healers) and rescue allies that are about to die. */
@@ -663,6 +678,11 @@ export class PlayerSystem implements SimulationSystem {
         if (act.ticks % 90 === 0) this.pm.feel(p, act.action === 'sightsee' ? 'explore' : 'social', 0.3);
         if (act.ticks === 1) this.leisureEvent?.(p, act.action);
         if (act.ticks > act.duration) this.done(m, tick);
+        return;
+      }
+      case 'dungeon': {
+        if (!this.moveTo(a, act.x, act.y, speed, 1.2)) { if (!a.path && ++m.stuck > 60) { m.stuck = 0; a.path = null; } return; }
+        a.state = 'idle';
         return;
       }
       case 'meetup': {

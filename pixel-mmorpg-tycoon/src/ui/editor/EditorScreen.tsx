@@ -1,3 +1,4 @@
+import { useSettingsStore } from '@/stores/settingsStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { useAutosave } from '../hooks/useAutosave';
@@ -40,10 +41,11 @@ function Editor({ session }: { session: GameSession }) {
   useAutosave(session);
   useWorldMusic(session);
   const interiorId = useEditorStore((s) => s.interiorId);
+  const layout = { hideLeft: useSettingsStore((s) => s.hideLeft), hideRight: useSettingsStore((s) => s.hideRight), hideLog: useSettingsStore((s) => s.hideLog) };
   const setInterior = useEditorStore((s) => s.setInterior);
 
   return (
-    <div className="editor">
+    <div className={`editor ${layout.hideLeft ? 'no-left' : ''} ${layout.hideRight ? 'no-right' : ''} ${layout.hideLog ? 'no-log' : ''}`}>
       <TopBar />
       <TabBar />
       <div className="editor-main">

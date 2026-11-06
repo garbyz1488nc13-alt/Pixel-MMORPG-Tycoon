@@ -120,6 +120,8 @@ export class MeetupService implements SimulationSystem {
     this.active.splice(this.active.indexOf(m), 1);
     const ps = m.members.map((id) => this.pm.get(id)).filter((p): p is PlayerState => !!p);
     for (const p of ps) this.release(p.id);
+    // Meeting people is how friendships start.
+    if (done) for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) if (this.rand() < 0.25) this.pm.befriend(ps[i], ps[j]);
     if (!done || ps.length < 2) return;
     let outcome = 'They chatted and went their separate ways.';
     const params: Record<string, string | number> = { n: ps.length };

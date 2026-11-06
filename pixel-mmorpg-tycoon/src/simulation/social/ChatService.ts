@@ -117,6 +117,8 @@ export class ChatService implements SimulationSystem {
     const tick = ctx.tick;
     for (const [id, b] of this.bubbles) if (b.until <= tick || !this.actors.actors.has(id)) this.bubbles.delete(id);
     for (const m of [...this.pending]) if (m.at <= tick) { this.pending.splice(this.pending.indexOf(m), 1); this.say(m.actorId, m.key, m.params); }
+    // Gold sellers spam the chat wherever they stand.
+    if (tick % 30 === 0) for (const p of this.pm.online()) if (p.cheat === 'goldseller' && this.actors.rand() < 0.5) this.say(p.id, this.pick('goldspam'));
     // Small talk: a few random players start a conversation with someone nearby.
     const online = this.pm.online();
     if (!online.length) return;
@@ -133,6 +135,8 @@ export class ChatService implements SimulationSystem {
       this.say(p.id, this.pick(topic));
       const other = others[Math.floor(this.actors.rand() * others.length)];
       this.later(other.defId, `${topic}Reply`, 12 + Math.floor(this.actors.rand() * 10));
+      const op = this.pm.get(other.defId);
+      if (op && this.actors.rand() < 0.04) this.pm.befriend(p, op);
       if (this.actors.rand() < 0.3) this.later(p.id, 'emote', 30);
     }
   }

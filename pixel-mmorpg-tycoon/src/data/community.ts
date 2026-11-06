@@ -33,6 +33,9 @@ export const REVIEW_PHRASES: Partial<Record<FactorKey, string[]>> = {
   nerf: ['They nerfed my main into the ground. Unsubscribed.', 'Nerf after nerf, devs hate my class.'],
   season: ['Climbing the season ladder with my clan is addictive.', 'Season rewards are worth the grind.'],
   p2w: ['Pay-to-win garbage, whales one-shot everyone.', 'The cash shop sells the best gear. Uninstalled.'],
+  home: ['Love my little room at the hotel.', 'Finally rented a room in town, feels like home.'],
+  friends: ['Made great friends here, we play every day.', 'Came for the game, stayed for my friends.'],
+  friendsLeft: ['All my friends quit, it is lonely now.', 'My whole group left, so am I.'],
   drama: ['Guild drama ruined everything, the officers are clowns.', 'Our clan fell apart over one epic drop. Never again.'],
   antiCheatPain: ['The anti-cheat is so intrusive it slows my PC.', 'Kernel anti-cheat? No thanks.'],
 };
@@ -54,6 +57,8 @@ export const CHEAT_KINDS: { key: CheatKind; label: string; hint: string }[] = [
   { key: 'damage', label: 'Damage hack', hint: 'Kills monsters in one hit.' },
   { key: 'gold', label: 'Gold dupe', hint: 'Duplicates gold and items, inflating the economy.' },
   { key: 'griefer', label: 'Griefer', hint: 'Kills players everywhere, even in safe zones.' },
+  { key: 'bot', label: 'Farming bot', hint: 'Farms monsters non-stop and dumps loot on the auction, crashing prices.' },
+  { key: 'goldseller', label: 'Gold seller', hint: 'Spams the chat in town with real-money gold offers.' },
 ];
 
 /** Anti-cheat tiers: detection chance per cheater per game hour, false bans per honest player per day, $ per day. */

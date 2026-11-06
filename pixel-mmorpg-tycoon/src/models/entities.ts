@@ -20,10 +20,12 @@ export interface MapObject {
   linkId?: EntityId;
   /** Enterable buildings: furniture placed inside. */
   interior?: Interior;
+  /** Dungeon / cave entrances: an instanced group dungeon. */
+  dungeon?: { level: number; name?: string };
 }
 
 export type FurnitureKind = 'spawn' | 'bed' | 'table' | 'chair' | 'counter' | 'barrel' | 'fireplace' | 'rug' | 'plant' | 'shelf';
-export interface Furniture { kind: FurnitureKind; x: number; y: number }
+export interface Furniture { kind: FurnitureKind; x: number; y: number; /** Beds: the player renting this room. */ ownerId?: EntityId }
 export interface Interior { furniture: Furniture[] }
 
 export interface Region {

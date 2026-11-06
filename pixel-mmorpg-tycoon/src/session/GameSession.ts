@@ -24,6 +24,7 @@ import { SeasonService, leagueFor } from '@/simulation/liveops/SeasonService';
 import { PatchService } from '@/simulation/liveops/PatchService';
 import { ChatService } from '@/simulation/social/ChatService';
 import { MeetupService } from '@/simulation/social/MeetupService';
+import { DungeonService } from '@/simulation/social/DungeonService';
 import { audio } from '@/audio/AudioEngine';
 import { doorTile } from '@/data/furniture';
 import type { PlayerState } from '@/models/sim';
@@ -83,6 +84,7 @@ export class GameSession {
   readonly patches: PatchService;
   readonly chat: ChatService;
   readonly meetups: MeetupService;
+  readonly dungeons: DungeonService;
   readonly bridge = new EventBus<BridgeEvents>();
   slot: SaveSlotKey;
   /** Copied objects for Ctrl+C / Ctrl+V. */
@@ -140,6 +142,12 @@ export class GameSession {
     this.meetups.release = (id) => this.playerSystem.replan(id);
     this.meetups.isFree = (id) => this.playerSystem.isFree(id);
     this.engine.addSystem(this.meetups);
+    this.dungeons = new DungeonService(this.runtime, this.actors, this.players, this.chat);
+    this.dungeons.assign = (id, run, x, y) => this.playerSystem.joinDungeon(id, run.id, x, y);
+    this.dungeons.release = (id) => this.playerSystem.replan(id);
+    this.dungeons.isFree = (id) => this.playerSystem.isFree(id);
+    this.playerSystem.dungeons = this.dungeons;
+    this.engine.addSystem(this.dungeons);
     this.engine.addSystem(new HourlySystem(this.players, this.studio, (debt) => {
       if (debt > 0) log.event(t('The studio is in debt (day {n}). Building is blocked until funds are positive.', { n: debt }), 'warn', this.runtime.clock.totalMinutes);
     }, this.community, this.analytics, this.worldEvents, this.clans, [this.auction, this.seasons, this.patches]));
@@ -198,6 +206,8 @@ export class GameSession {
       }),
       this.patches.events.on('released', ({ record }) =>
         log.event(t('Patch {v} is live! Hype {h}, new bugs: {b}.', { v: record.version, h: record.hype, b: record.bugsIntroduced }), 'success', this.runtime.clock.totalMinutes)),
+      this.dungeons.events.on('finished', ({ run, name, cleared, loot }) =>
+        log.sim(cleared ? t('A party of {n} cleared {name} (loot: {l}).', { n: run.members.length, name: t(name), l: loot }) : t('A party of {n} wiped in {name}.', { n: run.members.length, name: t(name) }), cleared ? 'success' : 'warn', this.runtime.clock.totalMinutes)),
       this.meetups.events.on('ended', ({ outcome, params }) =>
         log.sim(t('Meetup: {text}', { text: t(outcome, params) }), 'info', this.runtime.clock.totalMinutes)),
       this.clans.events.on('founded', ({ clan, founder }) =>
@@ -358,7 +368,7 @@ export class GameSession {
 
   /** Ids of all players currently inside buildings (hidden on the map). */
   playersInside(): Set<string> {
-    const out = new Set<string>();
+    const out = new Set<string>(this.dungeons.inside());
     for (const o of this.runtime.entities.list('objects')) if (o.interior) for (const p of this.guestsOf(o)) out.add(p.id);
     return out;
   }

@@ -57,6 +57,9 @@ export const FACTORS: Record<FactorKey, { delta: number; label: string; positive
   bugs: { delta: -2, label: 'Bugs everywhere', positive: false },
   nerf: { delta: -5, label: 'My class got nerfed', positive: false },
   season: { delta: 2, label: 'Competitive seasons', positive: true },
+  friends: { delta: 0.6, label: 'Playing with friends', positive: true },
+  friendsLeft: { delta: -4, label: 'My friends quit', positive: false },
+  home: { delta: 0.3, label: 'Having a room of my own', positive: true },
 };
 
 const PREFIX = ['Dark', 'Shadow', 'Pixel', 'Iron', 'Silent', 'Crimson', 'Lucky', 'Frost', 'Storm', 'Mighty', 'Sneaky', 'Epic', 'Lazy', 'Golden', 'Wild', 'Cosmic',

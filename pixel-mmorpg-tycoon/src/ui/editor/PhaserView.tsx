@@ -24,7 +24,7 @@ export function PhaserView({ session }: { session: GameSession }) {
       if (disposed) return;
       game = createGame(el, session);
     });
-    const ro = new ResizeObserver(() => game?.scale.refresh());
+    const ro = new ResizeObserver(() => { game?.scale.refresh(); requestAnimationFrame(() => game?.scale.refresh()); });
     ro.observe(el);
     const off = session.bridge.on('scene:fps', ({ fps }) => setFps(fps));
     return () => {

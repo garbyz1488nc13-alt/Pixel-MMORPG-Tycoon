@@ -12,6 +12,7 @@ import type { StudioService } from '@/simulation/studio/StudioService';
 import type { EntityChange } from '@/simulation/EntityStore';
 import type { WorldRuntime } from '@/simulation/WorldRuntime';
 import { getBossPreset } from '@/data/bossTypes';
+import { defaultInterior } from '@/data/furniture';
 import { EntityEditor } from '@/systems/editor/EntityEditor';
 import { CompositeCommand, EntityCommand, TileEditCommand, type EditorCommand, type History } from '@/systems/editor/History';
 import type { TileRect } from '@/systems/editor/shapes';
@@ -67,12 +68,9 @@ class Planner {
     const set = d.flat ? this.flat : this.solid;
     for (let ty = y; ty < y + d.h; ty++) for (let tx = x; tx < x + d.w; tx++) set.add(ty * this.world.grid.width + tx);
     const obj: MapObject = { id: createId('obj'), kind, x, y };
-    // Generated taverns come furnished: beds for resting players, tables, a fireplace.
-    if (kind === 'tavern') obj.interior = { furniture: [
-      { kind: 'fireplace', x: 1, y: 1 }, { kind: 'counter', x: 5, y: 1 }, { kind: 'counter', x: 6, y: 1 }, { kind: 'barrel', x: 7, y: 1 },
-      { kind: 'table', x: 3, y: 3 }, { kind: 'chair', x: 2, y: 3 }, { kind: 'table', x: 7, y: 4 }, { kind: 'chair', x: 8, y: 4 },
-      { kind: 'bed', x: 10, y: 1 }, { kind: 'bed', x: 10, y: 3 }, { kind: 'bed', x: 10, y: 5 }, { kind: 'rug', x: 5, y: 5 }, { kind: 'plant', x: 1, y: 6 },
-    ] };
+    // Taverns and hotels come furnished (beds = rooms players can rent).
+    const furnished = defaultInterior(kind);
+    if (furnished) obj.interior = furnished;
     this.objects.push(obj);
     return true;
   }
@@ -185,7 +183,7 @@ function settlement(p: Planner, r: TileRect, size: 'village' | 'town' | 'city', 
   p.place(landmark, cx + 1, cy + 1) || p.place(landmark, cx - 1, cy - 1);
 
   // Buildings along the roads.
-  const services: string[] = size === 'village' ? ['shop'] : size === 'town' ? ['shop', 'smithy', 'tavern', 'temple'] : ['shop', 'smithy', 'tavern', 'temple', 'bank', 'shop', 'tavern'];
+  const services: string[] = size === 'village' ? ['shop'] : size === 'town' ? ['shop', 'smithy', 'tavern', 'temple', 'hotel'] : ['shop', 'smithy', 'tavern', 'temple', 'bank', 'shop', 'tavern', 'hotel'];
   const homes = size === 'village' ? ['house_small'] : ['house_small', 'house_large'];
   const placedServices: { kind: string; x: number; y: number }[] = [];
   const tryBuilding = (kind: string): boolean => {

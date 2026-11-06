@@ -1,3 +1,4 @@
+import { DUNGEON_KINDS } from '@/simulation/social/DungeonService';
 import { BUILDING_ROLE, NPC_HOUSED_HINT, NPC_STREET_HINT, SERVICE_BUILDING, serviceBuilding } from '@/data/buildings';
 import { ENTERABLE } from '@/data/furniture';
 import { getObjectDef } from '@/data/objects';
@@ -89,6 +90,21 @@ function ObjectInspector({ session, id, actions }: { session: GameSession; id: s
         </Field>
       )}
       {BUILDING_ROLE[o.kind] && <div className="feedback good"><div className="hint">{t(BUILDING_ROLE[o.kind])}</div></div>}
+      {DUNGEON_KINDS.has(o.kind) && (() => {
+        const st = session.runtime.sim.dungeonStats?.[o.id] ?? { runs: 0, clears: 0, wipes: 0 };
+        const lv = session.dungeons.levelOf(o);
+        return (
+          <div className="feedback good">
+            <b>{t('Group dungeon')}</b>
+            <div className="hint">{t('Parties of 3–5 players of about this level go inside for a while and come back with XP, gold and gear. A tank (warrior/paladin) and a healer (paladin) make it much safer.')}</div>
+            <div className="two-col">
+              <Field label={t('Dungeon level')}><NumberInput value={lv} min={1} max={100} onChange={(level) => session.entities.update('objects', o.id, { dungeon: { ...o.dungeon, level } }, t('Edit dungeon'))} /></Field>
+              <Field label={t('Dungeon name')}><TextInput value={o.dungeon?.name ?? ''} onChange={(name) => session.entities.update('objects', o.id, { dungeon: { level: lv, ...o.dungeon, name } }, t('Edit dungeon'))} /></Field>
+            </div>
+            <div className="kv"><span>{t('Runs / cleared / wiped')}</span><span>{st.runs} / {st.clears} / {st.wipes}</span></div>
+          </div>
+        );
+      })()}
       {actions}
     </div>
   );

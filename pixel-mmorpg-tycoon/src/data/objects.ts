@@ -38,6 +38,7 @@ export const OBJECTS: readonly ObjectDef[] = [
   { key: 'shop', name: 'Shop', category: 'buildings', w: 3, h: 2, blocks: true, overhang: 1 },
   { key: 'smithy', name: 'Smithy', category: 'buildings', w: 3, h: 2, blocks: true, overhang: 1 },
   { key: 'tavern', name: 'Tavern', category: 'buildings', w: 4, h: 3, blocks: true, overhang: 1 },
+  { key: 'hotel', name: 'Hotel', category: 'buildings', w: 3, h: 3, blocks: true, overhang: 2 },
   { key: 'temple', name: 'Temple', category: 'buildings', w: 3, h: 3, blocks: true, overhang: 2 },
   { key: 'bank', name: 'Bank', category: 'buildings', w: 3, h: 2, blocks: true, overhang: 1 },
   { key: 'tower', name: 'Watchtower', category: 'buildings', w: 2, h: 2, blocks: true, overhang: 3 },

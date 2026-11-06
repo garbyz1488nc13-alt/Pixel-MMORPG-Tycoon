@@ -12,9 +12,10 @@ export type FactorKey =
   | 'death' | 'noContent' | 'tooHard' | 'noQuests' | 'crowded' | 'expensive' | 'poor' | 'pvpKilled' | 'boredom' | 'queue' | 'unpaid'
   | 'cheaters' | 'justice' | 'antiCheatPain' | 'event'
   | 'clan' | 'raid' | 'drama' | 'p2w'
-  | 'patch' | 'bugs' | 'nerf' | 'season';
+  | 'patch' | 'bugs' | 'nerf' | 'season'
+  | 'friends' | 'friendsLeft' | 'home';
 
-export type CheatKind = 'speed' | 'damage' | 'gold' | 'griefer';
+export type CheatKind = 'speed' | 'damage' | 'gold' | 'griefer' | 'bot' | 'goldseller';
 
 /** A line of review text: an English source key + params, translated when displayed. */
 export interface ReviewLine { key: string; params?: Record<string, string | number> }
@@ -79,6 +80,10 @@ export interface PlayerState {
   clanId?: EntityId;
   /** Season titles ("Season 2 champion"). */
   titles?: string[];
+  /** Rented room: the building and the bed inside it. */
+  home?: { objectId: EntityId; x: number; y: number };
+  /** Friends (player ids) made by playing together. */
+  friends?: EntityId[];
   /** Gold stored with a banker (safe when dying). */
   bank?: number;
   /** Highest level whose skills a trainer has taught (only matters if the world has trainers). */
@@ -187,6 +192,10 @@ export interface SimState {
   /** Per boss lair (spawn area id). */
   lairStats: Record<EntityId, LairStats>;
   auction: AuctionState;
+  /** Lifetime room rent paid to the treasury. */
+  rentPaid?: number;
+  /** Per dungeon entrance: group runs and clears. */
+  dungeonStats?: Record<EntityId, { runs: number; clears: number; wipes: number }>;
   /** Per quest: how many times it was taken and completed (quest giver statistics). */
   questStats?: Record<EntityId, { taken: number; done: number }>;
   season: SeasonState;

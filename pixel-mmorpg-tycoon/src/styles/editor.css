@@ -298,3 +298,13 @@ button.link { background: none; border: none; color: var(--cyan); cursor: pointe
 .furniture-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
 .furniture-grid .sprite-btn { flex-direction: row; justify-content: flex-start; gap: 6px; padding: 4px; }
 .chat-line { padding: 2px 8px; border-bottom: 1px solid var(--panel-2); }
+
+/* ---------- Collapsible layout ---------- */
+.layout-toggles { margin-left: auto; display: flex; gap: 2px; padding-bottom: 3px; position: sticky; right: 0; background: var(--bg-2); }
+.layout-toggle { min-width: 28px; padding: 0 6px; font-size: 16px; }
+.editor.no-log { grid-template-rows: 52px 34px 1fr; }
+.editor.no-log > :last-child { display: none; }
+.editor.no-left .editor-main { grid-template-columns: minmax(0, 1fr) 300px; }
+.editor.no-right .editor-main { grid-template-columns: 252px minmax(0, 1fr); }
+.editor.no-left.no-right .editor-main { grid-template-columns: minmax(0, 1fr); }
+.editor.no-left .editor-main > :first-child, .editor.no-right .editor-main > :last-child { display: none; }

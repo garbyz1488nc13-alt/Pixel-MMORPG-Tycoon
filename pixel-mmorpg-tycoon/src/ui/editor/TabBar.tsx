@@ -1,3 +1,4 @@
+import { useSettingsStore } from '@/stores/settingsStore';
 import { useEditorStore, type EditorTab } from '@/stores/editorStore';
 import { t as tr } from '@/i18n';
 import { PixelIcon } from '../components/PixelIcon';
@@ -41,6 +42,22 @@ export function TabBar() {
           {tab.phase && <span className="badge">P{tab.phase}</span>}
         </button>
       ))}
+      <LayoutToggles />
+    </div>
+  );
+}
+
+/** Collapse side panels / the log to give tabs more room. */
+function LayoutToggles() {
+  const s = useSettingsStore();
+  const btn = (on: boolean, label: string, title: string, toggle: () => void) => (
+    <button className={`btn small layout-toggle ${on ? '' : 'active'}`} title={title} onClick={toggle}>{label}</button>
+  );
+  return (
+    <div className="layout-toggles">
+      {btn(s.hideLeft, '◧', tr('Show / hide the tools panel'), () => s.update({ hideLeft: !s.hideLeft }))}
+      {btn(s.hideLog, '▭', tr('Show / hide the log'), () => s.update({ hideLog: !s.hideLog }))}
+      {btn(s.hideRight, '◨', tr('Show / hide the minimap & selection panel'), () => s.update({ hideRight: !s.hideRight }))}
     </div>
   );
 }

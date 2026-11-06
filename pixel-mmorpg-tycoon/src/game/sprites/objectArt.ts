@@ -172,6 +172,18 @@ export const OBJECT_ART: Record<string, Painter> = {
     a.rect(sx, sy, 7, 6, WOOD); a.outlineRect(sx, sy, 7, 6, WOOD_D);
     a.rect(sx + 2, sy + 1, 3, 4, '#f2c14e'); a.px(sx + 5, sy + 2, '#f2c14e'); a.hline(sx + 2, sx + 4, sy + 1, '#fff6c8');
   },
+  hotel: (a) => {
+    // Three storeys of rooms with lit windows and a sign.
+    const W = a.w, H = a.h;
+    a.shadow(W / 2, H - 2, W / 2 - 1, 2);
+    const top = 16;
+    a.rect(2, top, W - 4, H - top - 1, '#c9a27a'); a.outlineRect(2, top, W - 4, H - top - 1, '#7a5a3a');
+    for (let y = top + 10; y < H - 4; y += 11) a.hline(2, W - 3, y, '#a07a52');
+    for (let fl = 0; fl < 3; fl++) for (let x = 6; x < W - 6; x += 8) { const wy = top + 3 + fl * 11; a.rect(x, wy, 5, 5, '#5a9ed8'); a.outlineRect(x, wy, 5, 5, '#4a3a2a'); a.px(x + 1, wy + 1, '#cfe8ff'); }
+    door(a, W / 2 - 3, H - 10, 6, 9);
+    for (let j = 0; j < 12; j++) a.hline(2 + Math.round(j * 0.6), W - 3 - Math.round(j * 0.6), top - 1 - j, j % 3 === 2 ? '#6a2a2a' : '#8a3a32');
+    a.rect(W / 2 - 9, top - 9, 18, 6, '#2a1c12'); for (let x = 0; x < 5; x++) a.rect(W / 2 - 8 + x * 3.5, top - 8, 2, 4, '#f2c14e');
+  },
   temple: (a) => {
     const W = a.w, H = a.h;
     a.shadow(W / 2, H - 2, W / 2 - 1, 2);

@@ -4,7 +4,8 @@ import { EventBus } from '@/core/EventBus';
 import { BEHAVIORS, CLASS_SHARES, FACTORS, getBehavior, playerName } from '@/data/playerTypes';
 import { itemKeyIndex } from '@/data/rpgDefaults';
 import { getTier } from '@/data/studio';
-import { doorTile } from '@/data/furniture';
+import { doorTile, ROOM_RENT_PER_DAY } from '@/data/furniture';
+import type { Furniture, MapObject } from '@/models/entities';
 import type { ClassDef, EquipSlot, ItemDef, QuestDef } from '@/models/rpg';
 import type { FactorKey, PlayerBehavior, PlayerState } from '@/models/sim';
 import { addItem, countItem, removeItem } from '@/systems/rpg/inventory';
@@ -27,9 +28,17 @@ export type PlayerEvents = {
   levelUp: { player: PlayerState; level: number };
   questDone: { player: PlayerState; quest: QuestDef; paid: number };
   turnedAway: { count: number };
+  friends: { a: PlayerState; b: PlayerState };
+  rented: { player: PlayerState; building: MapObject };
   /** Empty start: the servers opened. */
   launched: { count: number };
 };
+
+/** Share of people playing by hour of day (evening peak, quiet nights). */
+export const ACTIVITY_BY_HOUR = [0.7, 0.5, 0.35, 0.25, 0.2, 0.25, 0.35, 0.5, 0.6, 0.7, 0.8, 0.85, 0.95, 1, 1, 1.05, 1.15, 1.3, 1.5, 1.65, 1.7, 1.6, 1.3, 1];
+export const PEAK_ACTIVITY = 1.7 * 1.25;
+
+export const MAX_FRIENDS = 12;
 
 /** Gold a new player starts with (enough for a couple of basic armour pieces). */
 export const STARTING_PLAYER_GOLD = 80;
@@ -318,7 +327,9 @@ export class PlayerManager {
     const [lo, hi] = getBehavior(p.behavior).session;
     p.sessionLeft = (lo + this.rand() * (hi - lo)) * 60;
     p.online = true;
-    const sp = this.spawnPoint();
+    // Players with a room log in at their hotel; everyone else at a spawn point.
+    const door = this.homeDoor(p);
+    const sp = (door && this.actors.randomWalkableNear(door.x, door.y + 1, 1.5)) || this.spawnPoint();
     p.x = sp.x;
     p.y = sp.y;
     this.spawnActor(p, sp.x, sp.y);
@@ -366,6 +377,107 @@ export class PlayerManager {
     return this.world.config.launched !== false;
   }
 
+  // ------------------------------------------------------------ housing
+  /** Every bed in a hotel or tavern is a room. */
+  rooms(): { building: MapObject; bed: Furniture }[] {
+    const out: { building: MapObject; bed: Furniture }[] = [];
+    for (const o of this.world.entities.list('objects')) {
+      if (o.kind !== 'hotel' && o.kind !== 'tavern') continue;
+      for (const f of o.interior?.furniture ?? []) if (f.kind === 'bed') out.push({ building: o, bed: f });
+    }
+    return out;
+  }
+
+  private setOwner(building: MapObject, x: number, y: number, ownerId: EntityId | undefined): void {
+    // Always start from the stored building: several players may rent in the same hour.
+    const fresh = this.world.entities.get('objects', building.id) ?? building;
+    const furniture = (fresh.interior?.furniture ?? []).map((f) => (f.kind === 'bed' && f.x === x && f.y === y ? { ...f, ownerId } : f));
+    this.world.entities.update('objects', building.id, { interior: { furniture } });
+  }
+
+  /** Move out (quit, ban, eviction). */
+  vacate(p: PlayerState): void {
+    if (!p.home) return;
+    const b = this.world.entities.get('objects', p.home.objectId);
+    if (b) this.setOwner(b, p.home.x, p.home.y, undefined);
+    p.home = undefined;
+  }
+
+  /** Door of the player's home building, if they rent a room. */
+  homeDoor(p: PlayerState): { x: number; y: number } | null {
+    const b = p.home && this.world.entities.get('objects', p.home.objectId);
+    const bed = b?.interior?.furniture.find((f) => f.kind === 'bed' && f.x === p.home!.x && f.y === p.home!.y && f.ownerId === p.id);
+    if (!b || !bed) { p.home = undefined; return null; }
+    return doorTile(b);
+  }
+
+  /** Hourly: settled players rent a free room near where they play; rent is due at midnight. */
+  private housingHourly(): void {
+    const free = this.rooms().filter((r) => !r.bed.ownerId || !this.byId.has(r.bed.ownerId));
+    for (const p of this.online()) {
+      if (p.home) { this.homeDoor(p); if (p.home) this.feel(p, 'home'); continue; }
+      if (!free.length || p.cheat || p.playMinutes < 120 || p.satisfaction < 45 || p.gold < ROOM_RENT_PER_DAY * 3 || this.rand() > 0.08) continue;
+      const a = this.actors.actors.get(p.id);
+      const pick = free.sort((x, y) => (a ? Math.hypot(x.building.x - a.x, x.building.y - a.y) - Math.hypot(y.building.x - a.x, y.building.y - a.y) : 0))[0];
+      free.splice(free.indexOf(pick), 1);
+      this.setOwner(pick.building, pick.bed.x, pick.bed.y, p.id);
+      p.home = { objectId: pick.building.id, x: pick.bed.x, y: pick.bed.y };
+      this.feel(p, 'home', 3);
+      this.events.emit('rented', { player: p, building: pick.building });
+    }
+    // Rent day.
+    if (Math.floor(this.world.clock.totalMinutes / 60) % 24 === 0) {
+      for (const p of this.world.sim.players) {
+        if (!p.home) continue;
+        if (p.gold >= ROOM_RENT_PER_DAY) { p.gold -= ROOM_RENT_PER_DAY; this.world.rpg.economy.treasury += ROOM_RENT_PER_DAY; this.world.sim.rentPaid = (this.world.sim.rentPaid ?? 0) + ROOM_RENT_PER_DAY; }
+        else { this.vacate(p); this.feel(p, 'expensive'); }
+      }
+    }
+  }
+
+  /** Two players become friends (both ways, up to MAX_FRIENDS each). */
+  befriend(a: PlayerState, b: PlayerState): boolean {
+    if (a === b || a.cheat || b.cheat) return false;
+    const fa = (a.friends ??= []), fb = (b.friends ??= []);
+    if (fa.includes(b.id) || fa.length >= MAX_FRIENDS || fb.length >= MAX_FRIENDS) return false;
+    fa.push(b.id); fb.push(a.id);
+    this.events.emit('friends', { a, b });
+    return true;
+  }
+
+  /** Friends who are online right now. */
+  onlineFriends(p: PlayerState): PlayerState[] {
+    return (p.friends ?? []).map((id) => this.byId.get(id)).filter((f): f is PlayerState => !!f && f.online);
+  }
+
+  /** Hourly: friends make the game nicer, happy friends bring new friends (referrals). */
+  private friendsHourly(): void {
+    for (const p of this.online()) {
+      const on = this.onlineFriends(p).length;
+      if (on) this.feel(p, 'friends', Math.min(3, on));
+      if (on && p.satisfaction > 70 && this.rand() < 0.03) this.world.sim.arrivalCarry += 1; // "you should try this game!"
+    }
+  }
+
+  /** A player quit for good: friends are sad and some follow them out. */
+  private friendQuit(p: PlayerState): void {
+    for (const id of p.friends ?? []) {
+      const f = this.byId.get(id);
+      if (!f) continue;
+      f.friends = (f.friends ?? []).filter((x) => x !== p.id);
+      this.feel(f, 'friendsLeft');
+      if (!f.online && (f.friends.length === 0 && this.rand() < 0.25)) f.returnAt += 60 * 24; // drifts away for a while
+    }
+  }
+
+  /** How active people are right now (time of day, weekends). ~1 = average. */
+  activity(): number {
+    const min = this.world.clock.totalMinutes;
+    const hour = Math.floor(min / 60) % 24;
+    const day = Math.floor(min / 1440);
+    return ACTIVITY_BY_HOUR[hour] * (day % 7 >= 5 ? 1.25 : 1);
+  }
+
   /** A brand new player joins (if the server has room). */
   join(): PlayerState | null {
     if (!this.serversOpen || this.online().length >= this.capacity()) return null;
@@ -380,6 +492,7 @@ export class PlayerManager {
 
   /** Remove a player for good (ban). */
   removePlayer(p: PlayerState): void {
+    this.vacate(p);
     const a = this.actors.actors.get(p.id);
     if (a) this.actors.removeActor(a);
     this.hunting.delete(p.id);
@@ -396,9 +509,12 @@ export class PlayerManager {
     p.online = false;
     const s = p.satisfaction;
     // Clan members are loyal: friends keep them around even when the game annoys them.
-    const quitChance = Math.min(0.95, (s < 25 ? 0.75 : s < 40 ? 0.35 : s < 55 ? 0.08 : 0.02) * (p.clanId ? CLAN_LOYALTY : 1) * CHURN_BY_DIFFICULTY[this.world.config.difficulty]);
+    // Friends keep you around: each friend still playing lowers the chance to quit.
+    const friendsKeep = Math.max(0.6, 1 - 0.07 * (p.friends?.length ?? 0));
+    const quitChance = Math.min(0.95, (s < 25 ? 0.75 : s < 40 ? 0.35 : s < 55 ? 0.08 : 0.02) * (p.clanId ? CLAN_LOYALTY : 1) * friendsKeep * CHURN_BY_DIFFICULTY[this.world.config.difficulty]);
     const quit = this.rand() < quitChance;
     const reason = quit ? this.worstFactor(p) : null;
+    if (quit) { this.friendQuit(p); this.vacate(p); }
     if (quit) {
       this.world.sim.players = this.world.sim.players.filter((x) => x.id !== p.id);
       this.byId.delete(p.id);
@@ -413,6 +529,8 @@ export class PlayerManager {
   hourly(): void {
     const sim = this.world.sim;
     this.payInterest();
+    this.friendsHourly();
+    this.housingHourly();
     if (!this.serversOpen) {
       if (!this.hasSpawn()) return;
       // Launch day: the queue of waiting players logs in at once.
@@ -426,12 +544,14 @@ export class PlayerManager {
     let turnedAway = 0;
     for (const p of sim.players) {
       if (p.online || p.returnAt > now) continue;
+      // People log in when they have free time: few in the morning, crowds in the evening.
+      if (this.rand() > this.activity() / PEAK_ACTIVITY) { p.returnAt = now + 30 + this.rand() * 90; continue; }
       if (this.online().length >= cap) { this.feel(p, 'queue'); turnedAway++; p.returnAt = now + 120; continue; }
       this.startSession(p);
       this.events.emit('joined', { player: p, returning: true });
     }
     // Newcomers: driven by popularity (and subscription price in standard mode).
-    let rate = sim.popularity / 8;
+    let rate = (sim.popularity / 8) * this.activity();
     if (this.world.config.gameMode === 'standard') rate *= Math.max(0.2, Math.min(1.5, 2 - this.world.studio.subscriptionPrice / 3));
     sim.arrivalCarry += rate;
     while (sim.arrivalCarry >= 1) {

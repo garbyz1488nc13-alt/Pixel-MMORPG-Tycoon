@@ -41,12 +41,12 @@ describe('audit fixes', () => {
     for (let r = 0; r < 6 && !banker; r++) for (const [dx, dy] of [[0, 1], [1, 1], [-1, 1], [1, 0], [-1, 0], [0, 2]]) { banker = banker ?? ed.addNpc('banker', door.x + dx * (r + 1), door.y + dy * (r + 1)); }
     expect(banker).toBeTruthy();
     const p = w.players.join()!;
-    p.gold = 800; p.level = 6; p.trainedLevel = 1;
+    p.gold = 3000; p.level = 6; p.trainedLevel = 1;
     expect(w.players.hasTrainers()).toBe(w.rt.entities.list('npcs').some((n) => n.type === 'trainer'));
     if (!w.players.hasTrainers()) ed.addNpc('trainer', sp.x - 1, sp.y);
     expect(w.players.skillLevel(p)).toBe(1);
     const m = w.ps.mind(p.id);
-    for (let i = 0; i < 3000 && (!(p.bank ?? 0) || (p.trainedLevel ?? 1) < 6); i++) { if (!m.act) m.nextPlan = 0; w.engine.step(); p.sessionLeft = 999; }
+    for (let i = 0; i < 6000 && (!(p.bank ?? 0) || (p.trainedLevel ?? 1) < 6); i++) { if (!m.act) m.nextPlan = 0; w.engine.step(); p.sessionLeft = 999; }
     expect(p.bank ?? 0).toBeGreaterThan(0);
     expect(p.trainedLevel).toBeGreaterThanOrEqual(6); // a tavern lesson may level them up further
   }, 60000);

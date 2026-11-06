@@ -19,6 +19,10 @@ export interface Settings {
   sfxVolume: number;
   /** 0..1 */
   musicVolume: number;
+  /** Layout: hide the tool panel, the minimap/selection panel or the log for more room. */
+  hideLeft: boolean;
+  hideRight: boolean;
+  hideLog: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -33,6 +37,9 @@ export const DEFAULT_SETTINGS: Settings = {
   language: detectLang(),
   sfxVolume: 0.5,
   musicVolume: 0.3,
+  hideLeft: false,
+  hideRight: false,
+  hideLog: false,
 };
 
 interface SettingsState extends Settings {
@@ -49,7 +56,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'pmt-settings',
-      version: 4,
+      version: 5,
       migrate: (s) => ({ ...DEFAULT_SETTINGS, ...(s as object) }),
       onRehydrateStorage: () => (state) => state && setLang(state.language),
     },

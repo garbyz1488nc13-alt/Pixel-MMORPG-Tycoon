@@ -17,7 +17,7 @@ export const FURNITURE: { key: FurnitureKind; name: string; cost: number; hint?:
 export const getFurniture = (k: FurnitureKind) => FURNITURE.find((f) => f.key === k) ?? FURNITURE[0];
 
 /** Buildings you can walk into. */
-export const ENTERABLE = new Set(['hut', 'house_small', 'house_large', 'shop', 'smithy', 'tavern', 'temple', 'bank']);
+export const ENTERABLE = new Set(['hotel', 'hut', 'house_small', 'house_large', 'shop', 'smithy', 'tavern', 'temple', 'bank']);
 
 /** Interior room size (tiles) for a building. */
 export function interiorSize(kind: string): { w: number; h: number } {
@@ -30,3 +30,22 @@ export function doorTile(o: { kind: string; x: number; y: number }): { x: number
   const d = getObjectDef(o.kind);
   return { x: o.x + Math.floor((d?.w ?? 1) / 2), y: o.y + (d?.h ?? 1) };
 }
+
+/** Furniture a building comes with when built (taverns and hotels). */
+export function defaultInterior(kind: string): import('@/models/entities').Interior | undefined {
+  if (kind === 'tavern') return { furniture: [
+    { kind: 'fireplace', x: 1, y: 1 }, { kind: 'counter', x: 5, y: 1 }, { kind: 'counter', x: 6, y: 1 }, { kind: 'barrel', x: 7, y: 1 },
+    { kind: 'table', x: 3, y: 3 }, { kind: 'chair', x: 2, y: 3 }, { kind: 'table', x: 7, y: 4 }, { kind: 'chair', x: 8, y: 4 },
+    { kind: 'bed', x: 10, y: 1 }, { kind: 'bed', x: 10, y: 3 }, { kind: 'bed', x: 10, y: 5 }, { kind: 'rug', x: 5, y: 5 }, { kind: 'plant', x: 1, y: 6 },
+  ] };
+  if (kind === 'hotel') {
+    // A lobby counter and rows of rooms (one bed each).
+    const f: import('@/models/entities').Furniture[] = [{ kind: 'counter', x: 3, y: 6 }, { kind: 'counter', x: 4, y: 6 }, { kind: 'plant', x: 1, y: 6 }, { kind: 'rug', x: 5, y: 6 }];
+    for (const y of [1, 3]) for (let x = 1; x <= 7; x++) f.push({ kind: 'bed', x, y });
+    return { furniture: f };
+  }
+  return undefined;
+}
+
+/** Daily rent for a room (gold to the world treasury). */
+export const ROOM_RENT_PER_DAY = 8;

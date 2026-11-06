@@ -1,3 +1,5 @@
+import { ROOM_RENT_PER_DAY } from '@/data/furniture';
+import { getObjectDef } from '@/data/objects';
 import { useState } from 'react';
 import { BEHAVIORS } from '@/data/playerTypes';
 import { t } from '@/i18n';
@@ -128,6 +130,7 @@ export function AnalyticsTab({ session }: { session: GameSession }) {
         </div>
         <div className="chart-grid">
           <div className="panel"><div className="panel-header">{t('Player activity now')}</div><div className="section"><BarList bars={activity} empty={t('Nobody online.')} /></div></div>
+          <HousingPanel session={session} />
           <div className="panel"><div className="panel-header">{t('Most popular locations')}</div><div className="section"><BarList bars={locations} empty={t('No region visits yet. Draw regions so players can be tracked.')} /></div></div>
           <div className="panel"><div className="panel-header">{t('Most popular items')}</div><div className="section"><BarList bars={items} empty={t('No items owned or traded yet.')} /></div></div>
           <div className="panel"><div className="panel-header">{t('Most profitable merchants')}</div><div className="section"><BarList bars={merchants} empty={t('No sales yet.')} /></div></div>
@@ -135,6 +138,36 @@ export function AnalyticsTab({ session }: { session: GameSession }) {
           <div className="panel"><div className="panel-header">{t('Players by class')}</div><div className="section"><BarList bars={classes} empty={t('No players yet.')} /></div></div>
           <div className="panel"><div className="panel-header">{t('Players by play style')}</div><div className="section"><BarList bars={behaviors} empty={t('No players yet.')} /></div></div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** Rooms in hotels and taverns: occupancy, rent and residents. */
+function HousingPanel({ session }: { session: GameSession }) {
+  const rooms = session.players.rooms();
+  const byBuilding = new Map<string, { name: string; total: number; taken: number }>();
+  for (const r of rooms) {
+    const key = r.building.id;
+    const row = byBuilding.get(key) ?? { name: r.building.name ?? t(getObjectDef(r.building.kind)?.name ?? r.building.kind), total: 0, taken: 0 };
+    row.total++;
+    if (r.bed.ownerId && session.players.get(r.bed.ownerId)) row.taken++;
+    byBuilding.set(key, row);
+  }
+  const taken = [...byBuilding.values()].reduce((n, b) => n + b.taken, 0);
+  const tenants = session.runtime.sim.players.filter((p) => p.home);
+  const cur = session.runtime.rpg.economy.currencyName;
+  return (
+    <div className="panel">
+      <div className="panel-header">{t('Housing')}</div>
+      <div className="section">
+        {rooms.length === 0 ? <div className="hint">{t('No rooms yet. Build a Hotel (or a Tavern with beds): every bed is a room players can rent.')}</div> : <>
+          <div className="kv"><span>{t('Rooms rented')}</span><span>{taken} / {rooms.length} ({Math.round((taken / rooms.length) * 100)}%)</span></div>
+          <div className="kv"><span>{t('Rent per day')}</span><span>{taken * ROOM_RENT_PER_DAY} {cur}</span></div>
+          <div className="kv"><span>{t('Rent paid so far')}</span><span>{session.runtime.sim.rentPaid ?? 0} {cur}</span></div>
+          {[...byBuilding.values()].map((b, i) => <div key={i} className="kv hint"><span>{b.name}</span><span>{b.taken} / {b.total}</span></div>)}
+          {tenants.length > 0 && <div className="hint">{t('Tenants')}: {tenants.slice(0, 12).map((p) => p.name).join(', ')}{tenants.length > 12 ? '…' : ''}</div>}
+        </>}
       </div>
     </div>
   );

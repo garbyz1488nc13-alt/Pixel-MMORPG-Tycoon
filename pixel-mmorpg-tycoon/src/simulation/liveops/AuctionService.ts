@@ -80,7 +80,7 @@ export class AuctionService {
 
   hourly(): void {
     this.expire();
-    const online = this.pm.online().filter((p) => !p.cheat || p.cheat === 'gold');
+    const online = this.pm.online().filter((p) => !p.cheat || p.cheat === 'gold' || p.cheat === 'bot');
     for (const p of online) this.listLoot(p);
     for (const p of [...online].sort(() => this.rand() - 0.5)) this.shop(p);
     this.craftersBuy();
@@ -95,9 +95,10 @@ export class AuctionService {
       if (!it || this.upgradeGain(p, it) > 0) continue;
       const keep = needs.get(s.itemId) ?? 0;
       const qty = s.qty - keep;
-      if (qty <= 0 || this.state.listings.filter((l) => l.sellerId === p.id).length >= 6) continue;
+      if (qty <= 0 || this.state.listings.filter((l) => l.sellerId === p.id).length >= (p.cheat === 'bot' ? 20 : 6)) continue;
       // Traders price smart; everyone else guesses.
-      const greed = p.behavior === 'trader' ? 1 + this.rand() * 0.25 : 0.8 + this.rand() * 0.5;
+      // Bots dump loot at half price (crashing the market); traders price smart; everyone else guesses.
+      const greed = p.cheat === 'bot' ? 0.45 + this.rand() * 0.1 : p.behavior === 'trader' ? 1 + this.rand() * 0.25 : 0.8 + this.rand() * 0.5;
       p.inventory = removeItem(p.inventory, s.itemId, qty).inv;
       this.state.listings.push({ id: createId('lot'), sellerId: p.id, sellerName: p.name, itemId: s.itemId, qty, price: Math.max(1, Math.round(this.marketPrice(it) * greed)), listedAt: this.now });
     }

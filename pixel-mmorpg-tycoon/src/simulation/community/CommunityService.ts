@@ -19,7 +19,7 @@ export type CommunityEvents = {
 
 const MAX_REVIEWS = 200;
 const RATING_WINDOW = 60;
-const CHEATS: CheatKind[] = ['speed', 'damage', 'gold', 'griefer'];
+const CHEATS: CheatKind[] = ['speed', 'damage', 'gold', 'griefer', 'bot', 'bot', 'goldseller'];
 
 /**
  * The player community around the game: reviews and rating, streamers,
@@ -61,6 +61,8 @@ export class CommunityService {
       p.streamer = { viewers: Math.round(r < 0.7 ? 30 + this.rand() * 300 : r < 0.95 ? 300 + this.rand() * 2000 : 2000 + this.rand() * 15000), streamedMinutes: 0 };
     } else if (this.rand() < cheaterChance(pop)) {
       p.cheat = this.pick(CHEATS);
+      // Bots and gold sellers never sleep and don't care about fun.
+      if (p.cheat === 'bot' || p.cheat === 'goldseller') { p.behavior = p.cheat === 'bot' ? 'grinder' : 'trader'; p.sessionLeft = 60 * 48; }
     }
   }
 

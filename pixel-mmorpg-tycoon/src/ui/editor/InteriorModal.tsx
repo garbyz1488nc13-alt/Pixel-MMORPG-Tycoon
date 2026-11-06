@@ -136,6 +136,12 @@ export function InteriorModal({ session, objectId, onClose }: { session: GameSes
             <b>{hasSpawn ? t('Players spawn here') : t('No spawn point')}</b>
             <div className="hint">{t('With a spawn point, players log in inside and walk out of the door — perfect for a tavern in town.')}</div>
           </div>
+          {(o.kind === 'hotel' || o.kind === 'tavern') && hasBed && (
+            <div className="feedback good">
+              <b>{t('Rooms rented: {a} / {b}', { a: furniture.filter((f) => f.kind === 'bed' && f.ownerId && session.players.get(f.ownerId)).length, b: furniture.filter((f) => f.kind === 'bed').length })}</b>
+              <div className="hint">{furniture.filter((f) => f.kind === 'bed' && f.ownerId).map((f) => session.players.get(f.ownerId!)?.name).filter(Boolean).slice(0, 8).join(', ') || t('Every bed is a room players can rent.')}</div>
+            </div>
+          )}
           <div className={`feedback ${hasBed ? 'good' : ''}`}>
             <b>{t('Guests inside: {n}', { n: guests.length })}</b>
             <div className="hint">{hasBed ? t('Tired players come in to rest by the beds.') : t('Add beds so tired players come in to rest.')}</div>

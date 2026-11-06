@@ -12,6 +12,7 @@ import type { EventDef } from '@/models/events';
 import type { StudioService } from '@/simulation/studio/StudioService';
 import { DEFAULT_NPC_GOLD, defaultLoot, defaultShop, itemKeyIndex } from '@/data/rpgDefaults';
 import { getBossPreset, LAIR_SIZE } from '@/data/bossTypes';
+import { defaultInterior } from '@/data/furniture';
 import { EntityCommand, type History } from './History';
 import { autoRewards } from '@/systems/rpg/questRewards';
 import type { TileRect } from './shapes';
@@ -57,7 +58,11 @@ export class EntityEditor {
   placeObject(kind: string, x: number, y: number, mergeKey?: string): MapObject | null {
     const def = getObjectDef(kind);
     if (!def || !this.rt.objectIndex.canPlace(def, x, y)) return null;
+    // Don't wall an NPC in with a building.
+    if (def.blocks && this.rt.entities.list('npcs').some((n) => n.x >= x && n.x < x + def.w && n.y >= y && n.y < y + def.h)) return null;
     const obj: MapObject = { id: createId('obj'), kind, x, y };
+    const furnished = defaultInterior(kind);
+    if (furnished) obj.interior = furnished;
     const ok = this.commit(tr('Place {name}', { name: tr(def.name) }), [this.rt.entities.add('objects', obj)], mergeKey);
     return ok.length ? obj : null;
   }

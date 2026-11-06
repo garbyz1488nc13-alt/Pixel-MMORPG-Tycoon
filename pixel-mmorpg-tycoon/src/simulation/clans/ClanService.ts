@@ -388,6 +388,8 @@ export class ClanService implements SimulationSystem {
     stats.lastKillAt = this.now;
     if (worldFirst) stats.firstKill = { clanName: clan?.name ?? '', at: this.now };
     for (const p of raiders) this.pm.feel(p, 'raid', worldFirst ? 1.5 : 1);
+    // Beating a boss together makes friends.
+    for (let i = 0; i < raiders.length; i++) if (this.rand() < 0.3) this.pm.befriend(raiders[i], raiders[(i + 1) % raiders.length]);
     this.events.emit('raidMembers', { members: raiders.map((p) => p.id), level: tpl.level });
     this.sim.popularity = Math.min(100, this.sim.popularity + (worldFirst ? 3 : 0.5));
     if (clan) {

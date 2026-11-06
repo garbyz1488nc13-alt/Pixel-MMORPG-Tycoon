@@ -30,7 +30,8 @@ export type Activity =
   | { kind: 'raid'; raidId: EntityId }
   | { kind: 'leisure'; action: LeisureAction; x: number; y: number; ticks: number; duration: number }
   | { kind: 'follow'; leaderId: string; ticks: number }
-  | { kind: 'meetup'; meetupId: EntityId; x: number; y: number; cx: number; cy: number };
+  | { kind: 'meetup'; meetupId: EntityId; x: number; y: number; cx: number; cy: number }
+  | { kind: 'dungeon'; runId: EntityId; x: number; y: number };
 
 /** Little things players do between quests. */
 export type LeisureAction = 'fish' | 'campfire' | 'dance' | 'sightsee' | 'afk';
@@ -38,7 +39,7 @@ export type LeisureAction = 'fish' | 'campfire' | 'dance' | 'sightsee' | 'afk';
 /** Activity labels for the UI (English source strings). */
 export const ACTIVITY_LABEL: Record<Activity['kind'], string> = {
   hunt: 'Hunting', gather: 'Gathering', npc: 'Talking to NPC', trade: 'Trading', explore: 'Exploring',
-  rest: 'Resting', social: 'Socialising', pvp: 'Hunting players', idle: 'Idle', raid: 'Raiding a boss', leisure: 'Taking a break', follow: 'In a group', meetup: 'At a meetup',
+  rest: 'Resting', social: 'Socialising', pvp: 'Hunting players', idle: 'Idle', raid: 'Raiding a boss', leisure: 'Taking a break', follow: 'In a group', meetup: 'At a meetup', dungeon: 'In a dungeon group',
 };
 
 /**
@@ -175,7 +176,10 @@ export class PlayerBrain {
     return best;
   }
 
-  private restSpot(a: Actor): { x: number; y: number } {
+  private restSpot(a: Actor, p?: PlayerState): { x: number; y: number } {
+    // Tenants go home to rest.
+    const home = p && this.pm.homeDoor(p);
+    if (home) return home;
     return this.innDoor(a) ?? this.safeSpot(a);
   }
 
@@ -234,9 +238,10 @@ export class PlayerBrain {
     const add = (kind: Activity['kind'], score: number, make: () => Activity | null) =>
       options.push([score + this.rand() * 0.15 + (current?.kind === kind ? 0.08 : 0), make]);
 
+    if (p.cheat === 'goldseller') return { kind: 'social', ...this.safeSpot(a), ticks: 0 };
     const raid = this.clans?.raidOf(p.id);
     if (raid) add('raid', 2, () => ({ kind: 'raid', raidId: raid.id }));
-    if (hpPct < 0.35) add('rest', 1, () => ({ kind: 'rest', ...this.restSpot(a) }));
+    if (hpPct < 0.35) add('rest', 1, () => ({ kind: 'rest', ...this.restSpot(a, p) }));
 
     const complete = p.quests.find((q) => q.status === 'complete');
     if (complete) {
@@ -355,8 +360,8 @@ export class PlayerBrain {
 
     // Taking a break: fishing, sitting by a campfire, dancing, sightseeing, going AFK.
     const fun = 0.04 + 0.2 * Math.max(w.social, w.explore) + (p.behavior === 'casual' ? 0.12 : 0) - (active.length ? 0.12 : 0);
-    // Every now and then players simply take a break.
-    add('leisure', fun + (this.rand() < 0.1 ? 0.7 : 0), () => this.leisure(p, a));
+    // Every now and then players simply take a break (bots never do).
+    if (p.cheat !== 'bot') add('leisure', fun + (this.rand() < 0.1 ? 0.7 : 0), () => this.leisure(p, a));
 
     options.sort((x, y) => y[0] - x[0]);
     for (const [, make] of options) {
